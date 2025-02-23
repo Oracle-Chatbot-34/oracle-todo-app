@@ -50,3 +50,7 @@ frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
 MtdrSpring/wallet
+
+# Env Variables Files
+MtdrSpring/.env.local
+MtdrSpring/.env.local.bat
