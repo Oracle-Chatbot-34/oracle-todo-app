@@ -23,10 +23,10 @@ public class MyTodoListApplication implements CommandLineRunner {
 	@Autowired
 	private ToDoItemService toDoItemService;
 
-	@Value("${telegram.bot.token}")
+	@Value("${telegram.bot.token:disabled}")
 	private String telegramBotToken;
 
-	@Value("${telegram.bot.name}")
+	@Value("${telegram.bot.name:disabled}")
 	private String botName;
 
 	public static void main(String[] args) {
@@ -35,12 +35,17 @@ public class MyTodoListApplication implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
-		try {
-			TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
-			telegramBotsApi.registerBot(new ToDoItemBotController(telegramBotToken, botName, toDoItemService));
-			logger.info(BotMessages.BOT_REGISTERED_STARTED.getMessage());
-		} catch (TelegramApiException e) {
-			e.printStackTrace();
+		// Only start the Telegram bot if not disabled
+		if (!"disabled".equals(telegramBotToken) && !"disabled".equals(botName)) {
+			try {
+				TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
+				telegramBotsApi.registerBot(new ToDoItemBotController(telegramBotToken, botName, toDoItemService));
+				logger.info(BotMessages.BOT_REGISTERED_STARTED.getMessage());
+			} catch (TelegramApiException e) {
+				logger.error("Failed to start Telegram bot", e);
+			}
+		} else {
+			logger.info("Telegram bot is disabled");
 		}
 	}
 }
