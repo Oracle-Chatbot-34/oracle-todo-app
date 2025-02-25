@@ -1,70 +1,57 @@
 @import "tailwindcss";
+@import "tailwindcss/preflight";
+@tailwind utilities;
 
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+body {
+  @apply bg-gray-800;
+  width: 100%;
+  max-width: 50rem;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+@layer components {
+  .App {
+    @apply bg-gray-900 text-gray-100 flex flex-col items-center text-base md:text-lg m-8 p-4 relative shadow-lg rounded-lg;
   }
-  a:hover {
-    color: #747bff;
+  
+  .itemlist {
+    @apply w-full mt-3 mb-4 border-collapse;
   }
-  button {
-    background-color: #f9f9f9;
+  
+  .itemlist td {
+    @apply border-b border-gray-700 p-2;
+  }
+  
+  .itemlist td.description {
+    @apply w-full pl-4 pr-4;
+  }
+  
+  .itemlist td.date {
+    @apply text-sm text-gray-500 whitespace-nowrap pr-0 pl-0;
+  }
+  
+  .itemlist tr:hover {
+    @apply bg-gray-800;
+  }
+  
+  #newiteminput {
+    @apply rounded px-3 py-2 bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none w-full;
+  }
+  
+  .AddButton {
+    @apply bg-todo-done text-white hover:brightness-110;
+  }
+  
+  .DeleteButton {
+    @apply bg-todo-delete text-white hover:brightness-110;
+  }
+  
+  .DoneButton {
+    @apply bg-todo-button text-gray-900 hover:brightness-90;
   }
 }
