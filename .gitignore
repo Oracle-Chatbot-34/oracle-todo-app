@@ -48,6 +48,7 @@ frontend/package-lock.json
 frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
+**/node_modules/** */
 
 MtdrSpring/wallet
 
