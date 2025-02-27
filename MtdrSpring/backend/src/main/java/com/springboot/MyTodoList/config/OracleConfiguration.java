@@ -21,6 +21,7 @@ import java.sql.SQLException;
 //
 //
 @Configuration
+@Profile("!local")
 public class OracleConfiguration {
     Logger logger = LoggerFactory.getLogger(DbSettings.class);
     @Autowired
