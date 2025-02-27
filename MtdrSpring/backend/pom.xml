@@ -121,48 +121,33 @@
 					<skip>${maven.frontend.skip}</skip>
 				</configuration>
 				<executions>
-					<!-- Install Node.js - we still need this for the environment -->
 					<execution>
 						<id>install-frontend-tools</id>
 						<goals>
 							<goal>install-node-and-npm</goal>
 						</goals>
-						<phase>generate-resources</phase>
 					</execution>
-					
-					<!-- Instead of using npm, we'll use the exec goal to run Bun commands -->
 					<execution>
-						<id>bun-install</id>
+						<id>npm-install</id>
 						<goals>
-							<goal>exec</goal>
+							<goal>npm</goal>
 						</goals>
-						<phase>generate-resources</phase>
 						<configuration>
-							<executable>bun</executable>
-							<arguments>
-								<argument>install</argument>
-							</arguments>
+							<arguments>install</arguments>
 						</configuration>
 					</execution>
-					
-					<!-- Now use Bun to build the frontend -->
 					<execution>
-						<id>bun-build</id>
+						<id>npm-run-build</id>
 						<goals>
-							<goal>exec</goal>
+							<goal>npm</goal>
 						</goals>
-						<phase>generate-resources</phase>
 						<configuration>
-							<executable>bun</executable>
-							<arguments>
-								<argument>run</argument>
-								<argument>build</argument>
-							</arguments>
+							<arguments>run build</arguments>
 						</configuration>
 					</execution>
 				</executions>
 			</plugin>
-			
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
@@ -186,7 +171,7 @@
 					</execution>
 				</executions>
 			</plugin>
-			
+
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
