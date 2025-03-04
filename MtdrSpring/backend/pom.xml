@@ -13,16 +13,18 @@
 	<artifactId>MyTodoList</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>MyTodoList</name>
-	<description>Demo project for Spring Boot</description>
+	<description>DashMaster - Task Management Application</description>
 	<properties>
 		<java.version>17</java.version>
 		<version.lib.ojdbc>21.1.0.0</version.lib.ojdbc>
 		<frontend-src-dir>${project.basedir}/../frontend</frontend-src-dir>
 		<node.version>v18.19.0</node.version>
 		<npm.version>10.2.3</npm.version>
-		<maven.frontend.skip>false</maven.frontend.skip>
+		<!-- Skip frontend build by default to focus on backend development -->
+		<maven.frontend.skip>true</maven.frontend.skip>
 	</properties>
 	<dependencies>
+		<!-- Spring Boot Core Dependencies -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -32,18 +34,21 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
-		<!-- Replace Springfox with SpringDoc OpenAPI for Swagger API docs -->
+		<!-- API Documentation -->
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.1.0</version>
 		</dependency>
 
+		<!-- HTTP Client -->
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
 			<version>4.5.13</version>
 		</dependency>
+		
+		<!-- Oracle Database -->
 		<dependency>
 			<groupId>com.oracle.database.jdbc</groupId>
 			<artifactId>ojdbc11-production</artifactId>
@@ -56,31 +61,38 @@
 			</exclusions>
 			<type>pom</type>
 		</dependency>
+		
+		<!-- Testing -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-security</artifactId>
-		</dependency>
-		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
 		</dependency>
+		
+		<!-- Security -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		
+		<!-- Telegram Bot Integration -->
 		<dependency>
 			<groupId>org.telegram</groupId>
 			<artifactId>telegrambots</artifactId>
 			<version>6.5.0</version>
 		</dependency>
-		<!-- H2 Database for local development -->
+		
+		<!-- H2 Database (only for development/testing) -->
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- JWT -->
+		<!-- JWT Authentication -->
 		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-api</artifactId>
@@ -99,7 +111,7 @@
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- OCI SDK -->
+		<!-- OCI SDK for Oracle Cloud Integration -->
 		<dependency>
 			<groupId>com.oracle.oci.sdk</groupId>
 			<artifactId>oci-java-sdk-common</artifactId>
@@ -108,7 +120,11 @@
 	</dependencies>
 	<build>
 		<plugins>
-			<!-- Frontend configuration using Bun instead of npm -->
+			<!-- 
+				Frontend build configuration (currently disabled)
+				To enable the frontend build, set <maven.frontend.skip>false</maven.frontend.skip> in properties
+				or run with: ./mvnw clean package -Dmaven.frontend.skip=false
+			-->
 			<plugin>
 				<groupId>com.github.eirslett</groupId>
 				<artifactId>frontend-maven-plugin</artifactId>
@@ -148,6 +164,7 @@
 				</executions>
 			</plugin>
 
+			<!-- Position React build (only applies when frontend build is enabled) -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
@@ -162,7 +179,6 @@
 							<outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
 							<resources>
 								<resource>
-									<!-- Adjust this path if Bun outputs to a different directory -->
 									<directory>${frontend-src-dir}/dist</directory>
 									<filtering>false</filtering>
 								</resource>
@@ -172,6 +188,7 @@
 				</executions>
 			</plugin>
 
+			<!-- Spring Boot Maven Plugin -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
