@@ -6,3 +6,4 @@
 # Ignore .env files
 .env.local
 .env.local.bat
+backend/.dashmaster/**
