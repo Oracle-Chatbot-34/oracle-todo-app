@@ -65,6 +65,10 @@ public class User {
         this.id = id;
     }
 
+    public Long getTelegramId() {
+        return telegramId;
+    }
+
     public String getUsername() {
         return username;
     }
