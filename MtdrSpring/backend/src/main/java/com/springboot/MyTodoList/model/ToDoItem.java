@@ -159,6 +159,10 @@ public class ToDoItem {
         return priority;
     }
 
+    public Double getEstimatedHours() {
+        return estimatedHours;
+    }
+
     public void setPriority(String priority) {
         this.priority = priority;
     }
