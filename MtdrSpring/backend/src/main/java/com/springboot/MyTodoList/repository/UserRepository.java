@@ -29,6 +29,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmployeeId(String employeeId);
 
     /**
+     * Check if a Telegram ID already exists
+     */
+    boolean existsByTelegramId(Long telegramId);
+
+    /**
      * Check if a username already exists
      */
     boolean existsByUsername(String username);
