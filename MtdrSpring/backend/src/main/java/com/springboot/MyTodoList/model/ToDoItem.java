@@ -40,6 +40,9 @@ public class ToDoItem {
     @Column(name = "ESTIMATED_HOURS")
     private Double estimatedHours;
 
+    @Column(name = "ACTUAL_HOURS")
+    private Double actualHours;
+
     @Column(name = "PRIORITY")
     private String priority;
 
