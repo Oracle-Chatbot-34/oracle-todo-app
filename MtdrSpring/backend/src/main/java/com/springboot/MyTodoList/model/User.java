@@ -69,6 +69,10 @@ public class User {
         return telegramId;
     }
 
+    public void setTelegramId(Long telegramId) {
+        this.telegramId = telegramId;
+    }
+
     public String getUsername() {
         return username;
     }
