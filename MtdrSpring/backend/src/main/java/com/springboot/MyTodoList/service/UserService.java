@@ -107,6 +107,21 @@ public class UserService {
     }
 
     /**
+     * Update a user's Telegram ID
+     */
+    @Transactional
+    public User updateTelegramId(Long userId, Long telegramId) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            user.setTelegramId(telegramId);
+            user.setUpdatedAt(OffsetDateTime.now());
+            return userRepository.save(user);
+        }
+        throw new IllegalArgumentException("User not found with ID: " + userId);
+    }
+
+    /**
      * Delete a user by ID
      */
     @Transactional
