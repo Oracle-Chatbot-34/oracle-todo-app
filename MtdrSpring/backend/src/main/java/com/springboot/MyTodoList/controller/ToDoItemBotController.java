@@ -61,7 +61,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
         message.setText("❌ " + errorText);
-        
+
         try {
             execute(message);
         } catch (TelegramApiException e) {
@@ -106,7 +106,8 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             execute(messageToTelegram);
         } catch (TelegramApiException e) {
             logger.error("Error showing main screen", e);
-            sendErrorMessage(chatId, "There was a problem displaying the main menu. Please try again by typing /start.");
+            sendErrorMessage(chatId,
+                    "There was a problem displaying the main menu. Please try again by typing /start.");
         }
     }
 
@@ -236,10 +237,11 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     try {
                         List<ToDoItem> allItems = getAllToDoItems();
                         if (allItems == null || allItems.isEmpty()) {
-                            sendMessage(chatId, "Your todo list is empty. Add new items using the 'Add New Item' button.");
+                            sendMessage(chatId,
+                                    "Your todo list is empty. Add new items using the 'Add New Item' button.");
                             return;
                         }
-                        
+
                         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
                         List<KeyboardRow> keyboard = new ArrayList<>();
 
@@ -325,7 +327,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         helpText.append("• */hide* - Hide the keyboard\n");
                         helpText.append("• */help* - Show this help message\n\n");
                         helpText.append("You can also use the buttons on the keyboard for easier navigation.");
-                        
+
                         SendMessage helpMessage = new SendMessage();
                         helpMessage.setChatId(chatId);
                         helpMessage.setText(helpText.toString());
@@ -335,12 +337,13 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         logger.error("Error sending help information", e);
                         sendErrorMessage(chatId, "Failed to send help information. Please try again later.");
                     }
-                } else if (messageText.equals("/dbstatus") && 
+                } else if (messageText.equals("/dbstatus") &&
                         (state.getUser().isManager() || state.getUser().isDeveloper())) {
                     try {
                         // Try a simple database operation for admins/developers
                         List<ToDoItem> items = toDoItemService.findAll();
-                        sendMessage(chatId, "✅ Database connection is working. Found " + items.size() + " items in the database.");
+                        sendMessage(chatId,
+                                "✅ Database connection is working. Found " + items.size() + " items in the database.");
                     } catch (Exception e) {
                         logger.error("Database health check failed", e);
                         sendErrorMessage(chatId, "Database connection issue: " + e.getMessage());
@@ -354,15 +357,15 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                             newItem.setTitle(messageText.length() > 50 ? messageText.substring(0, 50) : messageText);
                             newItem.setCreation_ts(OffsetDateTime.now());
                             newItem.setDone(false);
-                            
+
                             // If user is associated with a team, set the team ID
                             if (state.getUser().getTeam() != null) {
                                 newItem.setTeamId(state.getUser().getTeam().getId());
                             }
-                            
+
                             // Set the user as assignee
                             newItem.setAssigneeId(state.getUser().getId());
-                            
+
                             // Reset state
                             state.setNewTaskMode(false);
                             userStates.put(chatId, state);
@@ -375,7 +378,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         } catch (Exception e) {
                             logger.error("Error adding new task", e);
                             sendErrorMessage(chatId, "Failed to add new task. Please try again later.");
-                            
+
                             // Reset state even on failure
                             state.setNewTaskMode(false);
                             userStates.put(chatId, state);
@@ -396,41 +399,68 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
     private void handleAuthentication(long chatId, String employeeId, UserBotState state) {
         try {
-            // Find user by employee ID
-            Optional<User> userOpt = userService.findByEmployeeId(employeeId);
+            // First, check if this Telegram user is already registered
+            Optional<User> userByTelegramId = userService.findByTelegramId(chatId);
 
-            if (userOpt.isPresent() &&
-                    (userOpt.get().isEmployee() || userOpt.get().isDeveloper() || userOpt.get().isManager())) {
-                // Set authenticated state
+            if (userByTelegramId.isPresent()) {
+                // User already registered with this Telegram ID
+                User user = userByTelegramId.get();
                 state.setAuthenticated(true);
-                state.setUser(userOpt.get());
+                state.setUser(user);
 
                 SendMessage message = new SendMessage();
                 message.setChatId(chatId);
-                message.setText("Authentication successful! Welcome, " + state.getUser().getFullName() + ".");
+                message.setText("Welcome back, " + user.getFullName() + "!");
 
                 try {
                     execute(message);
                     showMainScreen(chatId, state);
                 } catch (TelegramApiException e) {
-                    logger.error("Error sending authentication success message", e);
-                    sendErrorMessage(chatId, "Authentication successful, but there was an error displaying the menu. Please type /start to continue.");
+                    logger.error("Error sending welcome back message", e);
+                    sendErrorMessage(chatId,
+                            "Authentication successful, but there was an error displaying the menu. Please type /start to continue.");
                 }
             } else {
-                SendMessage message = new SendMessage();
-                message.setChatId(chatId);
-                message.setText("Authentication failed. Please enter a valid Employee ID:");
+                // Try to find user by employee ID
+                Optional<User> userOpt = userService.findByEmployeeId(employeeId);
 
-                try {
-                    execute(message);
-                } catch (TelegramApiException e) {
-                    logger.error("Error sending authentication failure message", e);
-                    sendErrorMessage(chatId, "Communication error. Please try again.");
+                if (userOpt.isPresent() &&
+                        (userOpt.get().isEmployee() || userOpt.get().isDeveloper() || userOpt.get().isManager())) {
+                    // Associate this Telegram ID with the user
+                    User user = userOpt.get();
+                    user.setTelegramId(chatId);
+                    userService.updateUser(user);
+
+                    // Set authenticated state
+                    state.setAuthenticated(true);
+                    state.setUser(user);
+
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Authentication successful! Welcome, " + user.getFullName()
+                            + ". Your Telegram account is now linked to your DashMaster profile.");
+
+                    try {
+                        execute(message);
+                        showMainScreen(chatId, state);
+                    } catch (TelegramApiException e) {
+                        logger.error("Error sending authentication success message", e);
+                        sendErrorMessage(chatId,
+                                "Authentication successful, but there was an error displaying the menu. Please type /start to continue.");
+                    }
+                } else {
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Authentication failed. Please enter a valid Employee ID:");
+
+                    try {
+                        execute(message);
+                    } catch (TelegramApiException e) {
+                        logger.error("Error sending authentication failure message", e);
+                        sendErrorMessage(chatId, "Communication error. Please try again.");
+                    }
                 }
             }
-        } catch (org.springframework.dao.InvalidDataAccessResourceUsageException e) {
-            logger.error("Database table missing during authentication", e);
-            sendErrorMessage(chatId, "System error: Database tables not properly configured. Please contact the system administrator.");
         } catch (Exception e) {
             logger.error("Unexpected error during authentication", e);
             sendErrorMessage(chatId, "Authentication system is currently unavailable. Please try again later.");
