@@ -43,6 +43,9 @@ public class ToDoItem {
     @Column(name = "ACTUAL_HOURS")
     private Double actualHours;
 
+    @Column(name = "SPRINT_ID")
+    private Long sprintId;
+
     @Column(name = "PRIORITY")
     private String priority;
 
