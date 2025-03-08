@@ -175,6 +175,10 @@ public class ToDoItem {
         this.actualHours = actualHours;
     }
 
+    public Long getSprintId() {
+        return sprintId;
+    }
+
     public void setPriority(String priority) {
         this.priority = priority;
     }
