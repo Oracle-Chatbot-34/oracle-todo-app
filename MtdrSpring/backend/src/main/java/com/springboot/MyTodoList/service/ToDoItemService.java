@@ -112,4 +112,21 @@ public class ToDoItemService {
         }
     }
 
+    /**
+     * Complete a task with actual hours spent
+     */
+    public ToDoItem completeTask(int taskId, Double actualHours, String comments) {
+        Optional<ToDoItem> taskOpt = toDoItemRepository.findById(taskId);
+        if (taskOpt.isPresent()) {
+            ToDoItem task = taskOpt.get();
+            task.setActualHours(actualHours);
+            task.setStatus(TaskStatus.COMPLETED.name());
+            task.setDescription(task.getDescription() + "\n\nCompletion Notes: " + comments);
+            task.setCompletedAt(OffsetDateTime.now());
+            return toDoItemRepository.save(task);
+        } else {
+            throw new IllegalArgumentException("Task not found with ID: " + taskId);
+        }
+    }
+
 }
