@@ -179,6 +179,10 @@ public class ToDoItem {
         return sprintId;
     }
 
+    public void setSprintId(Long sprintId) {
+        this.sprintId = sprintId;
+    }
+
     public void setPriority(String priority) {
         this.priority = priority;
     }
