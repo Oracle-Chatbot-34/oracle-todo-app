@@ -171,6 +171,10 @@ public class ToDoItem {
         return actualHours;
     }
 
+    public void setActualHours(Double actualHours) {
+        this.actualHours = actualHours;
+    }
+
     public void setPriority(String priority) {
         this.priority = priority;
     }
