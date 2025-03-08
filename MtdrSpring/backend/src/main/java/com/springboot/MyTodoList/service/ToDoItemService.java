@@ -129,4 +129,18 @@ public class ToDoItemService {
         }
     }
 
+    /**
+     * Find all tasks in a sprint
+     */
+    public List<ToDoItem> findTasksBySprintId(Long sprintId) {
+        return toDoItemRepository.findBySprintId(sprintId);
+    }
+
+    /**
+     * Find all active tasks for a user
+     */
+    public List<ToDoItem> findActiveTasksByAssigneeId(Long assigneeId) {
+        return toDoItemRepository.findByAssigneeIdAndStatusNot(assigneeId, TaskStatus.COMPLETED.name());
+    }
+
 }
