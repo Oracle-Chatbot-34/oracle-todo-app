@@ -97,4 +97,19 @@ public class ToDoItemService {
         }
     }
 
+    /**
+     * Start a task (developer working on it)
+     */
+    public ToDoItem startTask(int taskId, Long userId) {
+        Optional<ToDoItem> taskOpt = toDoItemRepository.findById(taskId);
+        if (taskOpt.isPresent()) {
+            ToDoItem task = taskOpt.get();
+            task.setAssigneeId(userId);
+            task.setStatus(TaskStatus.IN_PROGRESS.name());
+            return toDoItemRepository.save(task);
+        } else {
+            throw new IllegalArgumentException("Task not found with ID: " + taskId);
+        }
+    }
+
 }
