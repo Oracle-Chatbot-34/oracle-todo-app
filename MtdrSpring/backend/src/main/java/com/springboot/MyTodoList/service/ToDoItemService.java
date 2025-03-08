@@ -82,4 +82,19 @@ public class ToDoItemService {
         return toDoItemRepository.save(toDoItem);
     }
 
+    /**
+     * Assign a task to a sprint
+     */
+    public ToDoItem assignTaskToSprint(int taskId, Long sprintId) {
+        Optional<ToDoItem> taskOpt = toDoItemRepository.findById(taskId);
+        if (taskOpt.isPresent()) {
+            ToDoItem task = taskOpt.get();
+            task.setSprintId(sprintId);
+            task.setStatus(TaskStatus.IN_SPRINT.name());
+            return toDoItemRepository.save(task);
+        } else {
+            throw new IllegalArgumentException("Task not found with ID: " + taskId);
+        }
+    }
+
 }
