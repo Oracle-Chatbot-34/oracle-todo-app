@@ -163,6 +163,10 @@ public class ToDoItem {
         return estimatedHours;
     }
 
+    public void setEstimatedHours(Double estimatedHours) {
+        this.estimatedHours = estimatedHours;
+    }
+
     public void setPriority(String priority) {
         this.priority = priority;
     }
