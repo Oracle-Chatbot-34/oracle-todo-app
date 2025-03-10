@@ -129,6 +129,19 @@ public class ToDoItemController {
         }
     }
 
+    /**
+     * Get active tasks for a user
+     */
+    @GetMapping(value = "/users/{userId}/active-tasks")
+    public ResponseEntity<List<ToDoItem>> getActiveTasksByUserId(@PathVariable("userId") Long userId) {
+        try {
+            List<ToDoItem> tasks = toDoItemService.findActiveTasksByAssigneeId(userId);
+            return ResponseEntity.ok(tasks);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
     // @CrossOrigin
     @PutMapping(value = "todolist/{id}")
     public ResponseEntity updateToDoItem(@RequestBody ToDoItem toDoItem, @PathVariable int id) {
