@@ -576,4 +576,29 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Start the task creation flow
+     */
+    private void startTaskCreation(long chatId, UserBotState state) {
+        try {
+            // Set state to task creation mode
+            state.setNewTaskMode(true);
+            state.setTaskCreationStage("TITLE");
+            userStates.put(chatId, state);
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText("Let's create a new task. First, please enter the task title:");
+
+            // Hide keyboard for text input
+            ReplyKeyboardRemove keyboardRemove = new ReplyKeyboardRemove(true);
+            message.setReplyMarkup(keyboardRemove);
+
+            execute(message);
+        } catch (TelegramApiException e) {
+            logger.error("Error starting task creation", e);
+            sendErrorMessage(chatId, "There was a problem starting task creation. Please try again.");
+        }
+    }
+
 }
