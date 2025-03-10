@@ -116,6 +116,19 @@ public class ToDoItemController {
         }
     }
 
+    /**
+     * Get all tasks in a sprint
+     */
+    @GetMapping(value = "/sprints/{sprintId}/tasks")
+    public ResponseEntity<List<ToDoItem>> getTasksBySprintId(@PathVariable("sprintId") Long sprintId) {
+        try {
+            List<ToDoItem> tasks = toDoItemService.findTasksBySprintId(sprintId);
+            return ResponseEntity.ok(tasks);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+    }
+
     // @CrossOrigin
     @PutMapping(value = "todolist/{id}")
     public ResponseEntity updateToDoItem(@RequestBody ToDoItem toDoItem, @PathVariable int id) {
