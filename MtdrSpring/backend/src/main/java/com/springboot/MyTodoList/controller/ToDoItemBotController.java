@@ -4,8 +4,8 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,10 +24,10 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.User;
+import com.springboot.MyTodoList.model.bot.UserBotState;
 import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.UserService;
 import com.springboot.MyTodoList.util.BotCommands;
-import com.springboot.MyTodoList.model.bot.UserBotState;
 import com.springboot.MyTodoList.util.BotHelper;
 import com.springboot.MyTodoList.util.BotLabels;
 import com.springboot.MyTodoList.util.BotMessages;
@@ -530,4 +530,50 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             return new ResponseEntity<>(flag, HttpStatus.NOT_FOUND);
         }
     }
+
+    /**
+     * Show developer's task menu
+     */
+    private void showDeveloperTaskMenu(long chatId, UserBotState state) {
+        try {
+            SendMessage messageToTelegram = new SendMessage();
+            messageToTelegram.setChatId(chatId);
+
+            String welcomeMessage = "Task Management for " + state.getUser().getFullName() + "\n" +
+                    "Select an option:";
+            messageToTelegram.setText(welcomeMessage);
+
+            // Create a keyboard with options
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            // First row with main actions
+            KeyboardRow row = new KeyboardRow();
+            row.add("📝 Create New Task");
+            row.add("🔄 My Active Tasks");
+            keyboard.add(row);
+
+            // Second row
+            row = new KeyboardRow();
+            row.add("✅ Mark Task Complete");
+            row.add("📊 Sprint Board");
+            keyboard.add(row);
+
+            // Third row with utility actions
+            row = new KeyboardRow();
+            row.add("🏠 Main Menu");
+            keyboard.add(row);
+
+            // Set the keyboard
+            keyboardMarkup.setKeyboard(keyboard);
+            messageToTelegram.setReplyMarkup(keyboardMarkup);
+
+            execute(messageToTelegram);
+        } catch (TelegramApiException e) {
+            logger.error("Error showing developer task menu", e);
+            sendErrorMessage(chatId, "There was a problem displaying the task menu. Please try again.");
+        }
+    }
+
 }
