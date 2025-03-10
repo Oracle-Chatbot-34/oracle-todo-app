@@ -65,6 +65,21 @@ public class ToDoItemController {
         }
     }
 
+    /**
+     * Assign a task to a sprint
+     */
+    @PostMapping(value = "/tasks/{id}/assign-to-sprint/{sprintId}")
+    public ResponseEntity<?> assignTaskToSprint(@PathVariable("id") int id, @PathVariable("sprintId") Long sprintId) {
+        try {
+            ToDoItem task = toDoItemService.assignTaskToSprint(id, sprintId);
+            return ResponseEntity.ok(task);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+        }
+    }
+
     // @CrossOrigin
     @PutMapping(value = "todolist/{id}")
     public ResponseEntity updateToDoItem(@RequestBody ToDoItem toDoItem, @PathVariable int id) {
