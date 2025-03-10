@@ -796,4 +796,70 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Show user's active tasks
+     */
+    private void showActiveTasksForUser(long chatId, UserBotState state) {
+        try {
+            List<ToDoItem> activeTasks = toDoItemService.findActiveTasksByAssigneeId(state.getUser().getId());
+
+            if (activeTasks.isEmpty()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You don't have any active tasks at the moment.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("📝 Create New Task");
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            StringBuilder tasksText = new StringBuilder();
+            tasksText.append("Your Active Tasks:\n\n");
+
+            for (ToDoItem task : activeTasks) {
+                tasksText.append("ID: ").append(task.getID()).append("\n");
+                tasksText.append("Title: ").append(task.getTitle()).append("\n");
+                tasksText.append("Status: ").append(task.getStatus()).append("\n");
+                tasksText.append("Estimated Hours: ").append(task.getEstimatedHours()).append("\n");
+                tasksText.append("Priority: ").append(task.getPriority()).append("\n\n");
+            }
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText(tasksText.toString());
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("✅ Mark Task Complete");
+            row.add("🔄 Start Working on Task");
+            keyboard.add(row);
+
+            row = new KeyboardRow();
+            row.add("🏠 Main Menu");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            execute(message);
+        } catch (Exception e) {
+            logger.error("Error showing active tasks", e);
+            sendErrorMessage(chatId, "There was an error retrieving your active tasks. Please try again later.");
+        }
+    }
+
 }
