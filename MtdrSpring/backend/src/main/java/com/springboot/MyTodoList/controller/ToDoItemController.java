@@ -95,6 +95,27 @@ public class ToDoItemController {
         }
     }
 
+    /**
+     * Complete a task
+     */
+    @PostMapping(value = "/tasks/{id}/complete")
+    public ResponseEntity<?> completeTask(
+            @PathVariable("id") int id,
+            @RequestParam("actualHours") Double actualHours,
+            @RequestParam(value = "comments", required = false) String comments) {
+        try {
+            if (comments == null) {
+                comments = "";
+            }
+            ToDoItem task = toDoItemService.completeTask(id, actualHours, comments);
+            return ResponseEntity.ok(task);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+        }
+    }
+
     // @CrossOrigin
     @PutMapping(value = "todolist/{id}")
     public ResponseEntity updateToDoItem(@RequestBody ToDoItem toDoItem, @PathVariable int id) {
