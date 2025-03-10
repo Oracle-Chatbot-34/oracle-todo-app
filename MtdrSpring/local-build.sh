@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # Source environment variables
-source .env.local
+if [ -f .env.local ]; then
+    source .env.local
+else
+    echo "Warning: .env.local file not found!"
+fi
 
 # Check for required environment variables
 missing_vars=false
