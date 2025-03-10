@@ -22,6 +22,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRem
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import com.springboot.MyTodoList.model.TaskStatus;
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
@@ -598,6 +599,200 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             logger.error("Error starting task creation", e);
             sendErrorMessage(chatId, "There was a problem starting task creation. Please try again.");
+        }
+    }
+
+    /**
+     * Process task creation stages
+     */
+    private void processTaskCreation(long chatId, String messageText, UserBotState state) {
+        try {
+            String stage = state.getTaskCreationStage();
+
+            if ("TITLE".equals(stage)) {
+                // Store title and ask for description
+                state.setTempTaskTitle(messageText);
+                state.setTaskCreationStage("DESCRIPTION");
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Great! Now please provide a description for the task:");
+                execute(message);
+            } else if ("DESCRIPTION".equals(stage)) {
+                // Store description and ask for estimated hours
+                state.setTempTaskDescription(messageText);
+                state.setTaskCreationStage("ESTIMATED_HOURS");
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Please enter the estimated hours to complete this task (must be 4 hours or less):");
+                execute(message);
+            } else if ("ESTIMATED_HOURS".equals(stage)) {
+                // Validate and store estimated hours
+                try {
+                    double estimatedHours = Double.parseDouble(messageText);
+
+                    if (estimatedHours <= 0) {
+                        SendMessage message = new SendMessage();
+                        message.setChatId(chatId);
+                        message.setText("Estimated hours must be greater than 0. Please enter a valid number:");
+                        execute(message);
+                        return;
+                    }
+
+                    if (estimatedHours > 4.0) {
+                        SendMessage message = new SendMessage();
+                        message.setChatId(chatId);
+                        message.setText(
+                                "Tasks cannot exceed 4 hours of estimated work. Please break it down into smaller subtasks. Enter a value of 4.0 or less:");
+                        execute(message);
+                        return;
+                    }
+
+                    // Store estimated hours and ask for priority
+                    state.setTempEstimatedHours(estimatedHours);
+                    state.setTaskCreationStage("PRIORITY");
+
+                    // Create keyboard for priority selection
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please select the priority for this task:");
+
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    keyboardMarkup.setResizeKeyboard(true);
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("High");
+                    row.add("Medium");
+                    row.add("Low");
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+                    message.setReplyMarkup(keyboardMarkup);
+
+                    execute(message);
+                } catch (NumberFormatException e) {
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please enter a valid number for estimated hours:");
+                    execute(message);
+                }
+            } else if ("PRIORITY".equals(stage)) {
+                // Validate priority
+                if (!messageText.equals("High") && !messageText.equals("Medium") && !messageText.equals("Low")) {
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please select a valid priority (High, Medium, or Low):");
+                    execute(message);
+                    return;
+                }
+
+                // Store priority and ask for confirmation
+                state.setTempPriority(messageText);
+                state.setTaskCreationStage("CONFIRMATION");
+
+                StringBuilder summary = new StringBuilder();
+                summary.append("Please confirm the task details:\n\n");
+                summary.append("Title: ").append(state.getTempTaskTitle()).append("\n");
+                summary.append("Description: ").append(state.getTempTaskDescription()).append("\n");
+                summary.append("Estimated Hours: ").append(state.getTempEstimatedHours()).append("\n");
+                summary.append("Priority: ").append(state.getTempPriority()).append("\n\n");
+                summary.append("Is this correct?");
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText(summary.toString());
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("Yes, create task");
+                row.add("No, cancel");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+            } else if ("CONFIRMATION".equals(stage)) {
+                if (messageText.equals("Yes, create task")) {
+                    // Create the task
+                    ToDoItem task = new ToDoItem();
+                    task.setTitle(state.getTempTaskTitle());
+                    task.setDescription(state.getTempTaskDescription());
+                    task.setEstimatedHours(state.getTempEstimatedHours());
+                    task.setPriority(state.getTempPriority());
+                    task.setCreation_ts(OffsetDateTime.now());
+                    task.setAssigneeId(state.getUser().getId());
+
+                    // If user is in a team, set the team ID
+                    if (state.getUser().getTeam() != null) {
+                        task.setTeamId(state.getUser().getTeam().getId());
+                    }
+
+                    task.setStatus(TaskStatus.BACKLOG.name());
+                    task.setDone(false);
+
+                    // Save the task
+                    ToDoItem savedTask = toDoItemService.addTaskWithEstimation(task);
+
+                    // Reset state
+                    state.resetTaskCreation();
+
+                    // Show success message
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("✅ Task created successfully with ID: " + savedTask.getID());
+
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    keyboardMarkup.setResizeKeyboard(true);
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("📝 Create Another Task");
+                    row.add("🏠 Main Menu");
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+                    message.setReplyMarkup(keyboardMarkup);
+
+                    execute(message);
+                } else {
+                    // Cancel task creation
+                    state.resetTaskCreation();
+
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Task creation cancelled. What would you like to do next?");
+
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    keyboardMarkup.setResizeKeyboard(true);
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("📝 Create New Task");
+                    row.add("🏠 Main Menu");
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+                    message.setReplyMarkup(keyboardMarkup);
+
+                    execute(message);
+                }
+            }
+
+            // Update user state
+            userStates.put(chatId, state);
+        } catch (Exception e) {
+            logger.error("Error in task creation process", e);
+            sendErrorMessage(chatId, "There was an error in the task creation process. Please try again.");
+
+            // Reset task creation state
+            state.resetTaskCreation();
+            userStates.put(chatId, state);
         }
     }
 
