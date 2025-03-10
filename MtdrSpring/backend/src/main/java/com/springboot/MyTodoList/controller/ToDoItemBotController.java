@@ -862,4 +862,64 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Start the task completion flow
+     */
+    private void startTaskCompletion(long chatId, UserBotState state) {
+        try {
+            List<ToDoItem> activeTasks = toDoItemService.findActiveTasksByAssigneeId(state.getUser().getId());
+
+            if (activeTasks.isEmpty()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You don't have any active tasks to complete.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("📝 Create New Task");
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            state.setTaskCompletionStage("SELECT_TASK");
+            userStates.put(chatId, state);
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText("Please enter the ID of the task you want to mark as complete:");
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            for (ToDoItem task : activeTasks) {
+                KeyboardRow row = new KeyboardRow();
+                row.add("ID: " + task.getID() + " - " + task.getTitle());
+                keyboard.add(row);
+            }
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("Cancel");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            execute(message);
+        } catch (Exception e) {
+            logger.error("Error starting task completion", e);
+            sendErrorMessage(chatId,
+                    "There was an error starting the task completion process. Please try again later.");
+        }
+    }
+
 }
