@@ -1,3 +1,8 @@
 **/node_modules/**
 **/build/**
 **/target/**
+**/dist/**
+
+# Ignore .env files
+.env.local
+.env.local.bat

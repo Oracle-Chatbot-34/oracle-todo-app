@@ -2,8 +2,24 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-import Moment from 'react-moment';
 import { ToDoItem } from '../types/ToDoItem';
+
+// Function to format dates nicely
+function formatDate(dateString: string): string {
+  // Create a Date object from the string
+  const date = new Date(dateString);
+  
+  // Format the date using Intl.DateTimeFormat
+  // This is a native JavaScript API with excellent browser support
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short', // "Mar"
+    day: 'numeric',  // "10"
+    hour: 'numeric', // "12"
+    minute: '2-digit', // "34"
+    second: '2-digit', // "56"
+    hour12: true // Use AM/PM format
+  }).format(date);
+}
 
 interface TodoItemProps {
   item: ToDoItem;
@@ -22,7 +38,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ item, toggleDone, deleteItem }) => 
     >
       <td className="description">{item.description}</td>
       <td className="date">
-        <Moment format="MMM Do hh:mm:ss">{item.createdAt}</Moment>
+        {formatDate(item.createdAt)}
       </td>
       <td>
         <Button 

@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tailwindcss/preflight";
+@import 'tailwindcss';
+@import 'tailwindcss/preflight';
 @tailwind utilities;
 
 body {
@@ -18,40 +18,41 @@ body {
   .App {
     @apply bg-gray-900 text-gray-100 flex flex-col items-center text-base md:text-lg m-8 p-4 relative shadow-lg rounded-lg;
   }
-  
+
   .itemlist {
     @apply w-full mt-3 mb-4 border-collapse;
   }
-  
+
   .itemlist td {
     @apply border-b border-gray-700 p-2;
   }
-  
+
   .itemlist td.description {
     @apply w-full pl-4 pr-4;
   }
-  
+
   .itemlist td.date {
     @apply text-sm text-gray-500 whitespace-nowrap pr-0 pl-0;
   }
-  
+
   .itemlist tr:hover {
     @apply bg-gray-800;
   }
-  
+
   #newiteminput {
     @apply rounded px-3 py-2 bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none w-full;
   }
-  
+
+  /* Change this in src/index.css */
   .AddButton {
-    @apply bg-todo-done text-white hover:brightness-110;
+    @apply bg-green-500 text-white hover:brightness-110;
   }
-  
+
   .DeleteButton {
-    @apply bg-todo-delete text-white hover:brightness-110;
+    @apply bg-red-500 text-white hover:brightness-110;
   }
-  
+
   .DoneButton {
-    @apply bg-todo-button text-gray-900 hover:brightness-90;
+    @apply bg-yellow-400 text-gray-900 hover:brightness-90;
   }
 }
