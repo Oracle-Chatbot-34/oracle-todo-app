@@ -80,6 +80,21 @@ public class ToDoItemController {
         }
     }
 
+    /**
+     * Start working on a task
+     */
+    @PostMapping(value = "/tasks/{id}/start")
+    public ResponseEntity<?> startTask(@PathVariable("id") int id, @RequestParam("userId") Long userId) {
+        try {
+            ToDoItem task = toDoItemService.startTask(id, userId);
+            return ResponseEntity.ok(task);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+        }
+    }
+
     // @CrossOrigin
     @PutMapping(value = "todolist/{id}")
     public ResponseEntity updateToDoItem(@RequestBody ToDoItem toDoItem, @PathVariable int id) {
