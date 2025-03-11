@@ -2,7 +2,10 @@ package com.springboot.MyTodoList.controller;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -27,6 +30,7 @@ import com.springboot.MyTodoList.model.TaskStatus;
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
+import com.springboot.MyTodoList.service.SprintService;
 import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.UserService;
 import com.springboot.MyTodoList.util.BotCommands;
@@ -39,6 +43,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     private static final Logger logger = LoggerFactory.getLogger(ToDoItemBotController.class);
     private ToDoItemService toDoItemService;
     private UserService userService;
+    private SprintService sprintService;
     private String botName;
     private ConcurrentHashMap<Long, UserBotState> userStates = new ConcurrentHashMap<>();
 
@@ -114,12 +119,13 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     public ToDoItemBotController(String botToken, String botName, ToDoItemService toDoItemService,
-            UserService userService) {
+            UserService userService, SprintService sprintService) {
         super(botToken);
         logger.info("Bot Token: " + botToken);
         logger.info("Bot name: " + botName);
         this.toDoItemService = toDoItemService;
         this.userService = userService;
+        this.sprintService = sprintService;
         this.botName = botName;
     }
 
@@ -1481,13 +1487,14 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
             // If user is in a team, find the active sprint
             if (state.getUser().getTeam() != null) {
-                Optional<Sprint> activeSprint = sprintService.findActiveSprintByTeamId(state.getUser().getTeam().getId());
+                Optional<Sprint> activeSprint = sprintService
+                        .findActiveSprintByTeamId(state.getUser().getTeam().getId());
 
                 if (activeSprint.isPresent()) {
                     // Get tasks in the sprint that are not in progress or completed
                     tasksInSprint = toDoItemService.findTasksBySprintId(activeSprint.get().getId()).stream()
                             .filter(task -> !TaskStatus.IN_PROGRESS.name().equals(task.getStatus()) &&
-                                           !TaskStatus.COMPLETED.name().equals(task.getStatus()))
+                                    !TaskStatus.COMPLETED.name().equals(task.getStatus()))
                             .collect(Collectors.toList());
                 }
             }
