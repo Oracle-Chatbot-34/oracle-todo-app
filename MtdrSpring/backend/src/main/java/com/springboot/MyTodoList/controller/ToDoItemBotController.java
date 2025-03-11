@@ -155,9 +155,52 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     }
                 }
 
+                // Task Creation Flow
+                if (state.isNewTaskMode()) {
+                    processTaskCreation(chatId, messageText, state);
+                    return;
+                }
+
+                // Task Completion Flow
+                if (state.isTaskCompletionMode()) {
+                    processTaskCompletion(chatId, messageText, state);
+                    return;
+                }
+
+                // Assign to Sprint Flow
+                if (state.isAssignToSprintMode()) {
+                    processAssignTaskToSprint(chatId, messageText, state);
+                    return;
+                }
+
+                // Handle Developer Task Management Commands
+                if (state.getUser().isDeveloper() || state.getUser().isManager()) {
+                    if (messageText.equals("📝 Create New Task") || messageText.equals("📝 Create Another Task")) {
+                        startTaskCreation(chatId, state);
+                        return;
+                    } else if (messageText.equals("🔄 My Active Tasks")) {
+                        showActiveTasksForUser(chatId, state);
+                        return;
+                    } else if (messageText.equals("✅ Mark Task Complete")) {
+                        startTaskCompletion(chatId, state);
+                        return;
+                    } else if (messageText.equals("📊 Sprint Board")) {
+                        showSprintBoard(chatId, state);
+                        return;
+                    } else if (messageText.equals("🔄 Start Working on Task")) {
+                        // Start the process to select a task to start working on
+                        startTaskWorkProcess(chatId, state);
+                        return;
+                    } else if (messageText.equals("➕ Assign Task to Sprint")) {
+                        startAssignTaskToSprint(chatId, state);
+                        return;
+                    }
+                }
+
                 // Continue with other commands for authenticated users
-                if (messageText.equals(BotCommands.START_COMMAND.getCommand())
-                        || messageText.equals(BotLabels.SHOW_MAIN_SCREEN.getLabel())) {
+                if (messageText.equals(BotCommands.START_COMMAND.getCommand()) ||
+                        messageText.equals(BotLabels.SHOW_MAIN_SCREEN.getLabel()) ||
+                        messageText.equals("🏠 Main Menu")) {
                     try {
                         showMainScreen(chatId, state);
                     } catch (Exception e) {
@@ -1348,6 +1391,156 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         } catch (Exception e) {
             logger.error("Error starting assign task to sprint", e);
             sendErrorMessage(chatId, "There was an error in the process. Please try again later.");
+        }
+    }
+
+    /**
+     * Process task assignment to sprint
+     */
+    private void processAssignTaskToSprint(long chatId, String messageText, UserBotState state) {
+        try {
+            if (messageText.equals("Cancel")) {
+                state.resetAssignToSprint();
+                showDeveloperTaskMenu(chatId, state);
+                return;
+            }
+
+            // Extract task ID from message
+            int taskId;
+            if (messageText.startsWith("ID: ")) {
+                // Parse from "ID: X - Title"
+                String idPart = messageText.substring(4, messageText.indexOf(" - "));
+                taskId = Integer.parseInt(idPart);
+            } else {
+                // Try to parse as a direct ID
+                try {
+                    taskId = Integer.parseInt(messageText);
+                } catch (NumberFormatException e) {
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please enter a valid task ID or select from the list.");
+                    execute(message);
+                    return;
+                }
+            }
+
+            // Check if task exists and belongs to user
+            ResponseEntity<ToDoItem> response = getToDoItemById(taskId);
+            if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Task not found. Please enter a valid task ID.");
+                execute(message);
+                return;
+            }
+
+            // Assign task to sprint
+            ToDoItem task = toDoItemService.assignTaskToSprint(taskId, state.getTempSprintId());
+
+            // Reset state
+            state.resetAssignToSprint();
+
+            // Show success message
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText("✅ Task " + task.getID() + " has been added to the sprint successfully!");
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("🔄 My Active Tasks");
+            row.add("📊 Sprint Board");
+            keyboard.add(row);
+
+            row = new KeyboardRow();
+            row.add("🏠 Main Menu");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            execute(message);
+        } catch (Exception e) {
+            logger.error("Error assigning task to sprint", e);
+            sendErrorMessage(chatId, "There was an error assigning the task to the sprint. Please try again later.");
+
+            // Reset state
+            state.resetAssignToSprint();
+            userStates.put(chatId, state);
+        }
+    }
+
+    /**
+     * Start the process for a developer to begin working on a task
+     */
+    private void startTaskWorkProcess(long chatId, UserBotState state) {
+        try {
+            List<ToDoItem> tasksInSprint = new ArrayList<>();
+
+            // If user is in a team, find the active sprint
+            if (state.getUser().getTeam() != null) {
+                Optional<Sprint> activeSprint = sprintService.findActiveSprintByTeamId(state.getUser().getTeam().getId());
+
+                if (activeSprint.isPresent()) {
+                    // Get tasks in the sprint that are not in progress or completed
+                    tasksInSprint = toDoItemService.findTasksBySprintId(activeSprint.get().getId()).stream()
+                            .filter(task -> !TaskStatus.IN_PROGRESS.name().equals(task.getStatus()) &&
+                                           !TaskStatus.COMPLETED.name().equals(task.getStatus()))
+                            .collect(Collectors.toList());
+                }
+            }
+
+            if (tasksInSprint.isEmpty()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("There are no available tasks in the current sprint.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("📝 Create New Task");
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            state.setStartTaskWorkStage("SELECT_TASK");
+            userStates.put(chatId, state);
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText("Please select a task to start working on:");
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            for (ToDoItem task : tasksInSprint) {
+                KeyboardRow row = new KeyboardRow();
+                row.add("ID: " + task.getID() + " - " + task.getTitle());
+                keyboard.add(row);
+            }
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("Cancel");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            execute(message);
+        } catch (Exception e) {
+            logger.error("Error starting task work process", e);
+            sendErrorMessage(chatId, "There was an error starting the task work process. Please try again later.");
         }
     }
 
