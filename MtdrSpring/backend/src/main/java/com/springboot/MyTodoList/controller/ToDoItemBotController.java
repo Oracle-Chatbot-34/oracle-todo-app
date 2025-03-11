@@ -1220,4 +1220,135 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Start the process of assigning a task to a sprint
+     */
+    private void startAssignTaskToSprint(long chatId, UserBotState state) {
+        try {
+            // Check if user is a developer or manager
+            if (!state.getUser().isDeveloper() && !state.getUser().isManager()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Only developers and managers can assign tasks to sprints.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            // Get user's active tasks not yet in a sprint
+            List<ToDoItem> backlogTasks = toDoItemService.findActiveTasksByAssigneeId(state.getUser().getId()).stream()
+                    .filter(task -> task.getSprintId() == null)
+                    .collect(Collectors.toList());
+
+            if (backlogTasks.isEmpty()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You don't have any backlog tasks to assign to a sprint.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("📝 Create New Task");
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            // Try to find the active sprint for the user's team
+            Long teamId = state.getUser().getTeam() != null ? state.getUser().getTeam().getId() : null;
+
+            if (teamId == null) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You are not associated with any team.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            // Get the active sprint
+            Optional<Sprint> activeSprint = sprintService.findActiveSprintByTeamId(teamId);
+
+            if (!activeSprint.isPresent()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("There is no active sprint for your team.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            // Set state for assigning task to sprint
+            state.setAssignToSprintStage("SELECT_TASK");
+            state.setTempSprintId(activeSprint.get().getId());
+            userStates.put(chatId, state);
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText("Please select a task to add to the sprint \"" + activeSprint.get().getName() + "\":");
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            for (ToDoItem task : backlogTasks) {
+                KeyboardRow row = new KeyboardRow();
+                row.add("ID: " + task.getID() + " - " + task.getTitle());
+                keyboard.add(row);
+            }
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("Cancel");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            execute(message);
+        } catch (Exception e) {
+            logger.error("Error starting assign task to sprint", e);
+            sendErrorMessage(chatId, "There was an error in the process. Please try again later.");
+        }
+    }
+
 }
