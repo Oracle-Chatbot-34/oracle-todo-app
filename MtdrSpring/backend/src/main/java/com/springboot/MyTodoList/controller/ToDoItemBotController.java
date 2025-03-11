@@ -922,4 +922,143 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         }
     }
 
+    /**
+     * Process task completion stages
+     */
+    private void processTaskCompletion(long chatId, String messageText, UserBotState state) {
+        try {
+            String stage = state.getTaskCompletionStage();
+
+            if ("SELECT_TASK".equals(stage)) {
+                if (messageText.equals("Cancel")) {
+                    state.resetTaskCompletion();
+                    showDeveloperTaskMenu(chatId, state);
+                    return;
+                }
+
+                // Extract task ID from message
+                int taskId;
+                if (messageText.startsWith("ID: ")) {
+                    // Parse from "ID: X - Title"
+                    String idPart = messageText.substring(4, messageText.indexOf(" - "));
+                    taskId = Integer.parseInt(idPart);
+                } else {
+                    // Try to parse as a direct ID
+                    try {
+                        taskId = Integer.parseInt(messageText);
+                    } catch (NumberFormatException e) {
+                        SendMessage message = new SendMessage();
+                        message.setChatId(chatId);
+                        message.setText("Please enter a valid task ID or select from the list.");
+                        execute(message);
+                        return;
+                    }
+                }
+
+                // Check if task exists and belongs to user
+                ResponseEntity<ToDoItem> response = getToDoItemById(taskId);
+                if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Task not found. Please enter a valid task ID.");
+                    execute(message);
+                    return;
+                }
+
+                ToDoItem task = response.getBody();
+                if (!task.getAssigneeId().equals(state.getUser().getId())) {
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("This task is not assigned to you. Please enter a valid task ID.");
+                    execute(message);
+                    return;
+                }
+
+                // Store task ID and move to actual hours stage
+                state.setTempTaskId(taskId);
+                state.setTaskCompletionStage("ACTUAL_HOURS");
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Please enter the actual hours spent on this task:");
+
+                ReplyKeyboardRemove keyboardRemove = new ReplyKeyboardRemove(true);
+                message.setReplyMarkup(keyboardRemove);
+
+                execute(message);
+            } else if ("ACTUAL_HOURS".equals(stage)) {
+                // Validate and store actual hours
+                try {
+                    double actualHours = Double.parseDouble(messageText);
+
+                    if (actualHours <= 0) {
+                        SendMessage message = new SendMessage();
+                        message.setChatId(chatId);
+                        message.setText("Actual hours must be greater than 0. Please enter a valid number:");
+                        execute(message);
+                        return;
+                    }
+
+                    // Store actual hours and ask for comments
+                    state.setTempActualHours(actualHours);
+                    state.setTaskCompletionStage("COMMENTS");
+
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText(
+                            "Please enter any comments or notes about the completed task (or type 'skip' to skip):");
+                    execute(message);
+                } catch (NumberFormatException e) {
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please enter a valid number for actual hours:");
+                    execute(message);
+                }
+            } else if ("COMMENTS".equals(stage)) {
+                // Store comments and complete task
+                String comments = messageText.equals("skip") ? "" : messageText;
+
+                // Complete the task
+                ToDoItem task = toDoItemService.completeTask(state.getTempTaskId(), state.getTempActualHours(),
+                        comments);
+
+                // Reset state
+                state.resetTaskCompletion();
+
+                // Show success message
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("✅ Task " + task.getID() + " marked as completed successfully!");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🔄 My Active Tasks");
+                row.add("📊 Sprint Board");
+                keyboard.add(row);
+
+                row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+            }
+
+            // Update user state
+            userStates.put(chatId, state);
+        } catch (Exception e) {
+            logger.error("Error in task completion process", e);
+            sendErrorMessage(chatId, "There was an error in the task completion process. Please try again.");
+
+            // Reset task completion state
+            state.resetTaskCompletion();
+            userStates.put(chatId, state);
+        }
+    }
+
 }
