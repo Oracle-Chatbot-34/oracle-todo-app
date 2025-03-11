@@ -13,9 +13,15 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 @Component
 public class JwtTokenFilter extends OncePerRequestFilter {
+
+    private static final List<String> PUBLIC_PATHS = Arrays.asList(
+            "/auth/login",
+            "/auth/register");
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
@@ -28,7 +34,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         // Skip JWT validation for public endpoints
-        if (request.getServletPath().equals("/auth/login") || request.getServletPath().equals("/auth/register")) {
+        if (isPublicPath(request.getServletPath())) {
             chain.doFilter(request, response);
             return;
         }
@@ -52,5 +58,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    private boolean isPublicPath(String path) {
+        return PUBLIC_PATHS.stream().anyMatch(path::equals);
     }
 }
