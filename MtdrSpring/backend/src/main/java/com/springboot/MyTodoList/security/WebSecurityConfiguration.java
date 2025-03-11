@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -22,18 +23,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 public class WebSecurityConfiguration {
 
     @Autowired
-    private OciUserDetailsService userDetailsService; // Your custom UserDetailsService
+    private OciUserDetailsService userDetailsService;
 
     @Autowired
-    private JwtTokenFilter jwtTokenFilter; // Your custom JWT Filter
+    private JwtTokenFilter jwtTokenFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
                 // 1. Disable CSRF (common for stateless REST APIs)
-                // Simplified: .disable() covers everything, no need to ignore h2 path
-                // specifically
                 .csrf(csrf -> csrf.disable())
 
                 // 2. Set session management to stateless (correct for JWT)
@@ -44,39 +42,38 @@ public class WebSecurityConfiguration {
                         // Public endpoints:
                         .requestMatchers(new AntPathRequestMatcher("/auth/login")).permitAll()
                         .requestMatchers(new AntPathRequestMatcher("/auth/register")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher(HttpMethod.OPTIONS.name(), "/**")).permitAll() // KEEP:
+                        .requestMatchers(new AntPathRequestMatcher("/v3/api-docs/**")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/swagger-ui/**")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/swagger-ui.html")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher(HttpMethod.OPTIONS.name(), "/**")).permitAll()
 
-                        .anyRequest().authenticated() // KEEP: All other requests require authentication
-                )
+                        // Protected endpoints:
+                        .anyRequest().authenticated())
 
-                // 4. Add your JWT token filter before the standard authentication filter
-                .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class); // KEEP: Integrates your
-                                                                                              // JWT validation
-
-        // 5. REMOVED: H2 console specific header configuration
-        // .headers(headers -> headers.frameOptions(frameOptions ->
-        // frameOptions.sameOrigin()));
+                // 4. Add JWT token filter before the standard authentication filter
+                .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Autowired
+    public void configureAuthentication(AuthenticationManagerBuilder auth) throws Exception {
+        auth.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
-        // Ensure the provider uses the secure password encoder defined below
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // IMPORTANT CHANGE: Use a strong, secure password encoder like BCrypt
-        // Ensure passwords stored in your database are also encoded with BCrypt
         return new BCryptPasswordEncoder();
     }
 
-    // UPDATED: More modern way to expose the AuthenticationManager bean
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
             throws Exception {
