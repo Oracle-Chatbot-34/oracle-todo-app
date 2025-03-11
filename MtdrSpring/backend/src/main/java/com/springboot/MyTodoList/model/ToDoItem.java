@@ -9,7 +9,7 @@ import jakarta.persistence.*;
     in the autonomous database
  */
 @Entity
-@Table(name = "TODOITEM")
+@Table(name = "todoitem")
 public class ToDoItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

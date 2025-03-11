@@ -10,7 +10,7 @@ import java.util.List;
  * Each team has exactly one manager and multiple team members.
  */
 @Entity
-@Table(name = "TEAMS")
+@Table(name = "teams")
 public class Team {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

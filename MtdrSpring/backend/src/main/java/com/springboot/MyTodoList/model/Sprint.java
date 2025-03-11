@@ -7,7 +7,7 @@ import java.time.OffsetDateTime;
  * Represents a Sprint in the DashMaster system.
  */
 @Entity
-@Table(name = "SPRINTS")
+@Table(name = "sprints")
 public class Sprint {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
