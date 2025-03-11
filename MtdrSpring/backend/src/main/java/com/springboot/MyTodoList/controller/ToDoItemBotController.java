@@ -22,6 +22,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRem
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import com.springboot.MyTodoList.model.Sprint;
 import com.springboot.MyTodoList.model.TaskStatus;
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.User;
@@ -1058,6 +1059,164 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             // Reset task completion state
             state.resetTaskCompletion();
             userStates.put(chatId, state);
+        }
+    }
+
+    /**
+     * Show active sprint board
+     */
+    private void showSprintBoard(long chatId, UserBotState state) {
+        try {
+            // Try to find the active sprint for the user's team
+            Long teamId = state.getUser().getTeam() != null ? state.getUser().getTeam().getId() : null;
+
+            if (teamId == null) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You are not associated with any team.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            // Get the active sprint
+            Optional<Sprint> activeSprint = sprintService.findActiveSprintByTeamId(teamId);
+
+            if (!activeSprint.isPresent()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("There is no active sprint for your team.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            // Get tasks in the sprint
+            List<ToDoItem> sprintTasks = toDoItemService.findTasksBySprintId(activeSprint.get().getId());
+
+            if (sprintTasks.isEmpty()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("There are no tasks in the current sprint: " + activeSprint.get().getName());
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("📝 Create New Task");
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                return;
+            }
+
+            // Group tasks by status
+            Map<String, List<ToDoItem>> tasksByStatus = new HashMap<>();
+
+            for (ToDoItem task : sprintTasks) {
+                String status = task.getStatus() != null ? task.getStatus() : "BACKLOG";
+
+                if (!tasksByStatus.containsKey(status)) {
+                    tasksByStatus.put(status, new ArrayList<>());
+                }
+
+                tasksByStatus.get(status).add(task);
+            }
+
+            // Build board text
+            StringBuilder boardText = new StringBuilder();
+            boardText.append("📊 Sprint Board: ").append(activeSprint.get().getName()).append("\n\n");
+
+            // Define status display order
+            List<String> statusOrder = Arrays.asList(
+                    "BACKLOG",
+                    "SELECTED_FOR_DEVELOPMENT",
+                    "IN_PROGRESS",
+                    "IN_SPRINT",
+                    "IN_QA",
+                    "COMPLETED");
+
+            // Add tasks by status
+            for (String status : statusOrder) {
+                if (tasksByStatus.containsKey(status)) {
+                    String displayStatus;
+
+                    try {
+                        displayStatus = TaskStatus.valueOf(status).getDisplayName();
+                    } catch (IllegalArgumentException e) {
+                        displayStatus = status;
+                    }
+
+                    boardText.append("✦ ").append(displayStatus).append(" ✦\n");
+
+                    for (ToDoItem task : tasksByStatus.get(status)) {
+                        boardText.append("- ID: ").append(task.getID())
+                                .append(" | ").append(task.getTitle())
+                                .append(" | Est: ").append(task.getEstimatedHours()).append("h");
+
+                        if (task.getActualHours() != null) {
+                            boardText.append(" | Act: ").append(task.getActualHours()).append("h");
+                        }
+
+                        boardText.append("\n");
+                    }
+
+                    boardText.append("\n");
+                }
+            }
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText(boardText.toString());
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("🔄 My Active Tasks");
+            row.add("📝 Create New Task");
+            keyboard.add(row);
+
+            row = new KeyboardRow();
+            row.add("✅ Mark Task Complete");
+            row.add("🏠 Main Menu");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            execute(message);
+        } catch (Exception e) {
+            logger.error("Error showing sprint board", e);
+            sendErrorMessage(chatId, "There was an error retrieving the sprint board. Please try again later.");
         }
     }
 
