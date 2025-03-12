@@ -6,15 +6,17 @@ const Navbar = () => {
   const [active, setActive] = useState("Home");
 
   return (
-    <nav className="bg-background h-[77px] flex flex-row gap-[50px] items-center px-8">
+    <nav className="bg-background h-[77px] flex flex-row gap-[30px] items-center px-8">
         {/* Logo and Title */}
-        <div className="flex flex-row items-center">
+        <div/>
+        <div className="flex flex-row items-center gap-[10px]">
             <img src={logo} className="w-[70px] h-[50px]" alt="Logo" />
+            <div/>
             <p className="text-[36px] font-semibold ml-2">DashMaster</p>
         </div>
 
         {/* Navigation Menu */}
-        <div className="flex flex-row items-center justify-start flex-1">
+        <div className="flex flex-row items-center justify-start">
             <ul className="flex font-light text-[24px]">
             {["Home", "Reports", "Tasks"].map((item) => (
             <Link to={`/${item.toLowerCase()}`} key={item}>
@@ -30,6 +32,11 @@ const Navbar = () => {
             </Link>
             ))}
             </ul>
+        </div>
+
+        <div className="flex flex-row items-center gap-[370px]">
+            <div/>
+            <img src={logo} className="w-[70px] h-[50px]" alt="Logo" />  
         </div>
     </nav>
 );

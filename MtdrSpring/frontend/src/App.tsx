@@ -152,8 +152,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import Tasks from './pages/Tasks';
-
-
+import NotFound from './pages/NotFound';
 
 const App =() =>{
   const location = useLocation();
@@ -167,7 +166,7 @@ const App =() =>{
         <Route path="/home" element={<Dashboard />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/tasks" element={<Tasks />} />
-        <Route path="*" element={<h1>Not Found</h1>} />
+        <Route path="*" element={<NotFound/>} />
       </Routes>
     </div>
     

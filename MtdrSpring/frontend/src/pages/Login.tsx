@@ -7,13 +7,14 @@ export default function Login() {
     const handleLogin = () => {
         // Redirect to /home
         console.log("Login successful");
-        navigate("/home");
+        navigate('/home');
+
     };
 
     return(
         <div className="bg-background h-screen w-full flex flex-row items-center justify-center gap-[250px]">
-            <div className="flex flex-col items-center gap-[20px]">
-                <p className="text-[96px]">DashMaster</p>
+            <div className="flex flex-col items-center">
+                <p className="text-[80px]">DashMaster</p>
                 <img src={logo} className="w-[500px] h-[500px]" alt="Logo" />
             </div>
             
@@ -47,8 +48,8 @@ export default function Login() {
                         </div>
                     </div>
                     <br/>
-                    <div className="bg-greenie rounded-lg text-white">
-                        <button type="button" className="h-[40px] w-[300px]" onClick={handleLogin}>
+                    <div className="bg-greenie rounded-lg text-white text-[25px]">
+                        <button type="button" className="h-[40px] w-[320px]" onClick={handleLogin}>
                             Login
                         </button>  
                     </div>

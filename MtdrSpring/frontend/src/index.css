@@ -13,7 +13,16 @@ body {
 
 @theme {
   --color-background: #E6EDF2;
-  --color-greenie: #00A884; 
+  --color-greenie: #00A884;
+  --color-whitie: #F5F5FB;
+  --color-greyie: #DFDFE4; 
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
 }
 
 @layer components {
