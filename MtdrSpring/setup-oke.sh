@@ -3,9 +3,9 @@ set -e
 
 # Variables (ajustar según tu configuración)
 CLUSTER_NAME="dashmaster-cluster"
-COMPARTMENT_ID="ocid1.compartment.oc1..your-compartment-id"
+COMPARTMENT_ID="ocid1.compartment.oc1..aaaaaaaa4ui7xgu2vpfwnuh2yvcza5wtsede5c24xlm7fm5uys5m6jdchqcq"
 CLUSTER_SHAPE="VM.Standard.A1.Flex"
-REGION="us-phoenix-1"
+REGION="mx-queretaro-1"
 NODE_POOL_SIZE=2
 VCN_NAME="dashmaster-vcn"
 K8S_VERSION="v1.26.2"
