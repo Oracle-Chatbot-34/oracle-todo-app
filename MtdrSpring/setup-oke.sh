@@ -3,11 +3,12 @@ set -e
 
 # Variables (ajustar según tu configuración)
 CLUSTER_NAME="dashmaster-cluster"
-COMPARTMENT_ID="ocid1.compartment.oc1..aaaaaaaa4ui7xgu2vpfwnuh2yvcza5wtsede5c24xlm7fm5uys5m6jdchqcq"
+COMPARTMENT_ID="ocid1.compartment.oc1..aaaaaaaa6ysydltnc7kqg3vi2mtzmwnqphnnrlz7qt5uc5zdv7lu4ivm4uxq"
 CLUSTER_SHAPE="VM.Standard.A1.Flex"
 REGION="mx-queretaro-1"
 NODE_POOL_SIZE=2
 VCN_NAME="dashmaster-vcn"
+VCN_DNS_LABEL="dashmastervcn"  # Modificado: sin guiones
 K8S_VERSION="v1.26.2"
 
 # Configurar región de OCI CLI
@@ -19,7 +20,7 @@ echo "Creando VCN para el cluster..."
 VCN_OCID=$(oci network vcn create \
   --compartment-id $COMPARTMENT_ID \
   --display-name $VCN_NAME \
-  --dns-label $VCN_NAME \
+  --dns-label $VCN_DNS_LABEL \
   --cidr-block "10.0.0.0/16" \
   --query 'data.id' \
   --raw-output)
@@ -63,6 +64,20 @@ CLUSTER_OCID=$(oci ce cluster create \
   --query 'data.id' \
   --raw-output)
 
+# Obtener el ID de imagen más reciente para Oracle Linux 7
+echo "Obteniendo imagen de Oracle Linux..."
+IMAGE_ID=$(oci compute image list \
+  --compartment-id $COMPARTMENT_ID \
+  --operating-system "Oracle Linux" \
+  --operating-system-version "7.9" \
+  --shape $CLUSTER_SHAPE \
+  --sort-by TIMECREATED \
+  --sort-order DESC \
+  --query 'data[0].id' \
+  --raw-output)
+
+echo "Utilizando imagen: $IMAGE_ID"
+
 echo "Creando node pool..."
 NODE_POOL_OCID=$(oci ce node-pool create \
   --compartment-id $COMPARTMENT_ID \
@@ -70,7 +85,7 @@ NODE_POOL_OCID=$(oci ce node-pool create \
   --name "${CLUSTER_NAME}-pool1" \
   --node-shape $CLUSTER_SHAPE \
   --node-shape-config '{"ocpus": 2, "memory_in_gbs": 12}' \
-  --node-source-details '{"source_type": "IMAGE", "image_id": "ocid1.image.oc1.your-region.latest-oracle-linux-7-image"}' \
+  --node-source-details '{"source_type": "IMAGE", "image_id": "'$IMAGE_ID'"}' \
   --size $NODE_POOL_SIZE \
   --subnet-ids '["'$SUBNET_OCID'"]' \
   --kubernetes-version $K8S_VERSION \
@@ -84,6 +99,8 @@ oci ce cluster create-kubeconfig \
   --file ~/.kube/config \
   --token-version 2.0.0 \
   --kube-endpoint PUBLIC_ENDPOINT
+
+chmod 600 ~/.kube/config
 
 echo "Configuración completa!"
 echo "CLUSTER_ID: $CLUSTER_OCID"

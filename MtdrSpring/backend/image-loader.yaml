@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: image-loader
+spec:
+  selector:
+    matchLabels:
+      app: image-loader
+  template:
+    metadata:
+      labels:
+        app: image-loader
+    spec:
+      initContainers:
+      - name: image-loader
+        image: busybox
+        command: ['sh', '-c', 'echo Loading image on node $(hostname)']
+        volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+      volumes:
+      - name: docker-sock
+        hostPath:
+          path: /var/run/docker.sock
+      containers:
+      - name: pause
+        image: busybox
+        command: ['sh', '-c', 'while true; do sleep 30; done']
