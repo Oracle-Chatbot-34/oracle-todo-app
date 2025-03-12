@@ -15,7 +15,9 @@ body {
   --color-background: #E6EDF2;
   --color-greenie: #00A884;
   --color-whitie: #F5F5FB;
-  --color-greyie: #DFDFE4; 
+  --color-greyie: #DFDFE4;
+  --color-redie: #E63131;
+  --color-whitiish: #E3E3E3; 
 }
 
 @layer base {

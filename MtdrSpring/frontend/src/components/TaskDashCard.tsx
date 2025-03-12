@@ -28,12 +28,37 @@ const TaskDashCard: React.FC<TaskDashCardProps> = ({ id, title, dueDate, assigne
                 </p>
             </div>
 
-            <div className="flex flex-row items-start" style={{ marginLeft: '90px', marginTop: '10px' }}>
-                <p className="text-[16px] italic">
-                    Due date: <span className="font-semibold">{dueDate}</span>
-                </p>
-            </div>
-            
+            <div className="flex flex-col items-start gap-[20px]" style={{ marginLeft: '100px', marginTop: '10px' }}>
+                <div className="flex flex-row items-start">
+                    <p className="text-[16px] italic">
+                        Due date: <span className="font-semibold">{dueDate}</span>
+                    </p>
+                </div>
+                {/* Edit and delete buttons */}
+                <div className="flex flex-row items-start gap-[20px]" style={{ marginLeft: '30px'}}>
+
+                    <div className="bg-whitiish rounded-lg flex flex-row justify-center items-center w-[54px] h-[40px] shadow-lg" style={{ border: '2px #767676 solid'}}>
+                        <button
+                        type="button"
+                        className="w-[54px] h-[40px]"
+                        onClick={handleEdit}
+                        >
+                            <p>Edit</p>
+                        </button>
+
+                    </div>
+                    
+                    <div className="bg-redie rounded-lg flex flex-row justify-center items-center h-[40px] w-[73px] shadow-lg">
+                        <button
+                        type="button"
+                        className="w-[73px] h-[40px]"
+                        onClick={handleDelete}
+                        >
+                            <p className="text-white">Delete</p>
+                        </button>
+                    </div>
+                </div>
+            </div>    
         </div>
     );
 };

@@ -66,16 +66,11 @@ export default function Dashboard() {
                         <TasksTime data={dataLine.data} categories={dataLine.categories}/>
 
                     </div>
-                    {/* Active task */}
-                    <div>
-
-                    </div>
-
                 </div>
                 
             </div>
-            <div className="flex flex-col items-center gap-[30px]">
-                <div className="bg-whitie w-[650px] h-[600px] rounded-lg shadow-xl">
+            <div className="flex flex-col items-center gap-[20px]">
+                <div className="bg-whitie w-[650px] h-[570px] rounded-lg shadow-xl">
                 <br/>
                     <div className="flex flex-row items-center gap-[20px]">
                         <br/>
@@ -107,7 +102,12 @@ export default function Dashboard() {
                         </div>
                     </div>
                 </div>
-                <div className="bg-whitie w-[650px] h-[170px] rounded-lg shadow-xl">
+                <div className="bg-whitie w-[650px] h-[205px] rounded-lg shadow-xl">
+                    {/* Active task */}
+                    <div>
+
+                    </div>
+
 
                 </div>
             </div>
