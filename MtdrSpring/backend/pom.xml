@@ -21,7 +21,7 @@
 		<node.version>v18.19.0</node.version>
 		<npm.version>10.2.3</npm.version>
 		<!-- Skip frontend build by default to focus on backend development -->
-		<maven.frontend.skip>true</maven.frontend.skip>
+		<maven.frontend.skip>false</maven.frontend.skip>
 	</properties>
 	<dependencies>
 		<!-- Spring Boot Core Dependencies -->
