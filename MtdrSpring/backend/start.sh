@@ -20,5 +20,22 @@ echo "Starting DashMaster application with environment from $SCRIPT_DIR/.env"
 echo "Telegram Bot: ${TELEGRAM_BOT_NAME}"
 echo "Oracle Wallet: ${WALLET_LOCATION}"
 
+# Check if the dependencies are installed
+if ! command -v mvn &> /dev/null; then
+    echo "Error: Maven is not installed. Please install Maven to run this script."
+    exit 1
+fi
+
+# check if the dependencies are installed
+if ! command -v npm &> /dev/null; then
+    echo "Error: npm is not installed. Please install npm to run this script."
+    exit 1
+fi
+
+# do a clean package
+echo "Building backend..."
+"$SCRIPT_DIR/mvnw" clean package -DskipTests
+
+
 # Start the application
 "$SCRIPT_DIR/mvnw" spring-boot:run
