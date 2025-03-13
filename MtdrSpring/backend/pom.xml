@@ -18,7 +18,7 @@
 		<java.version>17</java.version>
 		<version.lib.ojdbc>21.1.0.0</version.lib.ojdbc>
 		<frontend-src-dir>${project.basedir}/../frontend</frontend-src-dir>
-		<node.version>v18.19.0</node.version>
+		<node.version>v20.18.1</node.version>
 		<npm.version>10.2.3</npm.version>
 		<!-- Skip frontend build by default to focus on backend development -->
 		<maven.frontend.skip>false</maven.frontend.skip>
