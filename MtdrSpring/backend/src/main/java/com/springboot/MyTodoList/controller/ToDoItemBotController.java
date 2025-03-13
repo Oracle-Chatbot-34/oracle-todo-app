@@ -27,6 +27,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import com.springboot.MyTodoList.model.Sprint;
 import com.springboot.MyTodoList.model.TaskStatus;
+import com.springboot.MyTodoList.model.Team;
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
@@ -1010,13 +1011,19 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     Sprint sprint = new Sprint();
                     sprint.setName(state.getTempSprintName());
                     sprint.setDescription(state.getTempSprintDescription());
-                    sprint.setStartDate(state.getTempSprintStartDate());
-                    sprint.setEndDate(state.getTempSprintEndDate());
-                    sprint.setTeamId(state.getUser().getTeam().getId());
-                    sprint.setActive(true);
+                    sprint.setStartDate(OffsetDateTime.parse(state.getTempSprintStartDate()));
+                    sprint.setEndDate(OffsetDateTime.parse(state.getTempSprintEndDate()));
+                    Team team = state.getUser().getTeam();
+                    if (team == null) {
+                        logger.warn("User with ID {} is not associated with any team", state.getUser().getId());
+                        sendErrorMessage(chatId, "You are not associated with any team. Cannot create sprint.");
+                        return;
+                    }
+                    sprint.setTeam(team);
+                    sprint.setStatus("ACTIVE");
 
                     logger.debug("Creating sprint: name='{}', teamId={}, startDate='{}', endDate='{}'",
-                            sprint.getName(), sprint.getTeamId(), sprint.getStartDate(), sprint.getEndDate());
+                            sprint.getName(), sprint.getTeam() != null ? sprint.getTeam().getId() : "N/A", sprint.getStartDate(), sprint.getEndDate());
 
                     // Save the sprint
                     Sprint savedSprint = sprintService.createSprint(sprint);
@@ -1328,7 +1335,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 if (activeSprint.isPresent()) {
                     // End the sprint
                     logger.info("Ending active sprint ID {} for team ID {}", activeSprint.get().getId(), teamId);
-                    sprintService.endSprint(activeSprint.get().getId());
+                    sprintService.completeSprint(activeSprint.get().getId());
 
                     // Reset state
                     state.setEndSprintMode(false);
