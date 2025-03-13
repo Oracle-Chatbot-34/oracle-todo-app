@@ -803,6 +803,32 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         }
     }
 
+    private void startNewItemCreation(long chatId, UserBotState state) {
+        logger.info("Starting new item creation for chat ID {}", chatId);
+        try {
+            SendMessage messageToTelegram = new SendMessage();
+            messageToTelegram.setChatId(chatId);
+            messageToTelegram.setText(BotMessages.TYPE_NEW_TODO_ITEM.getMessage());
+
+            // Hide keyboard
+            ReplyKeyboardRemove keyboardMarkup = new ReplyKeyboardRemove(true);
+            messageToTelegram.setReplyMarkup(keyboardMarkup);
+
+            // Set state to new task mode AND set the initial stage
+            state.setNewTaskMode(true);
+            state.setTaskCreationStage("DESCRIPTION"); // O el stage que corresponda para un item simple
+            userStates.put(chatId, state);
+            logger.debug("Set state for chat ID {}: newTaskMode=true, stage=DESCRIPTION", chatId);
+
+            // Send message
+            execute(messageToTelegram);
+            logger.info("New item creation prompt sent to chat ID {}", chatId);
+        } catch (Exception e) {
+            logger.error("Error initiating new item creation for chat ID {}", chatId, e);
+            sendErrorMessage(chatId, "Failed to start item creation. Please try again later.");
+        }
+    }
+
     /**
      * Process task creation stages
      */
@@ -812,6 +838,12 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         logger.debug("Task creation input: '{}'", messageText);
         try {
             String stage = state.getTaskCreationStage();
+
+            if (stage == null) {
+                logger.warn("Task creation stage is null for chat ID {}, assuming DESCRIPTION stage", chatId);
+                stage = "DESCRIPTION";
+                state.setTaskCreationStage(stage);
+            }
 
             if ("TITLE".equals(stage)) {
                 // Store title and ask for description
