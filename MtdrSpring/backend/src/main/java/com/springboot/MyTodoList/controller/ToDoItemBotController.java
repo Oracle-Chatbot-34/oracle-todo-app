@@ -838,15 +838,591 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     /**
+     * Start the process of creating a new sprint (only for managers)
+     */
+    private void startSprintCreation(long chatId, UserBotState state) {
+        logger.info("Starting sprint creation process for chat ID {}, user: {}", chatId, state.getUser().getFullName());
+        try {
+            // Check if user is a manager
+            if (!state.getUser().isManager()) {
+                logger.warn("User with ID {} is not a manager, cannot create sprints", state.getUser().getId());
+                sendErrorMessage(chatId, "Only managers can create new sprints.");
+                return;
+            }
+
+            // Set state for sprint creation mode
+            state.setSprintCreationMode(true);
+            state.setSprintCreationStage("NAME");
+            userStates.put(chatId, state);
+            logger.debug("Set user state for chat ID {}: sprintCreationMode=true, sprintCreationStage=NAME", chatId);
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText("Let's create a new Sprint. First, please enter the Sprint name:");
+
+            // Hide keyboard for text input
+            ReplyKeyboardRemove keyboardRemove = new ReplyKeyboardRemove(true);
+            message.setReplyMarkup(keyboardRemove);
+            logger.debug("Created sprint name prompt with keyboard removed");
+
+            execute(message);
+            logger.info("Sprint name prompt sent to chat ID {}", chatId);
+        } catch (Exception e) {
+            logger.error("Error starting sprint creation for chat ID {}", chatId, e);
+            sendErrorMessage(chatId, "There was an error starting sprint creation. Please try again later.");
+        }
+    }
+
+    /**
+     * Process sprint creation stages
+     */
+    private void processSprintCreation(long chatId, String messageText, UserBotState state) {
+        logger.info("Processing sprint creation for chat ID {}, stage: {}",
+                chatId, state.getSprintCreationStage());
+        logger.debug("Sprint creation input: '{}'", messageText);
+        try {
+            String stage = state.getSprintCreationStage();
+
+            if (stage == null) {
+                logger.warn("Sprint creation stage is null for chat ID {}, assuming NAME stage", chatId);
+                stage = "NAME";
+                state.setSprintCreationStage(stage);
+            }
+
+            if ("NAME".equals(stage)) {
+                // Store sprint name and ask for description
+                logger.debug("Storing sprint name: '{}'", messageText);
+                state.setTempSprintName(messageText);
+                state.setSprintCreationStage("DESCRIPTION");
+                logger.debug("Updated stage to DESCRIPTION");
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Great! Now please provide a description for the sprint:");
+                execute(message);
+                logger.info("Description prompt sent to chat ID {}", chatId);
+            } else if ("DESCRIPTION".equals(stage)) {
+                // Store description and ask for start date
+                logger.debug("Storing sprint description: '{}'", messageText);
+                state.setTempSprintDescription(messageText);
+                state.setSprintCreationStage("START_DATE");
+                logger.debug("Updated stage to START_DATE");
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Please enter the start date (YYYY-MM-DD format):");
+                execute(message);
+                logger.info("Start date prompt sent to chat ID {}", chatId);
+            } else if ("START_DATE".equals(stage)) {
+                // Validate and store start date, then ask for end date
+                try {
+                    // Simple date validation
+                    if (!messageText.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                        throw new IllegalArgumentException("Invalid date format");
+                    }
+
+                    logger.debug("Storing sprint start date: '{}'", messageText);
+                    state.setTempSprintStartDate(messageText);
+                    state.setSprintCreationStage("END_DATE");
+                    logger.debug("Updated stage to END_DATE");
+
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please enter the end date (YYYY-MM-DD format):");
+                    execute(message);
+                    logger.info("End date prompt sent to chat ID {}", chatId);
+                } catch (Exception e) {
+                    logger.warn("Invalid date format: '{}'", messageText, e);
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please enter a valid date in YYYY-MM-DD format (e.g., 2025-04-30):");
+                    execute(message);
+                    logger.info("Date format error message sent to chat ID {}", chatId);
+                }
+            } else if ("END_DATE".equals(stage)) {
+                // Validate end date and move to confirmation
+                try {
+                    // Simple date validation
+                    if (!messageText.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                        throw new IllegalArgumentException("Invalid date format");
+                    }
+
+                    // Simple validation to ensure end date is after start date
+                    String startDate = state.getTempSprintStartDate();
+                    if (startDate != null && startDate.compareTo(messageText) >= 0) {
+                        logger.warn("End date must be after start date: start='{}', end='{}'", startDate, messageText);
+                        SendMessage message = new SendMessage();
+                        message.setChatId(chatId);
+                        message.setText("End date must be after the start date. Please enter a valid end date:");
+                        execute(message);
+                        logger.info("End date validation error message sent to chat ID {}", chatId);
+                        return;
+                    }
+
+                    logger.debug("Storing sprint end date: '{}'", messageText);
+                    state.setTempSprintEndDate(messageText);
+                    state.setSprintCreationStage("CONFIRMATION");
+                    logger.debug("Updated stage to CONFIRMATION");
+
+                    StringBuilder summary = new StringBuilder();
+                    summary.append("Please confirm the sprint details:\n\n");
+                    summary.append("Name: ").append(state.getTempSprintName()).append("\n");
+                    summary.append("Description: ").append(state.getTempSprintDescription()).append("\n");
+                    summary.append("Start Date: ").append(state.getTempSprintStartDate()).append("\n");
+                    summary.append("End Date: ").append(state.getTempSprintEndDate()).append("\n\n");
+                    summary.append("Is this correct?");
+                    logger.debug("Sprint confirmation summary: {}", summary.toString());
+
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText(summary.toString());
+
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    keyboardMarkup.setResizeKeyboard(true);
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("Yes, create sprint");
+                    row.add("No, cancel");
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+                    message.setReplyMarkup(keyboardMarkup);
+                    logger.debug("Created confirmation keyboard for chat ID {}", chatId);
+
+                    execute(message);
+                    logger.info("Confirmation prompt sent to chat ID {}", chatId);
+                } catch (Exception e) {
+                    logger.warn("Invalid date format: '{}'", messageText, e);
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Please enter a valid date in YYYY-MM-DD format (e.g., 2025-04-30):");
+                    execute(message);
+                    logger.info("Date format error message sent to chat ID {}", chatId);
+                }
+            } else if ("CONFIRMATION".equals(stage)) {
+                // Handle confirmation response
+                logger.debug("Processing confirmation response: '{}'", messageText);
+                if (messageText.equals("Yes, create sprint")) {
+                    logger.info("User confirmed sprint creation for chat ID {}", chatId);
+
+                    // Create the sprint
+                    Sprint sprint = new Sprint();
+                    sprint.setName(state.getTempSprintName());
+                    sprint.setDescription(state.getTempSprintDescription());
+                    sprint.setStartDate(state.getTempSprintStartDate());
+                    sprint.setEndDate(state.getTempSprintEndDate());
+                    sprint.setTeamId(state.getUser().getTeam().getId());
+                    sprint.setActive(true);
+
+                    logger.debug("Creating sprint: name='{}', teamId={}, startDate='{}', endDate='{}'",
+                            sprint.getName(), sprint.getTeamId(), sprint.getStartDate(), sprint.getEndDate());
+
+                    // Save the sprint
+                    Sprint savedSprint = sprintService.createSprint(sprint);
+                    logger.info("Sprint created successfully with ID {}", savedSprint.getId());
+
+                    // Reset state
+                    state.resetSprintCreation();
+                    logger.debug("Reset sprint creation state for chat ID {}", chatId);
+
+                    // Show success message
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("✅ Sprint created successfully with ID: " + savedSprint.getId());
+
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    keyboardMarkup.setResizeKeyboard(true);
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("📊 Sprint Board");
+                    row.add("🏠 Main Menu");
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+                    message.setReplyMarkup(keyboardMarkup);
+                    logger.debug("Created success keyboard for chat ID {}", chatId);
+
+                    execute(message);
+                    logger.info("Sprint creation success message sent to chat ID {}", chatId);
+                } else {
+                    // Cancel sprint creation
+                    logger.info("User cancelled sprint creation for chat ID {}", chatId);
+                    state.resetSprintCreation();
+                    logger.debug("Reset sprint creation state for chat ID {}", chatId);
+
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("Sprint creation cancelled. What would you like to do next?");
+
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    keyboardMarkup.setResizeKeyboard(true);
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("🆕 Create New Sprint");
+                    row.add("🏠 Main Menu");
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+                    message.setReplyMarkup(keyboardMarkup);
+                    logger.debug("Created cancellation keyboard for chat ID {}", chatId);
+
+                    execute(message);
+                    logger.info("Sprint creation cancellation message sent to chat ID {}", chatId);
+                }
+            }
+
+            // Update user state
+            userStates.put(chatId, state);
+            logger.debug("Updated user state in map for chat ID {}", chatId);
+        } catch (Exception e) {
+            logger.error("Error in sprint creation process for chat ID {}", chatId, e);
+            sendErrorMessage(chatId, "There was an error in the sprint creation process. Please try again.");
+
+            // Reset sprint creation state
+            state.resetSprintCreation();
+            userStates.put(chatId, state);
+            logger.debug("Reset sprint creation state after error for chat ID {}", chatId);
+        }
+    }
+
+    /**
+     * View all sprints for the user's team
+     */
+    private void viewAllSprints(long chatId, UserBotState state) {
+        logger.info("Viewing all sprints for chat ID {}, user: {}", chatId, state.getUser().getFullName());
+        try {
+            // Check if user is in a team
+            Long teamId = state.getUser().getTeam() != null ? state.getUser().getTeam().getId() : null;
+            logger.debug("User team ID: {}", teamId);
+
+            if (teamId == null) {
+                logger.warn("User with ID {} is not associated with any team", state.getUser().getId());
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You are not associated with any team.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+                logger.debug("Created no team keyboard for chat ID {}", chatId);
+
+                execute(message);
+                logger.info("No team message sent to chat ID {}", chatId);
+                return;
+            }
+
+            // Get all sprints for the team
+            logger.debug("Fetching sprints for team ID: {}", teamId);
+            List<Sprint> teamSprints = sprintService.findByTeamId(teamId);
+            logger.debug("Found {} sprints for team", teamSprints.size());
+
+            if (teamSprints.isEmpty()) {
+                logger.info("No sprints found for team ID {}", teamId);
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("There are no sprints for your team yet.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                if (state.getUser().isManager()) {
+                    row.add("🆕 Create New Sprint");
+                }
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+                logger.debug("Created no sprints keyboard for chat ID {}", chatId);
+
+                execute(message);
+                logger.info("No sprints message sent to chat ID {}", chatId);
+                return;
+            }
+
+            // Build sprints list text
+            StringBuilder sprintsText = new StringBuilder();
+            sprintsText.append("Sprints for your team:\n\n");
+
+            for (Sprint sprint : teamSprints) {
+                sprintsText.append("ID: ").append(sprint.getId()).append("\n");
+                sprintsText.append("Name: ").append(sprint.getName()).append("\n");
+                sprintsText.append("Description: ").append(sprint.getDescription()).append("\n");
+                sprintsText.append("Period: ").append(sprint.getStartDate()).append(" to ").append(sprint.getEndDate())
+                        .append("\n");
+                sprintsText.append("Status: ").append(sprint.isActive() ? "🟢 Active" : "⚪ Inactive").append("\n\n");
+                logger.trace("Added sprint to list: ID {}, name: {}, active: {}",
+                        sprint.getId(), sprint.getName(), sprint.isActive());
+            }
+            logger.debug("Sprints list text created with {} sprints", teamSprints.size());
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText(sprintsText.toString());
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("📊 Sprint Board");
+
+            if (state.getUser().isManager()) {
+                row.add("🆕 Create New Sprint");
+            }
+            keyboard.add(row);
+
+            row = new KeyboardRow();
+            if (state.getUser().isManager()) {
+                row.add("⏹️ End Active Sprint");
+            }
+            row.add("🏠 Main Menu");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+            logger.debug("Created sprints list keyboard for chat ID {}", chatId);
+
+            execute(message);
+            logger.info("Sprints list sent to chat ID {}", chatId);
+        } catch (Exception e) {
+            logger.error("Error viewing all sprints for chat ID {}", chatId, e);
+            sendErrorMessage(chatId, "There was an error retrieving the sprints. Please try again later.");
+        }
+    }
+
+    /**
+     * Start the process of ending the active sprint
+     */
+    private void startEndActiveSprint(long chatId, UserBotState state) {
+        logger.info("Starting end active sprint process for chat ID {}, user: {}", chatId,
+                state.getUser().getFullName());
+        try {
+            // Check if user is a manager
+            if (!state.getUser().isManager()) {
+                logger.warn("User with ID {} is not a manager, cannot end sprints", state.getUser().getId());
+                sendErrorMessage(chatId, "Only managers can end sprints.");
+                return;
+            }
+
+            // Check if user is in a team
+            Long teamId = state.getUser().getTeam() != null ? state.getUser().getTeam().getId() : null;
+            logger.debug("User team ID: {}", teamId);
+
+            if (teamId == null) {
+                logger.warn("User with ID {} is not associated with any team", state.getUser().getId());
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You are not associated with any team.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+                logger.debug("Created no team keyboard for chat ID {}", chatId);
+
+                execute(message);
+                logger.info("No team message sent to chat ID {}", chatId);
+                return;
+            }
+
+            // Get the active sprint
+            logger.debug("Fetching active sprint for team ID: {}", teamId);
+            Optional<Sprint> activeSprint = sprintService.findActiveSprintByTeamId(teamId);
+            logger.debug("Active sprint found: {}", activeSprint.isPresent());
+
+            if (!activeSprint.isPresent()) {
+                logger.warn("No active sprint found for team ID {}", teamId);
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("There is no active sprint for your team.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🆕 Create New Sprint");
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+                logger.debug("Created no active sprint keyboard for chat ID {}", chatId);
+
+                execute(message);
+                logger.info("No active sprint message sent to chat ID {}", chatId);
+                return;
+            }
+
+            // Set state for ending active sprint
+            state.setEndSprintMode(true);
+            userStates.put(chatId, state);
+            logger.debug("Set user state for chat ID {}: endSprintMode=true", chatId);
+
+            // Ask for confirmation
+            StringBuilder confirmationText = new StringBuilder();
+            confirmationText.append("Are you sure you want to end the active sprint?\n\n");
+            confirmationText.append("Sprint: ").append(activeSprint.get().getName()).append("\n");
+            confirmationText.append("ID: ").append(activeSprint.get().getId()).append("\n");
+            confirmationText.append("Period: ").append(activeSprint.get().getStartDate()).append(" to ")
+                    .append(activeSprint.get().getEndDate()).append("\n\n");
+            confirmationText.append("This will set the sprint as inactive and cannot be undone.");
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText(confirmationText.toString());
+
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("Yes, end sprint");
+            row.add("No, cancel");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+            logger.debug("Created confirmation keyboard for chat ID {}", chatId);
+
+            execute(message);
+            logger.info("End sprint confirmation prompt sent to chat ID {}", chatId);
+        } catch (Exception e) {
+            logger.error("Error starting end active sprint process for chat ID {}", chatId, e);
+            sendErrorMessage(chatId, "There was an error in the process. Please try again later.");
+        }
+    }
+
+    /**
+     * Process ending active sprint
+     */
+    private void processEndActiveSprint(long chatId, String messageText, UserBotState state) {
+        logger.info("Processing end active sprint for chat ID {}", chatId);
+        logger.debug("Input message: '{}'", messageText);
+        try {
+            if (messageText.equals("Yes, end sprint")) {
+                // Get the active sprint
+                Long teamId = state.getUser().getTeam().getId();
+                logger.debug("Finding active sprint for team ID: {}", teamId);
+
+                Optional<Sprint> activeSprint = sprintService.findActiveSprintByTeamId(teamId);
+                if (activeSprint.isPresent()) {
+                    // End the sprint
+                    logger.info("Ending active sprint ID {} for team ID {}", activeSprint.get().getId(), teamId);
+                    sprintService.endSprint(activeSprint.get().getId());
+
+                    // Reset state
+                    state.setEndSprintMode(false);
+                    userStates.put(chatId, state);
+                    logger.debug("Reset end sprint mode for chat ID {}", chatId);
+
+                    // Send success message
+                    SendMessage message = new SendMessage();
+                    message.setChatId(chatId);
+                    message.setText("✅ Sprint \"" + activeSprint.get().getName() + "\" has been ended successfully.");
+
+                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                    keyboardMarkup.setResizeKeyboard(true);
+                    List<KeyboardRow> keyboard = new ArrayList<>();
+
+                    KeyboardRow row = new KeyboardRow();
+                    row.add("🆕 Create New Sprint");
+                    row.add("🔍 View All Sprints");
+                    keyboard.add(row);
+
+                    row = new KeyboardRow();
+                    row.add("🏠 Main Menu");
+                    keyboard.add(row);
+
+                    keyboardMarkup.setKeyboard(keyboard);
+                    message.setReplyMarkup(keyboardMarkup);
+                    logger.debug("Created success keyboard for chat ID {}", chatId);
+
+                    execute(message);
+                    logger.info("Sprint end success message sent to chat ID {}", chatId);
+                } else {
+                    logger.warn("No active sprint found for team ID {} when trying to end it", teamId);
+                    sendErrorMessage(chatId, "Could not find the active sprint. It may have already been ended.");
+
+                    // Reset state
+                    state.setEndSprintMode(false);
+                    userStates.put(chatId, state);
+                    logger.debug("Reset end sprint mode for chat ID {}", chatId);
+                }
+            } else if (messageText.equals("No, cancel")) {
+                // Cancel ending sprint
+                logger.info("User cancelled ending sprint for chat ID {}", chatId);
+                state.setEndSprintMode(false);
+                userStates.put(chatId, state);
+                logger.debug("Reset end sprint mode for chat ID {}", chatId);
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Sprint end process cancelled.");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("📊 Sprint Board");
+                row.add("🔍 View All Sprints");
+                keyboard.add(row);
+
+                row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+                logger.debug("Created cancellation keyboard for chat ID {}", chatId);
+
+                execute(message);
+                logger.info("Sprint end cancellation message sent to chat ID {}", chatId);
+            } else {
+                logger.warn("Unexpected message in end sprint mode: '{}'", messageText);
+                sendErrorMessage(chatId, "Please select one of the options.");
+            }
+        } catch (Exception e) {
+            logger.error("Error processing end active sprint for chat ID {}", chatId, e);
+            sendErrorMessage(chatId, "There was an error ending the sprint. Please try again later.");
+
+            // Reset state on error
+            state.setEndSprintMode(false);
+            userStates.put(chatId, state);
+            logger.debug("Reset end sprint mode for chat ID {} after error", chatId);
+        }
+    }
+
+    /**
      * Process task creation stages
      */
     private void processTaskCreation(long chatId, String messageText, UserBotState state) {
-        logger.info("Processing task creation for chat ID {}, stage: {}", 
+        logger.info("Processing task creation for chat ID {}, stage: {}",
                 chatId, state.getTaskCreationStage());
         logger.debug("Task creation input: '{}'", messageText);
         try {
             String stage = state.getTaskCreationStage();
-            
+
             if (stage == null) {
                 logger.warn("Task creation stage is null for chat ID {}, assuming TITLE stage", chatId);
                 stage = "TITLE";
@@ -894,8 +1470,8 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                         // Fetch team members
                         List<User> teamMembers = userService.findByTeamId(state.getUser().getTeam().getId());
-                        logger.debug("Found {} team members for team ID {}", 
-                            teamMembers.size(), state.getUser().getTeam().getId());
+                        logger.debug("Found {} team members for team ID {}",
+                                teamMembers.size(), state.getUser().getTeam().getId());
 
                         SendMessage message = new SendMessage();
                         message.setChatId(chatId);
@@ -971,7 +1547,8 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 } else {
                     // Extract ID from "Name (ID: X)"
                     try {
-                        String idPart = messageText.substring(messageText.indexOf("ID: ") + 4, messageText.length() - 1);
+                        String idPart = messageText.substring(messageText.indexOf("ID: ") + 4,
+                                messageText.length() - 1);
                         assigneeId = Long.parseLong(idPart);
                         logger.debug("Extracted assignee ID from selection: {}", assigneeId);
                     } catch (Exception e) {
