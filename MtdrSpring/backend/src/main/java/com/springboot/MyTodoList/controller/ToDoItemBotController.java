@@ -647,15 +647,15 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     // GET /todolist
-    public List<ToDoItem> getAllToDoItems() {
-        logger.info("Fetching all todo items");
+    public List<ToDoItem> getAllToDoItems(Long userId) {
+        logger.info("Fetching todo items for user ID: {}", userId);
         try {
-            List<ToDoItem> items = toDoItemService.findAll();
-            logger.info("Successfully fetched {} todo items", items.size());
+            List<ToDoItem> items = toDoItemService.findByAssigneeId(userId);
+            logger.info("Successfully fetched {} todo items for user", items.size());
             return items;
         } catch (Exception e) {
-            logger.error("Error fetching all todo items", e);
-            return new ArrayList<>(); // Return empty list instead of null
+            logger.error("Error fetching todo items for user: {}", userId, e);
+            return new ArrayList<>();
         }
     }
 
@@ -841,15 +841,15 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
      * Process task creation stages
      */
     private void processTaskCreation(long chatId, String messageText, UserBotState state) {
-        logger.info("Processing task creation for chat ID {}, stage: {}",
+        logger.info("Processing task creation for chat ID {}, stage: {}", 
                 chatId, state.getTaskCreationStage());
         logger.debug("Task creation input: '{}'", messageText);
         try {
             String stage = state.getTaskCreationStage();
-
+            
             if (stage == null) {
-                logger.warn("Task creation stage is null for chat ID {}, assuming DESCRIPTION stage", chatId);
-                stage = "DESCRIPTION";
+                logger.warn("Task creation stage is null for chat ID {}, assuming TITLE stage", chatId);
+                stage = "TITLE";
                 state.setTaskCreationStage(stage);
             }
 
@@ -878,70 +878,136 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 execute(message);
                 logger.info("Estimated hours prompt sent to chat ID {}", chatId);
             } else if ("ESTIMATED_HOURS".equals(stage)) {
-                // Validate and store estimated hours
+                // Validate estimated hours
                 try {
-                    logger.debug("Parsing estimated hours from input: '{}'", messageText);
                     double estimatedHours = Double.parseDouble(messageText);
-                    logger.debug("Parsed estimated hours: {}", estimatedHours);
-
-                    if (estimatedHours <= 0) {
-                        logger.warn("Invalid estimated hours (<=0) entered: {}", estimatedHours);
-                        SendMessage message = new SendMessage();
-                        message.setChatId(chatId);
-                        message.setText("Estimated hours must be greater than 0. Please enter a valid number:");
-                        execute(message);
-                        logger.info("Validation error message sent for estimated hours to chat ID {}", chatId);
-                        return;
+                    if (estimatedHours <= 0 || estimatedHours > 4) {
+                        throw new IllegalArgumentException("Estimated hours must be between 0 and 4.");
                     }
-
-                    if (estimatedHours > 4.0) {
-                        logger.warn("Excessive estimated hours entered: {}", estimatedHours);
-                        SendMessage message = new SendMessage();
-                        message.setChatId(chatId);
-                        message.setText(
-                                "Tasks cannot exceed 4 hours of estimated work. Please break it down into smaller subtasks. Enter a value of 4.0 or less:");
-                        execute(message);
-                        logger.info("Validation error message sent for excessive hours to chat ID {}", chatId);
-                        return;
-                    }
-
-                    // Store estimated hours and ask for priority
                     state.setTempEstimatedHours(estimatedHours);
-                    state.setTaskCreationStage("PRIORITY");
-                    logger.debug("Updated stage to PRIORITY, stored estimated hours: {}", estimatedHours);
+                    logger.debug("Stored estimated hours: {}", estimatedHours);
 
-                    // Create keyboard for priority selection
+                    if (state.getUser().isManager()) {
+                        // Managers can assign tasks to others
+                        state.setTaskCreationStage("ASSIGNEE");
+                        logger.debug("Updated stage to ASSIGNEE");
+
+                        // Fetch team members
+                        List<User> teamMembers = userService.findByTeamId(state.getUser().getTeam().getId());
+                        logger.debug("Found {} team members for team ID {}", 
+                            teamMembers.size(), state.getUser().getTeam().getId());
+
+                        SendMessage message = new SendMessage();
+                        message.setChatId(chatId);
+                        message.setText("Please select who to assign this task to:");
+
+                        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                        keyboardMarkup.setResizeKeyboard(true);
+                        List<KeyboardRow> keyboard = new ArrayList<>();
+
+                        // Add manager (self-assignment)
+                        KeyboardRow selfRow = new KeyboardRow();
+                        selfRow.add("Me (" + state.getUser().getFullName() + ")");
+                        keyboard.add(selfRow);
+
+                        // Add all team members
+                        for (User member : teamMembers) {
+                            if (!member.getId().equals(state.getUser().getId())) {
+                                KeyboardRow row = new KeyboardRow();
+                                row.add(member.getFullName() + " (ID: " + member.getId() + ")");
+                                keyboard.add(row);
+                                logger.trace("Added team member to keyboard: {}", member.getFullName());
+                            }
+                        }
+
+                        keyboardMarkup.setKeyboard(keyboard);
+                        message.setReplyMarkup(keyboardMarkup);
+                        logger.debug("Created assignee selection keyboard with {} options", keyboard.size());
+
+                        execute(message);
+                        logger.info("Assignee selection prompt sent to chat ID {}", chatId);
+                    } else {
+                        // Developers assign tasks to themselves, skip to priority
+                        state.setTaskCreationStage("PRIORITY");
+                        logger.debug("Developer user, skipping ASSIGNEE stage and updating to PRIORITY");
+
+                        SendMessage message = new SendMessage();
+                        message.setChatId(chatId);
+                        message.setText("Please select the priority for this task:");
+
+                        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                        keyboardMarkup.setResizeKeyboard(true);
+                        List<KeyboardRow> keyboard = new ArrayList<>();
+
+                        KeyboardRow row = new KeyboardRow();
+                        row.add("High");
+                        row.add("Medium");
+                        row.add("Low");
+                        keyboard.add(row);
+
+                        keyboardMarkup.setKeyboard(keyboard);
+                        message.setReplyMarkup(keyboardMarkup);
+
+                        execute(message);
+                        logger.info("Priority selection prompt sent to chat ID {}", chatId);
+                    }
+                } catch (NumberFormatException | IllegalArgumentException e) {
+                    logger.warn("Invalid estimated hours entered: '{}'", messageText, e);
                     SendMessage message = new SendMessage();
                     message.setChatId(chatId);
-                    message.setText("Please select the priority for this task:");
-
-                    ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-                    keyboardMarkup.setResizeKeyboard(true);
-                    List<KeyboardRow> keyboard = new ArrayList<>();
-
-                    KeyboardRow row = new KeyboardRow();
-                    row.add("High");
-                    row.add("Medium");
-                    row.add("Low");
-                    keyboard.add(row);
-
-                    keyboardMarkup.setKeyboard(keyboard);
-                    message.setReplyMarkup(keyboardMarkup);
-                    logger.debug("Created priority selection keyboard for chat ID {}", chatId);
-
+                    message.setText("Please enter a valid number for estimated hours (between 0 and 4):");
                     execute(message);
-                    logger.info("Priority selection prompt sent to chat ID {}", chatId);
-                } catch (NumberFormatException e) {
-                    logger.warn("Invalid estimated hours format entered: '{}'", messageText, e);
-                    SendMessage message = new SendMessage();
-                    message.setChatId(chatId);
-                    message.setText("Please enter a valid number for estimated hours:");
-                    execute(message);
-                    logger.info("Format error message sent for estimated hours to chat ID {}", chatId);
+                    logger.info("Validation error message sent for estimated hours to chat ID {}", chatId);
                 }
+            } else if ("ASSIGNEE".equals(stage)) {
+                // Process assignee selection
+                logger.debug("Processing assignee selection: '{}'", messageText);
+
+                Long assigneeId;
+                if (messageText.startsWith("Me (")) {
+                    // Self-assignment
+                    assigneeId = state.getUser().getId();
+                    logger.debug("Self-assignment selected, assignee ID: {}", assigneeId);
+                } else {
+                    // Extract ID from "Name (ID: X)"
+                    try {
+                        String idPart = messageText.substring(messageText.indexOf("ID: ") + 4, messageText.length() - 1);
+                        assigneeId = Long.parseLong(idPart);
+                        logger.debug("Extracted assignee ID from selection: {}", assigneeId);
+                    } catch (Exception e) {
+                        logger.warn("Error parsing assignee ID from: '{}'", messageText, e);
+                        sendErrorMessage(chatId, "Invalid selection. Please select a valid assignee.");
+                        return;
+                    }
+                }
+
+                // Store assignee ID and move to priority
+                state.setTempAssigneeId(assigneeId);
+                state.setTaskCreationStage("PRIORITY");
+                logger.debug("Updated stage to PRIORITY, stored assignee ID: {}", assigneeId);
+
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("Please select the priority for this task:");
+
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("High");
+                row.add("Medium");
+                row.add("Low");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                execute(message);
+                logger.info("Priority selection prompt sent to chat ID {}", chatId);
             } else if ("PRIORITY".equals(stage)) {
-                // Validate priority
-                logger.debug("Validating priority selection: '{}'", messageText);
+                // Process priority selection
+                logger.debug("Processing priority selection: '{}'", messageText);
                 if (!messageText.equals("High") && !messageText.equals("Medium") && !messageText.equals("Low")) {
                     logger.warn("Invalid priority entered: '{}'", messageText);
                     SendMessage message = new SendMessage();
@@ -952,7 +1018,6 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     return;
                 }
 
-                // Store priority and ask for confirmation
                 state.setTempPriority(messageText);
                 state.setTaskCreationStage("CONFIRMATION");
                 logger.debug("Updated stage to CONFIRMATION, stored priority: {}", messageText);
@@ -962,8 +1027,19 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 summary.append("Title: ").append(state.getTempTaskTitle()).append("\n");
                 summary.append("Description: ").append(state.getTempTaskDescription()).append("\n");
                 summary.append("Estimated Hours: ").append(state.getTempEstimatedHours()).append("\n");
-                summary.append("Priority: ").append(state.getTempPriority()).append("\n\n");
-                summary.append("Is this correct?");
+                summary.append("Priority: ").append(state.getTempPriority()).append("\n");
+
+                // Add assignee information
+                if (state.getTempAssigneeId() != null) {
+                    Optional<User> assignee = userService.findById(state.getTempAssigneeId());
+                    if (assignee.isPresent()) {
+                        summary.append("Assignee: ").append(assignee.get().getFullName()).append("\n");
+                    }
+                } else {
+                    summary.append("Assignee: ").append(state.getUser().getFullName()).append(" (you)\n");
+                }
+
+                summary.append("\nIs this correct?");
                 logger.debug("Task confirmation summary: {}", summary.toString());
 
                 SendMessage message = new SendMessage();
@@ -981,14 +1057,11 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                 keyboardMarkup.setKeyboard(keyboard);
                 message.setReplyMarkup(keyboardMarkup);
-                logger.debug("Created confirmation keyboard for chat ID {}", chatId);
 
                 execute(message);
                 logger.info("Confirmation prompt sent to chat ID {}", chatId);
             } else if ("CONFIRMATION".equals(stage)) {
-                logger.debug("Processing confirmation response: '{}'", messageText);
                 if (messageText.equals("Yes, create task")) {
-                    logger.info("User confirmed task creation for chat ID {}", chatId);
                     // Create the task
                     ToDoItem task = new ToDoItem();
                     task.setTitle(state.getTempTaskTitle());
@@ -996,32 +1069,23 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     task.setEstimatedHours(state.getTempEstimatedHours());
                     task.setPriority(state.getTempPriority());
                     task.setCreation_ts(OffsetDateTime.now());
-                    task.setAssigneeId(state.getUser().getId());
-                    logger.debug(
-                            "Created task object: title={}, description={}, estimatedHours={}, priority={}, assigneeId={}",
-                            task.getTitle(), task.getDescription(), task.getEstimatedHours(), task.getPriority(),
-                            task.getAssigneeId());
 
-                    // If user is in a team, set the team ID
-                    if (state.getUser().getTeam() != null) {
-                        logger.debug("Setting team ID {} for new task", state.getUser().getTeam().getId());
-                        task.setTeamId(state.getUser().getTeam().getId());
+                    // Set assignee (from temp state or current user)
+                    if (state.getTempAssigneeId() != null) {
+                        task.setAssigneeId(state.getTempAssigneeId());
+                        logger.debug("Setting assignee from temp state: {}", state.getTempAssigneeId());
+                    } else {
+                        task.setAssigneeId(state.getUser().getId());
+                        logger.debug("Setting current user as assignee: {}", state.getUser().getId());
                     }
 
-                    task.setStatus(TaskStatus.BACKLOG.name());
-                    task.setDone(false);
-                    logger.debug("Task status set to BACKLOG, done=false");
-
-                    // Save the task
-                    logger.debug("Saving task to database");
-                    ToDoItem savedTask = toDoItemService.addTaskWithEstimation(task);
+                    ToDoItem savedTask = toDoItemService.addToDoItem(task);
                     logger.info("Task created successfully with ID: {}", savedTask.getID());
 
                     // Reset state
                     state.resetTaskCreation();
                     logger.debug("Reset task creation state for chat ID {}", chatId);
 
-                    // Show success message
                     SendMessage message = new SendMessage();
                     message.setChatId(chatId);
                     message.setText("✅ Task created successfully with ID: " + savedTask.getID());
@@ -1037,7 +1101,6 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                     keyboardMarkup.setKeyboard(keyboard);
                     message.setReplyMarkup(keyboardMarkup);
-                    logger.debug("Created success keyboard for chat ID {}", chatId);
 
                     execute(message);
                     logger.info("Task creation success message sent to chat ID {}", chatId);
@@ -1062,7 +1125,6 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                     keyboardMarkup.setKeyboard(keyboard);
                     message.setReplyMarkup(keyboardMarkup);
-                    logger.debug("Created cancellation keyboard for chat ID {}", chatId);
 
                     execute(message);
                     logger.info("Task creation cancellation message sent to chat ID {}", chatId);
