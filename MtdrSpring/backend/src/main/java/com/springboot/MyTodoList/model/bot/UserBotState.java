@@ -19,6 +19,7 @@ public class UserBotState {
     private String tempTaskDescription = null;
     private Double tempEstimatedHours = null;
     private String tempPriority = null;
+    private Long tempAssigneeId = null; // New field for temporary assignee ID
 
     // Task completion state
     private boolean taskCompletionMode = false;
@@ -64,6 +65,7 @@ public class UserBotState {
         this.tempTaskDescription = null;
         this.tempEstimatedHours = null;
         this.tempPriority = null;
+        this.tempAssigneeId = null; // Reset tempAssigneeId
     }
 
     /**
@@ -94,6 +96,14 @@ public class UserBotState {
     }
 
     // Getters and setters for all fields
+
+    public Long getTempAssigneeId() {
+        return tempAssigneeId;
+    }
+
+    public void setTempAssigneeId(Long tempAssigneeId) {
+        this.tempAssigneeId = tempAssigneeId;
+    }
 
     public boolean isAuthenticated() {
         return authenticated;
