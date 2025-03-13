@@ -416,21 +416,29 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         || messageText.equals(BotLabels.ADD_NEW_ITEM.getLabel())) {
                     logger.info("Processing 'add item' command for chat ID {}", chatId);
                     try {
-                        SendMessage messageToTelegram = new SendMessage();
-                        messageToTelegram.setChatId(chatId);
-                        messageToTelegram.setText(BotMessages.TYPE_NEW_TODO_ITEM.getMessage());
-                        // hide keyboard
-                        ReplyKeyboardRemove keyboardMarkup = new ReplyKeyboardRemove(true);
-                        messageToTelegram.setReplyMarkup(keyboardMarkup);
+                        // Esto es lo importante: distinguir entre usuarios normales (flujo simple) y
+                        // desarrolladores (flujo completo)
+                        if (state.getUser().isDeveloper() || state.getUser().isManager()) {
+                            // Flujo completo para desarrolladores/managers
+                            startTaskCreation(chatId, state);
+                        } else {
+                            // Flujo simple para usuarios normales
+                            SendMessage messageToTelegram = new SendMessage();
+                            messageToTelegram.setChatId(chatId);
+                            messageToTelegram.setText(BotMessages.TYPE_NEW_TODO_ITEM.getMessage());
 
-                        // Set state to new task mode
-                        logger.debug("Setting new task mode for chat ID {}", chatId);
-                        state.setNewTaskMode(true);
-                        userStates.put(chatId, state);
+                            // Ocultar teclado
+                            ReplyKeyboardRemove keyboardMarkup = new ReplyKeyboardRemove(true);
+                            messageToTelegram.setReplyMarkup(keyboardMarkup);
 
-                        // send message
-                        execute(messageToTelegram);
-                        logger.info("Add item prompt sent successfully to chat ID {}", chatId);
+                            state.setNewTaskMode(true);
+                            state.setTaskCreationStage("SIMPLE"); // Indicar un flujo simple
+                            userStates.put(chatId, state);
+                            logger.debug("Set state for chat ID {}: newTaskMode=true, stage=SIMPLE", chatId);
+
+                            execute(messageToTelegram);
+                            logger.info("Add item prompt sent successfully to chat ID {}", chatId);
+                        }
                     } catch (Exception e) {
                         logger.error("Error initiating new task creation for chat ID {}", chatId, e);
                         sendErrorMessage(chatId, "Failed to start task creation. Please try again later.");
