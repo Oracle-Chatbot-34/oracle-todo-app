@@ -339,7 +339,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         || messageText.equals(BotLabels.MY_TODO_LIST.getLabel())) {
                     logger.info("Processing 'list items' command for chat ID {}", chatId);
                     try {
-                        List<ToDoItem> allItems = getAllToDoItems();
+                        List<ToDoItem> allItems = getAllToDoItems(state.getUser().getId());
                         logger.debug("Retrieved {} items for chat ID {}", (allItems != null ? allItems.size() : 0),
                                 chatId);
 
@@ -951,7 +951,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         execute(message);
                         logger.info("Priority selection prompt sent to chat ID {}", chatId);
                     }
-                } catch (NumberFormatException | IllegalArgumentException e) {
+                } catch (IllegalArgumentException e) {
                     logger.warn("Invalid estimated hours entered: '{}'", messageText, e);
                     SendMessage message = new SendMessage();
                     message.setChatId(chatId);
