@@ -19,7 +19,18 @@ public class UserBotState {
     private String tempTaskDescription = null;
     private Double tempEstimatedHours = null;
     private String tempPriority = null;
-    private Long tempAssigneeId = null; // New field for temporary assignee ID
+    private Long tempAssigneeId = null;
+
+    // Sprint creation state
+    private boolean sprintCreationMode = false;
+    private String sprintCreationStage = null;
+    private String tempSprintName = null;
+    private String tempSprintDescription = null;
+    private String tempSprintStartDate = null;
+    private String tempSprintEndDate = null;
+
+    // End sprint state
+    private boolean endSprintMode = false;
 
     // Task completion state
     private boolean taskCompletionMode = false;
@@ -51,6 +62,8 @@ public class UserBotState {
         resetTaskCompletion();
         resetAssignToSprint();
         resetStartTaskWork();
+        resetSprintCreation();
+        this.endSprintMode = false;
         this.viewingTaskMode = false;
         this.currentTaskId = null;
     }
@@ -65,7 +78,19 @@ public class UserBotState {
         this.tempTaskDescription = null;
         this.tempEstimatedHours = null;
         this.tempPriority = null;
-        this.tempAssigneeId = null; // Reset tempAssigneeId
+        this.tempAssigneeId = null;
+    }
+
+    /**
+     * Reset sprint creation state
+     */
+    public void resetSprintCreation() {
+        this.sprintCreationMode = false;
+        this.sprintCreationStage = null;
+        this.tempSprintName = null;
+        this.tempSprintDescription = null;
+        this.tempSprintStartDate = null;
+        this.tempSprintEndDate = null;
     }
 
     /**
@@ -96,6 +121,81 @@ public class UserBotState {
     }
 
     // Getters and setters for all fields
+
+    public boolean isSprintCreationMode() {
+        return sprintCreationMode;
+    }
+
+    public void setSprintCreationMode(boolean sprintCreationMode) {
+        this.sprintCreationMode = sprintCreationMode;
+        if (sprintCreationMode) {
+            this.newTaskMode = false;
+            this.taskCompletionMode = false;
+            this.assignToSprintMode = false;
+            this.startTaskWorkMode = false;
+            this.viewingTaskMode = false;
+            this.endSprintMode = false;
+        }
+    }
+
+    public String getSprintCreationStage() {
+        return sprintCreationStage;
+    }
+
+    public void setSprintCreationStage(String sprintCreationStage) {
+        this.sprintCreationStage = sprintCreationStage;
+        if (sprintCreationStage != null) {
+            this.sprintCreationMode = true;
+        }
+    }
+
+    public String getTempSprintName() {
+        return tempSprintName;
+    }
+
+    public void setTempSprintName(String tempSprintName) {
+        this.tempSprintName = tempSprintName;
+    }
+
+    public String getTempSprintDescription() {
+        return tempSprintDescription;
+    }
+
+    public void setTempSprintDescription(String tempSprintDescription) {
+        this.tempSprintDescription = tempSprintDescription;
+    }
+
+    public String getTempSprintStartDate() {
+        return tempSprintStartDate;
+    }
+
+    public void setTempSprintStartDate(String tempSprintStartDate) {
+        this.tempSprintStartDate = tempSprintStartDate;
+    }
+
+    public String getTempSprintEndDate() {
+        return tempSprintEndDate;
+    }
+
+    public void setTempSprintEndDate(String tempSprintEndDate) {
+        this.tempSprintEndDate = tempSprintEndDate;
+    }
+
+    public boolean isEndSprintMode() {
+        return endSprintMode;
+    }
+
+    public void setEndSprintMode(boolean endSprintMode) {
+        this.endSprintMode = endSprintMode;
+        if (endSprintMode) {
+            this.newTaskMode = false;
+            this.taskCompletionMode = false;
+            this.assignToSprintMode = false;
+            this.startTaskWorkMode = false;
+            this.viewingTaskMode = false;
+            this.sprintCreationMode = false;
+        }
+    }
 
     public Long getTempAssigneeId() {
         return tempAssigneeId;
