@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: dashmaster
   namespace: default
+  labels:
+    app: dashmaster
 spec:
   replicas: 2
   selector:
@@ -15,27 +17,79 @@ spec:
     spec:
       containers:
       - name: dashmaster
-        image: nginx:alpine
+        image: ${DOCKER_REGISTRY}/dashmaster:latest
+        imagePullPolicy: Always
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+          name: http
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=/app/wallet"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: db-username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: db-password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: jwt-secret
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: telegram-bot-token
+        - name: TELEGRAM_BOT_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: telegram-bot-name
         volumeMounts:
-        - name: nginx-config
-          mountPath: /usr/share/nginx/html/index.html
-          subPath: index.html
+        - name: wallet-volume
+          mountPath: /app/wallet
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
       volumes:
-      - name: nginx-config
-        configMap:
-          name: nginx-config
+      - name: wallet-volume
+        secret:
+          secretName: oracle-wallet
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: dashmaster-service
   namespace: default
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "lb"
 spec:
   type: LoadBalancer
   ports:
   - port: 80
-    targetPort: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
   selector:
     app: dashmaster

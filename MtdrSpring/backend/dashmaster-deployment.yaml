@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: dashmaster
   namespace: default
+  labels:
+    app: dashmaster
 spec:
   replicas: 2
   selector:
@@ -15,10 +17,11 @@ spec:
     spec:
       containers:
       - name: dashmaster
-        image: dashmaster:latest
-        imagePullPolicy: IfNotPresent
+        image: ${DOCKER_REGISTRY}/dashmaster:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
+          name: http
         env:
         - name: SPRING_DATASOURCE_URL
           value: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=/app/wallet"
@@ -50,6 +53,25 @@ spec:
         volumeMounts:
         - name: wallet-volume
           mountPath: /app/wallet
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
       volumes:
       - name: wallet-volume
         secret:
@@ -60,10 +82,14 @@ kind: Service
 metadata:
   name: dashmaster-service
   namespace: default
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "lb"
 spec:
   type: LoadBalancer
   ports:
   - port: 80
     targetPort: 8080
+    protocol: TCP
+    name: http
   selector:
     app: dashmaster

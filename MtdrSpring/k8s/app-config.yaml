@@ -4,5 +4,5 @@ metadata:
   name: app-config
 data:
   SPRING_PROFILES_ACTIVE: "production"
-  OCI_REGION: "us-phoenix-1"
+  OCI_REGION: "mx-queretaro-1"
   DB_SERVICE_NAME: "javadev_high"

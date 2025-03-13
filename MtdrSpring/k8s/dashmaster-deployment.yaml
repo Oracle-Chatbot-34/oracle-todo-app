@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dashmaster
+  namespace: default
   labels:
     app: dashmaster
 spec:
@@ -17,11 +18,13 @@ spec:
       containers:
       - name: dashmaster
         image: ${DOCKER_REGISTRY}/dashmaster:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
+          name: http
         env:
         - name: SPRING_DATASOURCE_URL
-          value: "jdbc:oracle:thin:@$(DB_SERVICE_NAME)?TNS_ADMIN=/app/wallet"
+          value: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=/app/wallet"
         - name: SPRING_DATASOURCE_USERNAME
           valueFrom:
             secretKeyRef:
@@ -47,11 +50,6 @@ spec:
             secretKeyRef:
               name: db-credentials
               key: telegram-bot-name
-        - name: OCI_REGION
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: OCI_REGION
         volumeMounts:
         - name: wallet-volume
           mountPath: /app/wallet
@@ -65,9 +63,15 @@ spec:
         livenessProbe:
           httpGet:
             path: /actuator/health
-            port: 8080
+            port: http
           initialDelaySeconds: 60
           periodSeconds: 15
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
       volumes:
       - name: wallet-volume
         secret:
@@ -77,6 +81,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dashmaster-service
+  namespace: default
   annotations:
     oci.oraclecloud.com/load-balancer-type: "lb"
 spec:
@@ -84,5 +89,7 @@ spec:
   ports:
   - port: 80
     targetPort: 8080
+    protocol: TCP
+    name: http
   selector:
     app: dashmaster
