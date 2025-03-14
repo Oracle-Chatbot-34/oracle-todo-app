@@ -10,8 +10,9 @@ const App = () => {
   const location = useLocation();
   const hideNavRoutes = ['/login'];
 
+
   return (
-    <div className='flex flex-col w-screen max-h-screen h-screen bg-green-500'>
+    <div className="flex flex-col w-screen max-h-screen h-screen bg-green-500">
       {!hideNavRoutes.includes(location.pathname) && <NavBar />}
       <Routes>
         <Route path="/login" element={<Login />} />
