@@ -12,7 +12,7 @@ const App = () => {
 
 
   return (
-    <div className="flex flex-col w-screen max-h-screen h-screen bg-green-500">
+    <div className="flex flex-col w-screen max-h-screen h-screen ">
       {!hideNavRoutes.includes(location.pathname) && <NavBar />}
       <Routes>
         <Route path="/login" element={<Login />} />

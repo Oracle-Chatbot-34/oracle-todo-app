@@ -32,7 +32,7 @@ export default function Reports() {
   };
 
   return (
-    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center">
+    <div className="bg-background  w-full p-6 lg:px-10 py-10 flex items-start justify-center">
       <div className="flex flex-col lg:flex-row p-6 lg:p-10 gap-y-6 bg-whitie w-full h-full rounded-lg shadow-xl">
         <div className="flex flex-col gap-4 justify-center items-start w-full h-fit mx-2">
           {/* Title */}
