@@ -15,18 +15,33 @@ const Navbar = () => {
   }, [locationText]);
 
   return (
-    <nav className="flex flex-row bg-background h-20 items-center justify-between px-10 shadow-md z-50">
+    <nav className="flex flex-row bg-background shrink-0 min-h-16 items-center justify-between px-10 shadow-md z-50">
       {/* Logo and Title */}
       <div className="flex flex-row items-center gap-[10px]">
-        <img src={logo} className="w-[70px] h-[50px]" alt="Logo" />
+        <img src={logo} className="h-14 aspect-square" alt="Logo" />
         <div />
-        <p className="text-[36px] font-semibold ml-2">DashMaster</p>
+        <a href="/" className="text-[36px] font-semibold ml-2">
+          DashMaster
+        </a>
       </div>
 
       {/* Navigation Menu */}
       <div className="flex flex-row items-center justify-start">
         <ul className="flex font-light text-[24px]">
-          {['Home', 'Reports', 'Tasks'].map((item) => (
+          <Link to="/">
+            <li
+              onClick={() => setActive('Home')}
+              style={{ paddingLeft: '3rem', paddingRight: '3rem' }}
+              className={`cursor-pointer relative after:absolute after:bottom-0 after:left-1/2 after:transform after:-translate-x-1/2 after:h-[2px] after:bg-black after:transition-all after:duration-100 ${
+                active === 'Home'
+                  ? 'after:w-[50px] font-semibold'
+                  : 'after:w-0 hover:after:w-full'
+              }`}
+            >
+              Home
+            </li>
+          </Link>
+          {['Reports', 'Tasks'].map((item) => (
             <Link to={`/${item.toLowerCase()}`} key={item}>
               <li
                 onClick={() => setActive(item)}
@@ -46,7 +61,7 @@ const Navbar = () => {
 
       <div className="flex flex-row items-center gap-[370px]">
         <div />
-        <img src={logo} className="w-[70px] h-[50px]" alt="Logo" />
+        <img src={logo} className="h-14 aspect-square" alt="Logo" />
       </div>
     </nav>
   );
