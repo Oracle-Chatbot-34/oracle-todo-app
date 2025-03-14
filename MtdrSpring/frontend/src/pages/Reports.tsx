@@ -2,6 +2,8 @@ import { useState } from "react";
 import { HiSparkles } from "react-icons/hi2";
 import StatusSelections from "../components/StatusSelections";
 import ScopeSelection from "../components/ScopeSelection";
+import { DateRange } from '@mui/x-date-pickers-pro';
+import { Dayjs } from 'dayjs';
 import DatePickerRange from "../components/DatePickerRange";
 
 type ScopeType = 'individual' | 'all-group';
@@ -20,12 +22,16 @@ export default function Reports() {
     const [selectAllTasksType, setselectAllTasksType] = useState(false);
 
     {/* State for the date picker range */}
+    const [dateRange, setDateRange] = useState<DateRange<Dayjs>>([null, null]);
+
 
     const handleGenerateReport = () => {
         console.log("Generating report with scope", scope, "and selected member", selectedMember);
 
         console.log("Selected task options:", selectedTaskOptions);
         console.log("Did they selected all tasks type?", selectAllTasksType);
+
+        console.log("Selected date range:", dateRange);
     };
 
     return (
@@ -46,7 +52,7 @@ export default function Reports() {
                     <div className="flex flex-col items-start w-[450px] gap-[35px]" style={{ marginLeft: '50px' }} >
                         <ScopeSelection scopeProp={scope} setScopeProp={setScope} selectedMemberProp={selectedMember} setSelectedMemberProp={setSelectedMember}/>
                         <StatusSelections selectedTaskOptions={selectedTaskOptions} setselectedTaskOptions={setselectedTaskOptions} selectAllTasksType={selectAllTasksType} setselectAllTasksType={setselectAllTasksType}/>
-                        <DatePickerRange />
+                        <DatePickerRange dateRangeProp={dateRange} setDateRangeProp={setDateRange}/>
                     </div>
 
                     <button

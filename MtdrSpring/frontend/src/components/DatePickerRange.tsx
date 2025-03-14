@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateRangePicker } from '@mui/x-date-pickers-pro/DateRangePicker';
@@ -7,19 +6,17 @@ import { DemoContainer } from '@mui/x-date-pickers/internals/demo';
 import { DateRange } from '@mui/x-date-pickers-pro';
 import { Dayjs } from 'dayjs';
 
-interface MyDateRangePickerProps {
-  dateRange?: DateRange<Dayjs>;
-  setDateRange?: (dateRange: DateRange<Dayjs>) => void;
+interface Props {
+  dateRangeProp: DateRange<Dayjs>;
+  setDateRangeProp: (dateRange: DateRange<Dayjs>) => void;
 }
 
-const MyDateRangePicker: React.FC<MyDateRangePickerProps> = ({ setDateRange }) => {
-  const [actualDateRange, setactualDateRange] = useState<DateRange<Dayjs>>([null, null]);
+export default function MyDateRangePicker({ dateRangeProp, setDateRangeProp }: Props){
 
-  const handleChange = (newDateRange: DateRange<Dayjs>) => {
-    setactualDateRange(newDateRange);
-    console.log("Date range changed to", newDateRange);
-    if (setDateRange) {
-      setDateRange(newDateRange);
+  const handleChange = (dateRangeFunc: DateRange<Dayjs>) => {
+    setDateRangeProp(dateRangeFunc);
+    if (setDateRangeProp) {
+      setDateRangeProp(dateRangeFunc);
     }
   };
 
@@ -43,7 +40,7 @@ const MyDateRangePicker: React.FC<MyDateRangePickerProps> = ({ setDateRange }) =
                 variant: "outlined",
               },
             }}
-            value={actualDateRange}
+            value={dateRangeProp}
             onChange={handleChange}
             disablePast={false}
             disableFuture={false}
@@ -56,4 +53,3 @@ const MyDateRangePicker: React.FC<MyDateRangePickerProps> = ({ setDateRange }) =
   );
 };
 
-export default MyDateRangePicker;
