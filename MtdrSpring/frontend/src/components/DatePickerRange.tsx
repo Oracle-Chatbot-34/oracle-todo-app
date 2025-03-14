@@ -22,7 +22,7 @@ export default function MyDateRangePicker({ dateRangeProp, setDateRangeProp }: P
 
   return (
     <div className="w-full">
-      <p className="text-[#747276] text-[20px]">Select a time gap</p>
+      <p className="text-[#747276] text-[1.5625rem]">Select a time gap</p>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
         <DemoContainer
           components={['DateRangePicker']}
@@ -30,14 +30,15 @@ export default function MyDateRangePicker({ dateRangeProp, setDateRangeProp }: P
             width: '100%',
             '& .MuiOutlinedInput-root': {
               borderRadius: '14px',
-            }
-          }}>
+            },
+          }}
+        >
           <DateRangePicker
             slots={{ field: SingleInputDateRangeField }}
             slotProps={{
               textField: {
                 fullWidth: true,
-                variant: "outlined",
+                variant: 'outlined',
               },
             }}
             value={dateRangeProp}
@@ -47,9 +48,7 @@ export default function MyDateRangePicker({ dateRangeProp, setDateRangeProp }: P
           />
         </DemoContainer>
       </LocalizationProvider>
-
     </div>
-
   );
 };
 

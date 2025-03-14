@@ -1,73 +1,70 @@
-import { useState } from "react";
-import { HiSparkles } from "react-icons/hi2";
-import StatusSelections from "../components/StatusSelections";
-import ScopeSelection from "../components/ScopeSelection";
+import { useState } from 'react';
+import { Sparkles } from "lucide-react"
+import StatusSelections from '../components/StatusSelections';
+import ScopeSelection from '../components/ScopeSelection';
 import { DateRange } from '@mui/x-date-pickers-pro';
 import { Dayjs } from 'dayjs';
-import DatePickerRange from "../components/DatePickerRange";
+import DatePickerRange from '../components/DatePickerRange';
+import { Button } from '@mui/material';
+import MemberSelection from '@/components/MemberSelection';
 
-type ScopeType = 'individual' | 'all-group';
 type Member = {
-    id: string;
-    name: string;
+  id: string;
+  name: string;
 };
 
 export default function Reports() {
-    {/* State for the scope of the report */}
-    const [scope, setScope] = useState<ScopeType>('individual');
-    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [isIndividual, setIsIndividual] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-    {/* State for the selected task options */}
-    const [selectedTaskOptions, setselectedTaskOptions] = useState<string[]>([]);
-    const [selectAllTasksType, setselectAllTasksType] = useState(false);
+  const [selectedTaskOptions, setselectedTaskOptions] = useState<string[]>([]);
+  const [selectAllTasksType, setselectAllTasksType] = useState(false);
 
-    {/* State for the date picker range */}
-    const [dateRange, setDateRange] = useState<DateRange<Dayjs>>([null, null]);
+  const [dateRange, setDateRange] = useState<DateRange<Dayjs>>([null, null]);
 
+  const handleGenerateReport = () => {
+    // Add backend logic here for generating the report
+    console.log('Selected task options:', selectedTaskOptions);
+    console.log('Did they selected all tasks type?', selectAllTasksType);
 
-    const handleGenerateReport = () => {
-        console.log("Generating report with scope", scope, "and selected member", selectedMember);
+    console.log('Selected date range:', dateRange);
+  };
 
-        console.log("Selected task options:", selectedTaskOptions);
-        console.log("Did they selected all tasks type?", selectAllTasksType);
-
-        console.log("Selected date range:", dateRange);
-    };
-
-    return (
-        <div className="bg-background h-screen w-full flex flex-row items-start justify-center">
-            <div className="bg-whitie w-[1350px] h-[750px] rounded-lg shadow-xl" style={{ marginTop: '10px' }}>
-                <br />
-                <div className="flex flex-row items-center gap-[20px]">
-                    <br />
-                    <div className="bg-greyie w-[40px] h-[40px] rounded-lg flex items-center justify-center">
-                        <HiSparkles className="w-[30px] h-[30px]" />
-                    </div>
-                    <p className="text-[24px] font-semibold">Intelligent Reports</p>
-                </div>
-                <br/>
-                {/* Filters go here */}
-                <div className="bg-whitiish2 w-[600px] h-[600px] rounded-lg shadow-xl" style={{ marginLeft: '30px'}}>
-                    <br/>
-                    <div className="flex flex-col items-start w-[450px] gap-[35px]" style={{ marginLeft: '50px' }} >
-                        <ScopeSelection scopeProp={scope} setScopeProp={setScope} selectedMemberProp={selectedMember} setSelectedMemberProp={setSelectedMember}/>
-                        <StatusSelections selectedTaskOptions={selectedTaskOptions} setselectedTaskOptions={setselectedTaskOptions} selectAllTasksType={selectAllTasksType} setselectAllTasksType={setselectAllTasksType}/>
-                        <DatePickerRange dateRangeProp={dateRange} setDateRangeProp={setDateRange}/>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={handleGenerateReport}
-                        className="bg-greenie rounded-lg text-white text-[20px] font-semibold shadow-xl h-[40px] w-[320px] ml-[50px]"
-                    >
-                        Generate report
-                    </button>
-                    
-
-                    
-                </div>
-
-            </div>
+  return (
+    <div className="bg-background h-full w-full px-10 py-10 flex items-start justify-center">
+      <div className="flex flex-col p-10 gap-y-6 bg-whitie w-full h-full rounded-lg shadow-xl">
+        <div className="flex flex-row items-center gap-[20px]">
+          <Sparkles className="w-8 h-8" />
+          <p className="text-[24px] font-semibold">Intelligent Reports</p>
         </div>
-    )
+
+        {/* Form */}
+        <div className="flex flex-col items-center justify-around bg-whitiish2 w-1/3 h-full rounded-4xl shadow-xl p-10">
+          <ScopeSelection
+            isIndividual={isIndividual}
+            setIsInidividual={setIsIndividual}
+          />
+          <MemberSelection
+            isIndividual={isIndividual}
+            setIsIndividual={setIsIndividual}
+            selectedMemberProp={selectedMember}
+            setSelectedMemberProp={setSelectedMember}
+          />
+          <StatusSelections
+            selectedTaskOptions={selectedTaskOptions}
+            setselectedTaskOptions={setselectedTaskOptions}
+            selectAllTasksType={selectAllTasksType}
+            setselectAllTasksType={setselectAllTasksType}
+          />
+          <DatePickerRange
+            dateRangeProp={dateRange}
+            setDateRangeProp={setDateRange}
+          />
+          <Button type="button" onClick={handleGenerateReport}>
+            Generate report
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
