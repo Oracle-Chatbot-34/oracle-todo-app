@@ -1,18 +1,25 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import logo from '../assets/logo.png';
+import { useAuth } from '@/hooks/useAuth';
 
 const Navbar = () => {
-  var location = useLocation();
-  var locationText =
+  const location = useLocation();
+  const locationText =
     location.pathname.split('/')[1].charAt(0).toUpperCase() +
     location.pathname.split('/')[1].slice(1);
 
   const [active, setActive] = useState(locationText);
+  const { isAuthenticated, username, logout } = useAuth();
 
   useEffect(() => {
     setActive(locationText);
   }, [locationText]);
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/login';
+  };
 
   return (
     <nav className="flex flex-row bg-background shrink-0 min-h-16 items-center justify-between px-10 shadow-md z-50">
@@ -60,8 +67,24 @@ const Navbar = () => {
         </ul>
       </div>
 
-      <div className="flex flex-row items-center gap-[370px]">
-        <div />
+      <div className="flex flex-row items-center gap-4">
+        {isAuthenticated ? (
+          <div className="flex items-center gap-4">
+            <span className="text-lg">Welcome, {username}</span>
+            <button
+              onClick={handleLogout}
+              className="bg-greenie text-white px-4 py-2 rounded-lg hover:opacity-90"
+            >
+              Logout
+            </button>
+          </div>
+        ) : (
+          <Link to="/login">
+            <button className="bg-greenie text-white px-4 py-2 rounded-lg hover:opacity-90">
+              Login
+            </button>
+          </Link>
+        )}
         <img src={logo} className="h-14 aspect-square" alt="Logo" />
       </div>
     </nav>
