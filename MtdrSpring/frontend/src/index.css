@@ -18,6 +18,7 @@ body {
   --color-greyie: #DFDFE4;
   --color-redie: #E63131;
   --color-whitiish: #E3E3E3; 
+  --color-whitiish2: #FDFDFF;
 }
 
 @layer base {
