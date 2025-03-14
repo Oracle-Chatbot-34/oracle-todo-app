@@ -31,15 +31,16 @@ export default function Reports() {
   };
 
   return (
-    <div className="bg-background h-full w-full px-10 py-10 flex items-start justify-center">
-      <div className="flex flex-col p-10 gap-y-6 bg-whitie w-full h-full rounded-lg shadow-xl">
+    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center">
+      <div className="flex flex-col p-6 lg:p-10 gap-y-6 bg-whitie w-full h-full rounded-lg shadow-xl">
+        {/* Title */}
         <div className="flex flex-row items-center gap-[20px]">
           <Sparkles className="w-8 h-8" />
           <p className="text-[24px] font-semibold">Intelligent Reports</p>
         </div>
 
         {/* Form */}
-        <div className="flex flex-col items-center justify-around bg-whitiish2 w-1/3 h-full rounded-4xl shadow-xl p-10">
+        <div className="flex flex-col items-center justify-around bg-whitiish2 w-full xl:w-1/2 max-w-[37.5rem] space-y-3 h-full rounded-4xl shadow-xl p-10">
           <ScopeSelection
             isIndividual={isIndividual}
             setIsInidividual={setIsIndividual}

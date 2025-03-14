@@ -19,15 +19,7 @@ export default function MemberSelection({ isIndividual, selectedMemberProp, setS
       <div className="w-full">
         <p className="text-[#747276] text-[1.5625rem]">Select a member</p>
         <select
-          style={{
-            width: '100%',
-            padding: '5px',
-            borderRadius: '10px',
-            border: '2px solid #DFDFE4',
-            transition: 'box-shadow 0.2s ease-in-out',
-            backgroundColor: 'white',
-            fontSize: '20px',
-          }}
+          className="w-full pl-4 pr-2 rounded-xl h-12 border-2 border-[#DFDFE4] transition-shadow duration-200 ease-in-out bg-white text-[20px]"
           value={selectedMemberProp?.id || ''}
           onChange={(e) => {
             const memberId = e.target.value;
