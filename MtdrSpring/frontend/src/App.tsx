@@ -12,7 +12,7 @@ const App = () => {
 
 
   return (
-    <div className="flex flex-col w-screen max-h-screen h-screen ">
+    <div className="flex flex-col w-screen max-h-screen h-screen overflow-clip">
       {!hideNavRoutes.includes(location.pathname) && <NavBar />}
       <Routes>
         <Route path="/" element={<Dashboard />} />
