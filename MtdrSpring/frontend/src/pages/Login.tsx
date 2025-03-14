@@ -14,7 +14,7 @@ export default function Login() {
     <div className="bg-background h-screen w-full flex flex-row items-center justify-center gap-[250px]">
       <div className="flex flex-col items-center">
         <p className="text-[80px]">DashMaster</p>
-        <img src={logo} className="w-[500px] h-[500px]" alt="Logo" />
+        <img src={logo} className="w-[500px] h-[460px]" alt="Logo" />
       </div>
 
       <div className="w-[440px] h-[460px] bg-white rounded-lg shadow-xl">
