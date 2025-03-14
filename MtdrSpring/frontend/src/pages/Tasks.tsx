@@ -66,52 +66,52 @@ export default function Tasks({}: Props) {
         <div className="flex flex-col md:flex-row w-full gap-6 p-4 z-50">
           <div className="md:w-3/4 max-h-[calc(90vh-300px)] h-full flex flex-col space-y-4 overflow-y-auto pb-6 pr-2 ">
             <TaskCard
-              taskId={undefined}
-              title={'Hello'}
-              description={undefined}
-              created={new Date()}
-              due={new Date()}
-              autor={''}
+              taskId="TASK-001"
+              title="Update authentication system"
+              description="Implement OAuth 2.0 for better security"
+              created={new Date(2023, 10, 15)}
+              due={new Date(2023, 11, 30)}
+              autor="John Doe"
             />
             <TaskCard
-              taskId={undefined}
-              title={'Hello'}
-              description={undefined}
-              created={new Date()}
-              due={new Date()}
-              autor={''}
+              taskId="TASK-002"
+              title="Fix pagination bug in dashboard"
+              description="Users report incorrect page counts on search results"
+              created={new Date(2023, 11, 2)}
+              due={new Date(2023, 11, 10)}
+              autor="Alice Smith"
             />
             <TaskCard
-              taskId={undefined}
-              title={'Hello'}
-              description={undefined}
-              created={new Date()}
-              due={new Date()}
-              autor={''}
+              taskId="TASK-003"
+              title="Create new landing page"
+              description="Design and implement responsive landing page with new branding"
+              created={new Date(2023, 11, 5)}
+              due={new Date(2023, 12, 20)}
+              autor="Maria Garcia"
             />
             <TaskCard
-              taskId={undefined}
-              title={'Hello'}
-              description={undefined}
-              created={new Date()}
-              due={new Date()}
-              autor={''}
+              taskId="TASK-004"
+              title="Optimize database queries"
+              description="Reports page taking too long to load"
+              created={new Date(2023, 10, 28)}
+              due={new Date(2023, 11, 8)}
+              autor="David Kim"
             />
             <TaskCard
-              taskId={undefined}
-              title={'Hello'}
-              description={undefined}
-              created={new Date()}
-              due={new Date()}
-              autor={''}
+              taskId="TASK-005"
+              title="Add export to PDF functionality"
+              description="Allow users to download reports as PDF files"
+              created={new Date(2023, 11, 1)}
+              due={new Date(2023, 12, 15)}
+              autor="Emily Chen"
             />
             <TaskCard
-              taskId={undefined}
-              title={'Hello'}
-              description={undefined}
-              created={new Date()}
-              due={new Date()}
-              autor={''}
+              taskId="TASK-006"
+              title="Fix mobile responsive issues"
+              description="Menu doesn't collapse correctly on iOS devices"
+              created={new Date(2023, 11, 7)}
+              due={new Date(2023, 11, 14)}
+              autor="Robert Johnson"
             />
           </div>
 

@@ -7,8 +7,11 @@ type Props = {
 export default function PdfDisplayer({ href }: Props) {
   if (href)
     return (
-      <div className="flex flex-col w-full h-full rounded-xl bg-card justify-center items-center p-2 outline gap-4">
-        <iframe src={href} className='w-full h-full rounded-xl'></iframe>
+      <div className="flex flex-col w-full  h-full rounded-xl bg-card justify-center items-center p-2 outline gap-4 relative">
+        <div className='w-full h-full top-0 right-0 bg-muted text-6xl font-bold opacity-30 absolute flex justify-center items-center'>
+          Example
+        </div>
+        <iframe src={href} className=' w-full h-full rounded-xl'></iframe>
       </div>
     );
 

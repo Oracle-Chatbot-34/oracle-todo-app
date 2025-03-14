@@ -7,7 +7,7 @@ export default function Login() {
   const handleLogin = () => {
     // Redirect to /home
     console.log('Login successful');
-    navigate('/home');
+    navigate('/');
   };
 
   return (

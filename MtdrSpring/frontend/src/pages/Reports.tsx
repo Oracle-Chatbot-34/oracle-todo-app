@@ -74,7 +74,7 @@ export default function Reports() {
           </div>
         </div>
         {/* Pdf */}
-        <PdfDisplayer href="" />
+        <PdfDisplayer href="https://business.purdue.edu/centers/dcmme/tp3/documents/preliminary-analytics-report-aim.pdf" />
       </div>
     </div>
   );
