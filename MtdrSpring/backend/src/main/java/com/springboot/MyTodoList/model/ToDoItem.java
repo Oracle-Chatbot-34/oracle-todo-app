@@ -14,20 +14,53 @@ public class ToDoItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int ID;
+    
+    @Column(name = "TITLE", nullable = false)
+    String title;
+    
     @Column(name = "DESCRIPTION")
     String description;
+    
     @Column(name = "CREATION_TS")
     OffsetDateTime creation_ts;
-    @Column(name = "done")
+    
+    @Column(name = "DUE_DATE")
+    OffsetDateTime dueDate;
+    
+    @Column(name = "ASSIGNEE_ID")
+    private Long assigneeId;
+    
+    @Column(name = "TEAM_ID")
+    private Long teamId;
+    
+    // Status values: SELECTED_FOR_DEVELOPMENT, IN_PROGRESS, DELAYED, IN_QA, DONE
+    @Column(name = "STATUS")
+    private String status;
+    
+    @Column(name = "PRIORITY")
+    private String priority;
+    
+    @Column(name = "DONE")
     boolean done;
-    public ToDoItem(){
-
+    
+    @Column(name = "COMPLETED_AT")
+    private OffsetDateTime completedAt;
+    
+    public ToDoItem() {
     }
-    public ToDoItem(int ID, String description, OffsetDateTime creation_ts, boolean done) {
+
+    public ToDoItem(int ID, String title, String description, OffsetDateTime creation_ts, OffsetDateTime dueDate, Long assigneeId, Long teamId, String status, String priority, boolean done, OffsetDateTime completedAt) {
         this.ID = ID;
+        this.title = title;
         this.description = description;
         this.creation_ts = creation_ts;
+        this.dueDate = dueDate;
+        this.assigneeId = assigneeId;
+        this.teamId = teamId;
+        this.status = status;
+        this.priority = priority;
         this.done = done;
+        this.completedAt = completedAt;
     }
 
     public int getID() {
@@ -62,13 +95,86 @@ public class ToDoItem {
         this.done = done;
     }
 
+    public String getStatus() {
+        return status;
+    }
+    
+    public void setStatus(String status) {
+        this.status = status;
+        
+        // Update done flag based on status
+        this.done = "DONE".equals(status);
+        
+        // Update completion timestamp if done
+        if (this.done && this.completedAt == null) {
+            this.completedAt = OffsetDateTime.now();
+        } else if (!this.done) {
+            this.completedAt = null;
+        }
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public OffsetDateTime getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(OffsetDateTime dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public Long getAssigneeId() {
+        return assigneeId;
+    }
+
+    public void setAssigneeId(Long assigneeId) {
+        this.assigneeId = assigneeId;
+    }
+
+    public Long getTeamId() {
+        return teamId;
+    }
+
+    public void setTeamId(Long teamId) {
+        this.teamId = teamId;
+    }
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
+    }
+
+    public OffsetDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(OffsetDateTime completedAt) {
+        this.completedAt = completedAt;
+    }
+
     @Override
     public String toString() {
         return "ToDoItem{" +
                 "ID=" + ID +
+                ", title='" + title + '\'' +
                 ", description='" + description + '\'' +
                 ", creation_ts=" + creation_ts +
+                ", dueDate=" + dueDate +
+                ", assigneeId=" + assigneeId +
+                ", teamId=" + teamId +
+                ", status='" + status + '\'' +
+                ", priority='" + priority + '\'' +
                 ", done=" + done +
+                ", completedAt=" + completedAt +
                 '}';
     }
 }
