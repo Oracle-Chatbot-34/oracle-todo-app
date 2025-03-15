@@ -14,6 +14,7 @@ import {
 import { FileCheck, Plus } from 'lucide-react';
 import taskService, { Task } from '../services/tasksService';
 import userService, { User } from '../services/userService';
+import TaskCreateModal from '@/components/TaskCreateModal';
 
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -29,6 +30,10 @@ export default function Tasks() {
   const [behindScheduleCount, setBehindScheduleCount] = useState(0);
   const [beyondDeadlineCount, setBeyondDeadlineCount] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleTaskCreated = (newTask: Task) => {
+    setTasks((prevTasks) => [...prevTasks, newTask]);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -290,24 +295,11 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* Here we would include a task creation modal component */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Create New Task</h2>
-            {/* Task creation form would go here */}
-            <div className="flex justify-end gap-2 mt-4">
-              <Button
-                variant="outline"
-                onClick={() => setShowCreateModal(false)}
-              >
-                Cancel
-              </Button>
-              <Button>Create Task</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TaskCreateModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onTaskCreated={handleTaskCreated}
+      />
     </div>
   );
 }
