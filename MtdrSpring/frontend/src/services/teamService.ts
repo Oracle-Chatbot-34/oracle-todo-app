@@ -1,7 +1,7 @@
 import api from './api';
 import { config } from '../lib/config';
 
-interface Team {
+export interface Team {
   id?: number;
   name: string;
   description?: string;
