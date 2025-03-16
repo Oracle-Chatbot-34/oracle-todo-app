@@ -9,6 +9,7 @@ interface LoginCredentials {
 interface LoginResponse {
   token: string;
   username: string;
+  fullName: string;
 }
 
 interface RegistrationData {

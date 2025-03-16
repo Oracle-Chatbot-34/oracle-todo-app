@@ -50,9 +50,14 @@ public class AuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             String token = jwtTokenProvider.createToken(loginRequest.getUsername(), authentication);
 
+            // Get the user object to retrieve the full name
+            User user = userRepository.findByUsername(loginRequest.getUsername())
+                    .orElseThrow(() -> new IllegalStateException("User not found after successful authentication"));
+
             Map<String, String> response = new HashMap<>();
             response.put("token", token);
             response.put("username", loginRequest.getUsername());
+            response.put("fullName", user.getFullName()); // Add the full name to the response
 
             logger.info("Login successful for user: {}", loginRequest.getUsername());
             return ResponseEntity.ok(response);
@@ -176,7 +181,7 @@ public class AuthController {
         public void setEmployeeId(String employeeId) {
             this.employeeId = employeeId;
         }
-        
+
         public String getPhoneNumber() {
             return phoneNumber;
         }

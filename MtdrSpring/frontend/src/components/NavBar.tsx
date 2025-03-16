@@ -10,7 +10,7 @@ const Navbar = () => {
     location.pathname.split('/')[1].slice(1);
 
   const [active, setActive] = useState(locationText);
-  const { isAuthenticated, username, logout } = useAuth();
+  const { isAuthenticated, fullName, logout } = useAuth();
 
   useEffect(() => {
     setActive(locationText);
@@ -70,7 +70,7 @@ const Navbar = () => {
       <div className="flex flex-row items-center gap-4">
         {isAuthenticated ? (
           <div className="flex items-center gap-4">
-            <span className="text-lg">Welcome, {username}</span>
+            <span className="text-lg">Welcome, {fullName}</span>
             <button
               onClick={handleLogout}
               className="bg-greenie text-white px-4 py-2 rounded-lg hover:opacity-90"
