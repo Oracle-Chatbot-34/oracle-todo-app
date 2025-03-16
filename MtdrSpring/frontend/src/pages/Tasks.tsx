@@ -15,6 +15,7 @@ import { FileCheck, Plus } from 'lucide-react';
 import taskService, { Task } from '../services/tasksService';
 import userService, { User } from '../services/userService';
 import TaskCreateModal from '@/components/TaskCreateModal';
+import TaskUpdateModal from '../components/TaskUpdateModal';
 
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -30,9 +31,54 @@ export default function Tasks() {
   const [behindScheduleCount, setBehindScheduleCount] = useState(0);
   const [beyondDeadlineCount, setBeyondDeadlineCount] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   const handleTaskCreated = (newTask: Task) => {
     setTasks((prevTasks) => [...prevTasks, newTask]);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setShowUpdateModal(true);
+  };
+
+  const handleTaskUpdated = (updatedTask: Task) => {
+    setTasks((prevTasks) =>
+      prevTasks.map((task) => (task.ID === updatedTask.ID ? updatedTask : task))
+    );
+
+    // Recalculate task statistics
+    const now = new Date();
+    const active = tasks.filter((task) => !task.done);
+    setActiveTasksCount(active.length);
+
+    let onTime = 0;
+    let behindSchedule = 0;
+    let beyondDeadline = 0;
+
+    active.forEach((task) => {
+      if (!task.dueDate) {
+        onTime++;
+      } else {
+        const dueDate = new Date(task.dueDate);
+        const daysUntilDue = Math.floor(
+          (dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24)
+        );
+
+        if (daysUntilDue < 0) {
+          beyondDeadline++;
+        } else if (daysUntilDue <= 2) {
+          behindSchedule++;
+        } else {
+          onTime++;
+        }
+      }
+    });
+
+    setOnTimeCount(onTime);
+    setBehindScheduleCount(behindSchedule);
+    setBeyondDeadlineCount(beyondDeadline);
   };
 
   useEffect(() => {
@@ -259,6 +305,7 @@ export default function Tasks() {
                   autor={getUserName(task.assigneeId)}
                   status={task.status}
                   onDelete={handleDeleteTask}
+                  onEdit={() => handleEditTask(task)}
                 />
               ))
             )}
@@ -300,6 +347,13 @@ export default function Tasks() {
         onClose={() => setShowCreateModal(false)}
         onTaskCreated={handleTaskCreated}
       />
+
+      <TaskUpdateModal
+        isOpen={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        onTaskUpdated={handleTaskUpdated}
+        task={selectedTask}
+      />
     </div>
   );
 }
@@ -313,6 +367,7 @@ type TaskCardProps = {
   autor: string;
   status?: string;
   onDelete: (taskId: number) => void;
+  onEdit: () => void;
 };
 
 function TaskCard({
@@ -324,6 +379,7 @@ function TaskCard({
   autor,
   status,
   onDelete,
+  onEdit,
 }: TaskCardProps) {
   const getStatusColor = () => {
     switch (status) {
@@ -368,7 +424,7 @@ function TaskCard({
         </div>
 
         <div className="flex flex-col lg:flex-row w-fit min-w-[6.25rem] h-fit gap-2">
-          <Button>Edit</Button>
+          <Button onClick={onEdit}>Edit</Button>
           <Button variant={'destructive'} onClick={() => onDelete(taskId)}>
             Delete
           </Button>
