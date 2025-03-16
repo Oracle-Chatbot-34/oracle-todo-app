@@ -83,6 +83,7 @@ public class AuthController {
             newUser.setFullName(registrationRequest.getFullName());
             newUser.setRole(registrationRequest.getRole());
             newUser.setEmployeeId(registrationRequest.getEmployeeId());
+            newUser.setPhoneNumber(registrationRequest.getPhoneNumber());
             newUser.setCreatedAt(OffsetDateTime.now());
             newUser.setUpdatedAt(OffsetDateTime.now());
 
@@ -134,6 +135,7 @@ public class AuthController {
         private String fullName;
         private String role;
         private String employeeId;
+        private String phoneNumber;
 
         public String getUsername() {
             return username;
@@ -173,6 +175,14 @@ public class AuthController {
 
         public void setEmployeeId(String employeeId) {
             this.employeeId = employeeId;
+        }
+        
+        public String getPhoneNumber() {
+            return phoneNumber;
+        }
+
+        public void setPhoneNumber(String phoneNumber) {
+            this.phoneNumber = phoneNumber;
         }
     }
 }
