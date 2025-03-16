@@ -63,6 +63,9 @@ public class ReportService {
                 ));
         reportData.put("statusBreakdown", statusCounts);
         
+        // Set report type first - ensures it's always set regardless of path
+        reportData.put("reportType", request.isIndividual() ? "Individual" : "Team");
+        
         // Add KPI data
         KpiData kpiData;
         if (request.isIndividual() && request.getUserId() != null) {
@@ -70,7 +73,6 @@ public class ReportService {
             Optional<User> userOpt = userRepository.findById(request.getUserId());
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
-                reportData.put("reportType", "Individual");
                 reportData.put("user", Map.of(
                     "id", user.getId(),
                     "name", user.getFullName(),
@@ -84,7 +86,6 @@ public class ReportService {
                     request.getEndDate());
         } else {
             // Team report
-            reportData.put("reportType", "Team");
             reportData.put("teamId", request.getTeamId());
             
             // Get team members
