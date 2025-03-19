@@ -1,4 +1,5 @@
 #!/bin/bash
+# filepath: /home/brmz/Documents/Projects/College/oracle-todo-app/MtdrSpring/start-dev.sh
 # Development startup script for DashMaster
 
 # Set the working directory to the script location
@@ -26,6 +27,12 @@ echo "Starting DashMaster application in development mode"
 
 # Function to detect available terminal emulator
 get_terminal() {
+    # Check for TERM environment variable first
+    if [ "$TERM" = "xterm-256color" ]; then
+        echo "xterm"
+        return
+    fi
+
     if command -v gnome-terminal &> /dev/null; then
         echo "gnome-terminal"
     elif command -v xterm &> /dev/null; then
@@ -47,7 +54,7 @@ case $TERMINAL in
         gnome-terminal --title="DashMaster Backend" -- bash -c "cd \"$SCRIPT_DIR/backend\" && ./mvnw spring-boot:run; read -p 'Press Enter to close...'"
         ;;
     "xterm")
-        xterm -T "DashMaster Backend" -e "cd \"$SCRIPT_DIR/backend\" && ./mvnw spring-boot:run; read -p 'Press Enter to close...'" &
+        xterm -T "DashMaster Backend" -fa "DejaVu Sans Mono" -fs 10 -e "cd \"$SCRIPT_DIR/backend\" && ./mvnw spring-boot:run; read -p 'Press Enter to close...'" &
         ;;
     "kitty")
         kitty --title "DashMaster Backend" bash -c "cd \"$SCRIPT_DIR/backend\" && ./mvnw spring-boot:run; read -p 'Press Enter to close...'" &
@@ -65,7 +72,7 @@ case $TERMINAL in
         gnome-terminal --title="DashMaster Frontend" -- bash -c "cd \"$SCRIPT_DIR/frontend\" && bun install && bun dev; read -p 'Press Enter to close...'"
         ;;
     "xterm")
-        xterm -T "DashMaster Frontend" -e "cd \"$SCRIPT_DIR/frontend\" && bun install && bun dev; read -p 'Press Enter to close...'" &
+        xterm -T "DashMaster Frontend" -fa "DejaVu Sans Mono" -fs 10 -e "cd \"$SCRIPT_DIR/frontend\" && bun install && bun dev; read -p 'Press Enter to close...'" &
         ;;
     "kitty")
         kitty --title "DashMaster Frontend" bash -c "cd \"$SCRIPT_DIR/frontend\" && bun install && bun dev; read -p 'Press Enter to close...'" &
