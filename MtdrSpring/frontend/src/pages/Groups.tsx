@@ -11,8 +11,6 @@ import TeamMemberCard from '@/components/teams/TeamMemberCard';
 import TeamSprints from '@/components/teams/TeamSprints';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-import { dummyTeams } from '@/components/teams/teamdummy';
-
 export default function Groups() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState(0);
@@ -26,8 +24,16 @@ export default function Groups() {
 
   useEffect(() => {
     const fetchTeams = async () => {
-      //const teamsData = await teamService.getAllTeams();
-      setTeams(dummyTeams);
+      try {
+        setIsLoading(true);
+        const teamsData = await teamService.getAllTeams();
+        setTeams(teamsData);
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+        setError('Failed to load teams. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchTeams();
   }, []);
@@ -75,20 +81,24 @@ export default function Groups() {
         <div className="flex lg:flex-row gap-x-3 w-full h-full p-6">
           <div className="bg-whitiish2 w-2/8 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
             <p className="text-[#424043] text-[1.35rem] lg:text-3xl">Groups</p>
-            <div className="overflow-y-auto max-h-[600px] flex flex-col gap-5">
-              {teams.map((team) => (
-                <TeamCard
-                  key={team.id}
-                  teamId={team.id ?? 0}
-                  groupName={team.name}
-                  selectedTeam={selectedTeam}
-                  setIsLoading={setIsLoading}
-                  setSelectedTeam={setSelectedTeam}
-                  setSelectedTeamMembers={setSelectedTeamMembers}
-                  setSelectedTeamSprints={setSelectedTeamSprints}
-                />
-              ))}
-            </div>
+            {isLoading ? (
+              <LoadingSpinner />
+            ) : (
+              <div className="overflow-y-auto max-h-[600px] flex flex-col gap-5">
+                {teams.map((team) => (
+                  <TeamCard
+                    key={team.id}
+                    teamId={team.id ?? 0}
+                    groupName={team.name}
+                    selectedTeam={selectedTeam}
+                    setIsLoading={setIsLoading}
+                    setSelectedTeam={setSelectedTeam}
+                    setSelectedTeamMembers={setSelectedTeamMembers}
+                    setSelectedTeamSprints={setSelectedTeamSprints}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="bg-whitiish2 w-4/8 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
