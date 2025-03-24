@@ -38,6 +38,24 @@ export default function Groups() {
     fetchTeams();
   }, []);
 
+  const refreshTeamMembers = async () => {
+    if (selectedTeam === 0) return;
+
+    try {
+      setIsLoading(true);
+      const members = await teamService.getTeamMembers(selectedTeam);
+      setSelectedTeamMembers(members);
+    } catch (err) {
+      console.error(
+        `Error refreshing team members for team ${selectedTeam}:`,
+        err
+      );
+      setError('Failed to refresh team members. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
       <div className="flex flex-col justify-center p-4 lg:p-10 gap-y-4 gap-x-3 bg-whitie w-full h-full rounded-lg shadow-xl ">
@@ -81,7 +99,7 @@ export default function Groups() {
         <div className="flex lg:flex-row gap-x-3 w-full h-full p-6">
           <div className="bg-whitiish2 w-2/8 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
             <p className="text-[#424043] text-[1.35rem] lg:text-3xl">Groups</p>
-            {isLoading ? (
+            {isLoading && teams.length === 0 ? (
               <LoadingSpinner />
             ) : (
               <div className="overflow-y-auto max-h-[600px] flex flex-col gap-5">
@@ -106,7 +124,7 @@ export default function Groups() {
               Group participants
             </p>
 
-            {isLoading ? (
+            {isLoading && selectedTeam !== 0 ? (
               <LoadingSpinner />
             ) : (
               <div className="flex flex-col gap-6">
@@ -117,6 +135,8 @@ export default function Groups() {
                       id={member.id ?? 0}
                       name={member.fullName}
                       role={member.role}
+                      teamId={selectedTeam}
+                      onMemberRemoved={refreshTeamMembers}
                     />
                   ))}
                 </div>
@@ -144,7 +164,7 @@ export default function Groups() {
               Team sprints
             </p>
 
-            {isLoading ? (
+            {isLoading && selectedTeam !== 0 ? (
               <LoadingSpinner />
             ) : (
               <div className="flex flex-col gap-6">
