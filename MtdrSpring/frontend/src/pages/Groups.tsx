@@ -10,6 +10,7 @@ import TeamCard from '@/components/teams/TeamCard';
 import TeamMemberCard from '@/components/teams/TeamMemberCard';
 import TeamSprints from '@/components/teams/TeamSprints';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import AddMemberModal from '@/components/teams/AddMemberModal';
 
 export default function Groups() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -17,7 +18,7 @@ export default function Groups() {
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<User[]>([]);
   const [selectedTeamSprints, setSelectedTeamSprints] = useState<Sprint[]>([]);
 
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -71,31 +72,6 @@ export default function Groups() {
           </div>
         )}
 
-        {isPopupOpen && (
-          <div className="fixed inset-0 flex items-center justify-center w-full bg-black/70 z-20">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-              <p className="text-gray-700">
-                Are you sure you want to remove this person from the team? You
-                can read them again if you change your mind.
-              </p>
-              <div className="flex flex-row justify-between">
-                <button
-                  className="mt-4 px-4 py-2 bg-redie text-white rounded hover:bg-red-700"
-                  onClick={() => setIsPopupOpen(false)}
-                >
-                  Remove
-                </button>
-                <button
-                  className="mt-4 px-4 py-2 bg-black/50 text-white rounded hover:bg-black/40"
-                  onClick={() => setIsPopupOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex lg:flex-row gap-x-3 w-full h-full p-6">
           <div className="bg-whitiish2 w-2/8 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
             <p className="text-[#424043] text-[1.35rem] lg:text-3xl">Groups</p>
@@ -144,7 +120,7 @@ export default function Groups() {
                 {selectedTeam !== 0 ? (
                   <button
                     className="bg-greenie rounded-lg flex flex-row justify-center items-center h-12 w-110 shadow-lg"
-                    onClick={() => setIsPopupOpen(true)}
+                    onClick={() => setShowAddMemberModal(true)}
                   >
                     <span className="text-white text-2xl">Add a member</span>
                   </button>
@@ -199,6 +175,16 @@ export default function Groups() {
           </div>
         </div>
       </div>
+
+      {/* Add Member Modal */}
+      {selectedTeam !== 0 && (
+        <AddMemberModal
+          isOpen={showAddMemberModal}
+          teamId={selectedTeam}
+          onClose={() => setShowAddMemberModal(false)}
+          onMemberAdded={refreshTeamMembers}
+        />
+      )}
     </div>
   );
 }
