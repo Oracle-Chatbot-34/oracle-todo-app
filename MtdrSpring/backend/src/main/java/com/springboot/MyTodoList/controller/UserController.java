@@ -8,8 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api")
@@ -22,41 +21,43 @@ public class UserController {
     private PasswordEncoder passwordEncoder;
 
     /**
-     * Get all users
+     * Get all users with simplified response format
      */
     @GetMapping("/users")
-    public ResponseEntity<List<User>> getAllUsers() {
+    public ResponseEntity<List<Map<String, Object>>> getAllUsers() {
         List<User> users = userService.findAll();
-        // Don't send password in response
-        users.forEach(user -> user.setPassword(null));
-        return ResponseEntity.ok(users);
+        List<Map<String, Object>> simplifiedUsers = users.stream()
+            .map(this::convertUserToMap)
+            .toList();
+        
+        return ResponseEntity.ok(simplifiedUsers);
     }
 
     /**
-     * Get user by ID
+     * Get user by ID with simplified response format
      */
     @GetMapping("/users/{id}")
     public ResponseEntity<?> getUserById(@PathVariable("id") Long id) {
         Optional<User> userOpt = userService.findById(id);
         if (userOpt.isPresent()) {
-            User user = userOpt.get();
-            // Don't send password in response
-            user.setPassword(null);
-            return ResponseEntity.ok(user);
+            Map<String, Object> userData = convertUserToMap(userOpt.get());
+            return ResponseEntity.ok(userData);
         } else {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found with ID: " + id);
         }
     }
 
     /**
-     * Get users by role
+     * Get users by role with simplified response format
      */
     @GetMapping("/users/roles/{role}")
-    public ResponseEntity<List<User>> getUsersByRole(@PathVariable("role") String role) {
+    public ResponseEntity<List<Map<String, Object>>> getUsersByRole(@PathVariable("role") String role) {
         List<User> users = userService.findByRole(role);
-        // Don't send password in response
-        users.forEach(user -> user.setPassword(null));
-        return ResponseEntity.ok(users);
+        List<Map<String, Object>> simplifiedUsers = users.stream()
+            .map(this::convertUserToMap)
+            .toList();
+        
+        return ResponseEntity.ok(simplifiedUsers);
     }
 
     /**
@@ -82,10 +83,9 @@ public class UserController {
             }
 
             User createdUser = userService.createUser(user);
-            // Don't send password in response
-            createdUser.setPassword(null);
+            Map<String, Object> userData = convertUserToMap(createdUser);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
+            return ResponseEntity.status(HttpStatus.CREATED).body(userData);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
         }
@@ -117,10 +117,9 @@ public class UserController {
             }
 
             User updatedUser = userService.updateUser(user);
-            // Don't send password in response
-            updatedUser.setPassword(null);
+            Map<String, Object> userData = convertUserToMap(updatedUser);
 
-            return ResponseEntity.ok(updatedUser);
+            return ResponseEntity.ok(userData);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
         }
@@ -152,14 +151,37 @@ public class UserController {
             @PathVariable("telegramId") Long telegramId) {
         try {
             User updatedUser = userService.updateTelegramId(id, telegramId);
-            // Don't send password in response
-            updatedUser.setPassword(null);
+            Map<String, Object> userData = convertUserToMap(updatedUser);
 
-            return ResponseEntity.ok(updatedUser);
+            return ResponseEntity.ok(userData);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Helper method to convert User to Map with simplified representation
+     */
+    private Map<String, Object> convertUserToMap(User user) {
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("id", user.getId());
+        userData.put("username", user.getUsername());
+        userData.put("fullName", user.getFullName());
+        userData.put("role", user.getRole());
+        userData.put("employeeId", user.getEmployeeId());
+        userData.put("phoneNumber", user.getPhoneNumber());
+        userData.put("telegramId", user.getTelegramId());
+        userData.put("teamId", user.getTeam() != null ? user.getTeam().getId() : null);
+        userData.put("createdAt", user.getCreatedAt());
+        userData.put("updatedAt", user.getUpdatedAt());
+        
+        // Include managed team ID if the user is a manager
+        if (user.getManagedTeam() != null) {
+            userData.put("managedTeamId", user.getManagedTeam().getId());
+        }
+        
+        return userData;
     }
 }
