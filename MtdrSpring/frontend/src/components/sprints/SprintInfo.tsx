@@ -3,7 +3,8 @@ import { Task } from '@/services/tasksService';
 import { ArrowLeft } from 'lucide-react';
 import { Sprint } from '@/services/sprintService';
 
-import { dummyTasks } from './tasksdummy';
+import taskService from '@/services/tasksService';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import SprintTaskCard from './SprintTaskCard';
 import { Link } from 'react-router-dom';
 
@@ -19,6 +20,8 @@ export default function SprintInfo({
   setExpandedId,
 }: SprintInfoProps) {
   const [tasksInSprint, setTasksInSprint] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   function handleBack() {
     setExpandedId(0);
@@ -27,12 +30,26 @@ export default function SprintInfo({
 
   useEffect(() => {
     const fetchTasksInThisSprint = async () => {
-      setTasksInSprint(dummyTasks);
-      console.log(tasksInSprint);
+      if (sprint?.id) {
+        try {
+          setIsLoading(true);
+          const tasks = await taskService.getSprintTasks(sprint.id);
+          setTasksInSprint(tasks);
+        } catch (err) {
+          console.error(`Error fetching tasks for sprint ${sprint.id}:`, err);
+          setError('Failed to load sprint tasks. Please try again.');
+        } finally {
+          setIsLoading(false);
+        }
+      }
     };
 
     fetchTasksInThisSprint();
-  }, []);
+  }, [sprint]);
+
+  if (!sprint) {
+    return <div>No sprint selected</div>;
+  }
 
   return (
     <div className="flex flex-col w-full h-full gap-3">
@@ -47,6 +64,12 @@ export default function SprintInfo({
         <p className="text-4xl font-semibold">{sprint.name}</p>
       </div>
 
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-full">
+          {error}
+        </div>
+      )}
+
       <div className="flex w-full h-full flex-row gap-3">
         <div className="flex w-1/4 h-full flex-col gap-4">
           <div className="flex w-full bg-white h-1/2 flex-col rounded-xl shadow-xl p-4 gap-5">
@@ -54,33 +77,46 @@ export default function SprintInfo({
             <div className="flex flex-col items-center gap-4 text-center">
               <p className="text-2xl">
                 Sprint Start Date:{' '}
-                <p className="font-bold">{sprint.startDate}</p>
+                <p className="font-bold">{sprint.startDate || 'Not set'}</p>
               </p>
               <p className="text-2xl">
-                Sprint End Date: <p className="font-bold">{sprint.endDate}</p>
+                Sprint End Date:{' '}
+                <p className="font-bold">{sprint.endDate || 'Not set'}</p>
               </p>
             </div>
           </div>
 
           <div className="flex w-full bg-white h-1/2 flex-col rounded-xl shadow-xl p-4">
             <p className="text-3xl">Assigned Team</p>
-            <p>{sprint.teamId}</p>
+            <p>{sprint.teamId || 'No team assigned'}</p>
           </div>
         </div>
 
         <div className="flex flex-col h-full w-3/4 bg-white rounded-xl shadow-xl p-4 gap-5">
           <p className="text-3xl">Tasks in this Sprint</p>
-          <div className="overflow-y-auto max-h-200 flex flex-col gap-9">
-            {tasksInSprint.map((task) => (
-              <SprintTaskCard
-                key={task.ID}
-                id={task.ID || 0}
-                title={task.title}
-                dueDate={task.dueDate || ''}
-                assignedTo={task.assigneeId?.toString() || ''}
-              />
-            ))}
-          </div>
+          {isLoading ? (
+            <div className="flex justify-center items-center h-40">
+              <LoadingSpinner size={6} />
+            </div>
+          ) : (
+            <div className="overflow-y-auto max-h-200 flex flex-col gap-9">
+              {tasksInSprint.length > 0 ? (
+                tasksInSprint.map((task) => (
+                  <SprintTaskCard
+                    key={task.ID}
+                    id={task.ID || 0}
+                    title={task.title}
+                    dueDate={task.dueDate || ''}
+                    assignedTo={task.assigneeId?.toString() || ''}
+                  />
+                ))
+              ) : (
+                <p className="text-center text-gray-500">
+                  No tasks in this sprint
+                </p>
+              )}
+            </div>
+          )}
           <p>
             This view is read only, if you wish to edit tasks, go to:
             <Link to="/tasks">
