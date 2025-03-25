@@ -130,7 +130,13 @@ const taskService = {
 
   getSprintTasks: async (sprintId: number): Promise<Task[]> => {
     try {
-      const response = await api.get(`/sprints/${sprintId}/tasks`);
+      const response = await api.get(`/sprints/${sprintId}/tasks`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+          Expires: '0',
+        },
+      });
       console.log('Tasks in this sprint in service:', response);
       return response.data;
     } catch (error) {

@@ -120,10 +120,21 @@ public class ToDoItemController {
      * Get all tasks in a sprint
      */
     @GetMapping(value = "/sprints/{sprintId}/tasks")
+    @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<List<ToDoItem>> getTasksBySprintId(@PathVariable("sprintId") Long sprintId) {
         try {
             List<ToDoItem> tasks = toDoItemService.findTasksBySprintId(sprintId);
-            return ResponseEntity.ok(tasks);
+
+            // Add cache control headers
+            HttpHeaders headers = new HttpHeaders();
+            headers.setCacheControl("no-cache, no-store, must-revalidate");
+            headers.setPragma("no-cache");
+            headers.setExpires(0);
+
+            return ResponseEntity
+                    .ok()
+                    .headers(headers)
+                    .body(tasks);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
         }
