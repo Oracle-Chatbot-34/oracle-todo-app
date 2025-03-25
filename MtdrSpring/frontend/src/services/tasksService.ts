@@ -1,20 +1,20 @@
 import api from './api';
 
 export interface Task {
-  id?: number;
+  id: number;
   title: string;
-  description?: string;
-  dueDate?: string;
-  assigneeId?: number;
-  teamId?: number;
-  status?: string;
-  estimatedHours?: number;
-  actualHours?: number;
-  sprintId?: number;
-  priority?: string;
-  done?: boolean;
-  creation_ts?: string;
-  completedAt?: string;
+  description: string;
+  dueDate: string;
+  assigneeId: number;
+  teamId: number;
+  status: string;
+  estimatedHours: number;
+  actualHours: number;
+  sprintId: number;
+  priority: string;
+  done: boolean;
+  creation_ts: string;
+  completedAt: string;
 }
 
 const taskService = {
