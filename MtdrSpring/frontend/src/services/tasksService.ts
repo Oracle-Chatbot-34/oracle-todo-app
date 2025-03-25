@@ -1,7 +1,7 @@
 import api from './api';
 
 export interface Task {
-  ID?: number;
+  id?: number;
   title: string;
   description?: string;
   dueDate?: string;
@@ -131,6 +131,7 @@ const taskService = {
   getSprintTasks: async (sprintId: number): Promise<Task[]> => {
     try {
       const response = await api.get(`/sprints/${sprintId}/tasks`);
+      console.log('Tasks in this sprint in service:', response);
       return response.data;
     } catch (error) {
       console.error(`Error fetching tasks for sprint ${sprintId}:`, error);

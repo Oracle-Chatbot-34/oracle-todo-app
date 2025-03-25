@@ -34,6 +34,7 @@ export default function SprintInfo({
         try {
           setIsLoading(true);
           const tasks = await taskService.getSprintTasks(sprint.id);
+          console.log('Tasks in this sprint:', tasks);
           setTasksInSprint(tasks);
         } catch (err) {
           console.error(`Error fetching tasks for sprint ${sprint.id}:`, err);
@@ -75,14 +76,14 @@ export default function SprintInfo({
           <div className="flex w-full bg-white h-1/2 flex-col rounded-xl shadow-xl p-4 gap-5">
             <p className="text-3xl">Important Dates</p>
             <div className="flex flex-col items-center gap-4 text-center">
-              <p className="text-2xl">
+              <div className="text-2xl">
                 Sprint Start Date:{' '}
                 <p className="font-bold">{sprint.startDate || 'Not set'}</p>
-              </p>
-              <p className="text-2xl">
+              </div>
+              <div className="text-2xl">
                 Sprint End Date:{' '}
                 <p className="font-bold">{sprint.endDate || 'Not set'}</p>
-              </p>
+              </div>
             </div>
           </div>
 
@@ -103,8 +104,8 @@ export default function SprintInfo({
               {tasksInSprint.length > 0 ? (
                 tasksInSprint.map((task) => (
                   <SprintTaskCard
-                    key={task.ID}
-                    id={task.ID || 0}
+                    key={task.id}
+                    id={task.id || 0}
                     title={task.title}
                     dueDate={task.dueDate || ''}
                     assignedTo={task.assigneeId?.toString() || ''}
@@ -117,12 +118,12 @@ export default function SprintInfo({
               )}
             </div>
           )}
-          <p>
+          <div>
             This view is read only, if you wish to edit tasks, go to:
             <Link to="/tasks">
               <p className="underline">Task Management</p>
             </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
