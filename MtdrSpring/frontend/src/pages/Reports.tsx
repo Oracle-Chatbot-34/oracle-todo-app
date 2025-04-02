@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Sparkles } from "lucide-react"
+import { Sparkles } from "lucide-react"
 import StatusSelections from '../components/StatusSelections';
 import ScopeSelection from '../components/ScopeSelection';
 import { DateRange } from '@mui/x-date-pickers-pro';
