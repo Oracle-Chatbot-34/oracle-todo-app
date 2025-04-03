@@ -7,6 +7,7 @@ import RealHours from '@/components/kpis/RealHours';
 import ScopeSelection from '@/components/ScopeSelection';
 import MemberSelection from '@/components/MemberSelection';
 import { Member } from '../components/ScopeSelection';
+import { ChartPie } from 'lucide-react';
 
 export default function KPI() {
   const dataLineIndividual = {
@@ -93,84 +94,93 @@ export default function KPI() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   return (
-    <div className="flex bg-card flex-row shrink-0 shadow-md justify-start w-full items-center p-6 rounded-xl gap-2 min-h-32 bg-whitie">
-      {/* Task completion rate */}
-      <div className="bg-whitiish2 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
-        <div className="flex flex-row items-center ml-5 mt-3">
-          <p className="text-[#424043] text-[1.35rem]">
-            Task Completion Rate Over Time %
+    <div className="bg-background h-full w-full p-4 flex items-start justify-center overflow-clip">
+      <div className="flex flex-col justify-start items-start p-4 lg:p-10 gap-y-4 bg-whitie w-full h-full rounded-lg shadow-xl ">
+        {/* Title */}
+        <div className="flex flex-row items-center gap-[10px]">
+          <ChartPie className="w-8 h-8" />
+          <p className="text-[24px] font-semibold">
+            Key Performance Indicators
           </p>
         </div>
-        <div className="shadow-xl rounded-lg">
-          {isIndividual ? (
-            <TaskCompletionRate
-              data={dataLineIndividual.data}
-              categories={dataLineIndividual.categories}
-            />
-          ) : (
-            <TaskCompletionRate
-              data={dataLineTeam.data}
-              categories={dataLineTeam.categories}
-            />
-          )}
-        </div>
 
-        <div>
-          <ScopeSelection
-            isIndividual={isIndividual}
-            setIsInidividual={setIsIndividual}
-          />
-        </div>
+        <div className="flex lg:flex-row gap-x-3">
+          {/* Task completion rate */}
+          <div className="bg-whitiish2 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
+            <div className="flex flex-row items-center ml-5 mt-3">
+              <p className="text-[#424043] text-[1.35rem]">
+                Task Completion Rate Over Time %
+              </p>
+            </div>
+            <div className="w-[26.3rem] p-2">
+              {isIndividual ? (
+                <TaskCompletionRate
+                  data={dataLineIndividual.data}
+                  categories={dataLineIndividual.categories}
+                />
+              ) : (
+                <TaskCompletionRate
+                  data={dataLineTeam.data}
+                  categories={dataLineTeam.categories}
+                />
+              )}
 
-        <div>
-          <MemberSelection
-            selectedMemberProp={selectedMember}
-            isIndividual={isIndividual}
-            setIsIndividual={setIsIndividual}
-            setSelectedMemberProp={setSelectedMember}
-          />
-        </div>
-      </div>
-      <div className="flex flex-col gap-5">
-        {/* Time completion rate */}
-        <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col">
-          <div className="flex flex-row items-center ml-5 mt-3">
-            <p className="text-[#424043] text-[1.35rem]">
-              Time Completion Rate Over Time %
-            </p>
-          </div>
-          <div>
-            <TimeCompletionRate data={dataPie} />
-          </div>
-        </div>
+              <ScopeSelection
+                isIndividual={isIndividual}
+                setIsInidividual={setIsIndividual}
+              />
 
-        {/* Percentages */}
-        <div className="bg-whitiish2 rounded-2xl shadow-xl px-4 py-2 gap-5 flex flex-col">
-          <div className="flex flex-row items-center ml-5 mt-3">
-            <p className="text-[#424043] text-[1.35rem]">
-              OCI Resources Utilization
-            </p>
+              <MemberSelection
+                selectedMemberProp={selectedMember}
+                isIndividual={isIndividual}
+                setIsIndividual={setIsIndividual}
+                setSelectedMemberProp={setSelectedMember}
+              />
+            </div>
           </div>
 
-          <div>
-            <LineComponent percentage={75} />
-          </div>
-          <div className="flex flex-row items-center ml-5 mt-3">
-            <p className="text-[#424043] text-[1.35rem]">
-              Tasks completed per Week
-            </p>
+          <div className="flex flex-col gap-5">
+            {/* Time completion rate */}
+            <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col h-[19rem]">
+              <div className="flex flex-row items-center ml-5 mt-3">
+                <p className="text-[#424043] text-[1.35rem]">
+                  Time Completion Rate Over Time %
+                </p>
+              </div>
+
+              <TimeCompletionRate data={dataPie} />
+            </div>
+
+            {/* Percentages */}
+            <div className="bg-whitiish2 rounded-2xl shadow-xl px-4 py-2 gap-5 flex flex-col h-[19rem]">
+              <div className="flex flex-row items-center ml-5 mt-3">
+                <p className="text-[#424043] text-[1.35rem]">
+                  OCI Resources Utilization
+                </p>
+              </div>
+
+              <LineComponent percentage={75} />
+
+              <div className="flex flex-row items-center ml-5 mt-3">
+                <p className="text-[#424043] text-[1.35rem]">
+                  Tasks completed per Week
+                </p>
+              </div>
+
+              <LineComponent percentage={90} />
+            </div>
           </div>
 
-          <div>
-            <LineComponent percentage={90} />
-          </div>
-        </div>
-      </div>
+          {/* Real worked hours */}
+          <div className="flex flex-col gap-5">
+            <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col h-[19rem]">
+              <RealHours percentage={85} workedHours={120} plannedHours={140} />
+            </div>
 
-      <div>
-        {/* Real worked hours */}
-        <div>
-          <RealHours percentage={85} workedHours={120} plannedHours={140} />
+            <div className="h-[19rem]">
+              <RealHours percentage={85} workedHours={120} plannedHours={140} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

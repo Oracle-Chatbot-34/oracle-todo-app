@@ -10,7 +10,7 @@ export default function RealHours({
   plannedHours,
 }: RealHoursProps) {
   return (
-    <div className="bg-whitiish2 rounded-2xl shadow-lg flex flex-row p-6">
+    <div className="flex flex-row p-6">
       {/* Water Fill Effect */}
       <div className="relative w-[12rem] h-[12rem] mx-auto border rounded-lg overflow-hidden">
         <div
@@ -23,12 +23,12 @@ export default function RealHours({
       </div>
 
       {/* Hours Data */}
-      <div className="flex items-center justify-between">
-        <div className="text-2xl font-bold">{workedHours}</div>
-        <div className="w-10 border-b-4 border-black transform rotate-135"></div>
-        <div className="text-2xl font-bold">{plannedHours}</div>
+      <div className="relative flex items-center justify-between">
+        <div className="absolute top-12 left-4 text-2xl font-bold">{workedHours}</div>
+        <div className="w-30 border-b-4 border-black transform rotate-135"></div>
+        <div className="absolute bottom-12 right-2 text-2xl font-bold">{plannedHours}</div>
+        <p className="absolute bottom-0 left-10 text-center font-semibold">Hours</p>
       </div>
-      <p className="text-center font-semibold">Hours</p>
     </div>
   );
 }
