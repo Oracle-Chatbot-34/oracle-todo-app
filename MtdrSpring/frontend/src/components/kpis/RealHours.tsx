@@ -10,9 +10,9 @@ export default function RealHours({
   plannedHours,
 }: RealHoursProps) {
   return (
-    <div className="flex flex-row p-6">
+    <div className="flex flex-row p-5">
       {/* Water Fill Effect */}
-      <div className="relative w-[12rem] h-[12rem] mx-auto border rounded-lg overflow-hidden">
+      <div className="relative w-[12rem] h-[12.5rem] border rounded-lg overflow-hidden">
         <div
           className="absolute bottom-0 left-0 w-full bg-blue-500 transition-all duration-1000 ease-in-out"
           style={{ height: `${percentage}%` }}

@@ -3,11 +3,19 @@ import TaskCompletionRate from '@/components/kpis/TaskCompletionRate';
 import TimeCompletionRate from '@/components/kpis/TimeCompletionRate';
 import LineComponent from '@/components/kpis/LineComponent';
 import RealHours from '@/components/kpis/RealHours';
+import KPITitle from '@/components/kpis/KPITtitle';
+import AvgHours from '@/components/kpis/AvgHoursEmpl';
+import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
 
 import ScopeSelection from '@/components/ScopeSelection';
 import MemberSelection from '@/components/MemberSelection';
 import { Member } from '../components/ScopeSelection';
-import { ChartPie } from 'lucide-react';
+import { ChartPie, CircleHelp } from 'lucide-react';
+
+type KPIObject = {
+  definition: string;
+  example: string;
+};
 
 export default function KPI() {
   const dataLineIndividual = {
@@ -94,7 +102,7 @@ export default function KPI() {
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   return (
-    <div className="bg-background h-full w-full p-4 flex items-start justify-center overflow-clip">
+    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
       <div className="flex flex-col justify-start items-start p-4 lg:p-10 gap-y-4 bg-whitie w-full h-full rounded-lg shadow-xl ">
         {/* Title */}
         <div className="flex flex-row items-center gap-[10px]">
@@ -107,11 +115,10 @@ export default function KPI() {
         <div className="flex lg:flex-row gap-x-3">
           {/* Task completion rate */}
           <div className="bg-whitiish2 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
-            <div className="flex flex-row items-center ml-5 mt-3">
-              <p className="text-[#424043] text-[1.35rem]">
-                Task Completion Rate Over Time %
-              </p>
-            </div>
+            <KPITitle
+              title="Task completion rate"
+              KPIObject={dictionaryKPI[1]}
+            />
             <div className="w-[26.3rem] p-2">
               {isIndividual ? (
                 <TaskCompletionRate
@@ -142,43 +149,45 @@ export default function KPI() {
           <div className="flex flex-col gap-5">
             {/* Time completion rate */}
             <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col h-[19rem]">
-              <div className="flex flex-row items-center ml-5 mt-3">
-                <p className="text-[#424043] text-[1.35rem]">
-                  Time Completion Rate Over Time %
-                </p>
-              </div>
-
+              <KPITitle
+                title="Time Completion Rate Over Time %"
+                KPIObject={dictionaryKPI[3]}
+              />
               <TimeCompletionRate data={dataPie} />
             </div>
 
             {/* Percentages */}
             <div className="bg-whitiish2 rounded-2xl shadow-xl px-4 py-2 gap-5 flex flex-col h-[19rem]">
-              <div className="flex flex-row items-center ml-5 mt-3">
-                <p className="text-[#424043] text-[1.35rem]">
-                  OCI Resources Utilization
-                </p>
-              </div>
-
+              <KPITitle
+                title="OCI Resources Utilization"
+                KPIObject={dictionaryKPI[5]}
+              />
               <LineComponent percentage={75} />
 
-              <div className="flex flex-row items-center ml-5 mt-3">
-                <p className="text-[#424043] text-[1.35rem]">
-                  Tasks completed per Week
-                </p>
-              </div>
-
+              <KPITitle
+                title="Tasks Completed per Week"
+                KPIObject={dictionaryKPI[6]}
+              />
               <LineComponent percentage={90} />
             </div>
           </div>
 
           {/* Real worked hours */}
           <div className="flex flex-col gap-5">
-            <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col h-[19rem]">
+            <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col h-[19rem] justify-center">
+              <KPITitle
+                title="Real Hours Worked"
+                KPIObject={dictionaryKPI[4]}
+              />
               <RealHours percentage={85} workedHours={120} plannedHours={140} />
             </div>
 
-            <div className="h-[19rem]">
-              <RealHours percentage={85} workedHours={120} plannedHours={140} />
+            <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col h-[19rem]">
+              <KPITitle
+                title="Average Tasks by Employee"
+                KPIObject={dictionaryKPI[2]}
+              />
+              <AvgHours average={2.5}/>
             </div>
           </div>
         </div>
