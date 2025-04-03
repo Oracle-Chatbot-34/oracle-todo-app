@@ -21,7 +21,7 @@ export default function Tasks({}: Props) {
         {/* Title */}
         <div className="flex flex-row items-center gap-[20px]">
           <FileCheck className="w-8 h-8" />
-          <p className="text-[24px] font-semibold">Intelligent Reports</p>
+          <p className="text-[24px] font-semibold">Task Manager</p>
         </div>
         {/* Bar */}
         <Card className="flex flex-row justify-between items-center w-full px-4 lg:px-6 shadow-lg">

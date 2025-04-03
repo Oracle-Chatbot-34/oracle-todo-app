@@ -39,7 +39,7 @@ const TasksTime: React.FC<LineChartProps> = ({ data, categories }) => {
   };
 
   return (
-    <div className="chart-container">
+    <div>
       <Chart options={options} series={[{ name: "Data", data }]} type="line" width="500" />
     </div>
   );

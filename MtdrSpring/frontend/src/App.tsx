@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import Tasks from './pages/Tasks';
+import KPI from './pages/KPI';
 import NotFound from './pages/NotFound';
 
 const App = () => {
@@ -19,6 +20,7 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/tasks" element={<Tasks />} />
+        <Route path="/kpis" element={<KPI />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>

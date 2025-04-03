@@ -1,5 +1,3 @@
-import { MdOutlineAnalytics } from 'react-icons/md';
-import { BiTask } from 'react-icons/bi';
 import PieChart from '../components/PieChart';
 import TasksTime from '../components/TasksTime';
 import TaskDashCard from '../components/TaskDashCard';
