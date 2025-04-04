@@ -12,6 +12,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
 import com.springboot.MyTodoList.controller.ToDoItemBotController;
+import com.springboot.MyTodoList.service.SprintService;
 import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.UserService;
 import com.springboot.MyTodoList.util.BotMessages;
@@ -25,7 +26,10 @@ public class MyTodoListApplication implements CommandLineRunner {
     private ToDoItemService toDoItemService;
     
     @Autowired
-    private UserService userService;  // Add this line to autowire UserService
+    private UserService userService;
+
+    @Autowired
+    private SprintService sprintService;
 
     @Value("${telegram.bot.token}")
     private String telegramBotToken;
@@ -53,7 +57,8 @@ public class MyTodoListApplication implements CommandLineRunner {
                 telegramBotToken, 
                 botName, 
                 toDoItemService,
-                userService));  // Add userService as the fourth parameter
+                userService,
+                sprintService));
             logger.info(BotMessages.BOT_REGISTERED_STARTED.getMessage());
         } catch (TelegramApiException e) {
             logger.error("Failed to start Telegram bot", e);
