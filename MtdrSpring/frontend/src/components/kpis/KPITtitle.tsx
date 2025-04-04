@@ -15,8 +15,8 @@ export default function KPITitle({ title, KPIObject }: KPITitleProps) {
   const [isPopupOpen, setPopupOpen] = useState(false);
 
   return (
-    <div className="flex flex-row items-center ml-5 mt-2">
-      <p className="text-[#424043] text-[1.35rem]">{title}</p>
+    <div className="flex flex-row w-full justify-center items-center ml-5 mt-2">
+      <p className="text-[#424043] text-[1.35rem] lg:text-3xl">{title}</p>
       <CircleHelp
         className="w-6 ml-3 text-gray-500 cursor-pointer hover:text-gray-700"
         onClick={() => setPopupOpen(true)}
@@ -24,7 +24,7 @@ export default function KPITitle({ title, KPIObject }: KPITitleProps) {
 
       {/* KPI Info Popup */}
       {isPopupOpen && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/70 z-20">
+        <div className="fixed inset-0 flex items-center justify-center w-full bg-black/70 z-20">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
             <h2 className="text-xl font-bold mb-2">{title}</h2>
             <p className="text-gray-700">

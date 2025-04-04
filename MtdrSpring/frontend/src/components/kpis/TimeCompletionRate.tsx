@@ -29,8 +29,8 @@ export default function TimeCompletionRate({ data }: PieChartProps) {
   };
 
   return (
-    <div>
-      <Chart options={options} series={data} type="pie" width="400" />
+    <div className='flex h-full w-full'>
+      <Chart options={options} series={data} type="pie" width="200%" height={"80%"} />
     </div>
   );
 }

@@ -10,7 +10,7 @@ export default function LineComponent({percentage}: LineComponentProps) {
         className="bg-greenie h-full rounded-lg transition-all duration-500"
         style={{ width: `${percentage}%` }}
       ></div>
-      <span className="absolute inset-0 flex items-center justify-center text-white font-bold">
+      <span className="absolute inset-0 flex items-center justify-center text-black font-bold">
         {percentage}%
       </span>
     </div>

@@ -37,7 +37,7 @@ export default function TaskCompletionRate({
   };
 
   return (
-    <div>
+    <div className='w-full'>
       <Chart
         options={options}
         series={[{ name: 'Data', data }]}

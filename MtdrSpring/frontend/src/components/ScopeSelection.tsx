@@ -4,7 +4,7 @@ type Props = {
 };
 
 export type Member = {
-  id: string;
+  id: number;
   name: string;
 };
 

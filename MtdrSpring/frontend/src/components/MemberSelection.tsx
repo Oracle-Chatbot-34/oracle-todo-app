@@ -9,9 +9,9 @@ type Props = {
 
 export default function MemberSelection({ isIndividual, selectedMemberProp, setSelectedMemberProp }: Props) {
   const members: Member[] = [
-    { id: '1', name: 'Daniel Barreras' },
-    { id: '2', name: 'Benjamin Ortiz' },
-    { id: '3', name: 'Emiliano Nieto' },
+    { id: 1 , name: 'Daniel Barreras' },
+    { id: 2 , name: 'Benjamin Ortiz' },
+    { id: 3 , name: 'Emiliano Nieto' },
   ];
 
   if (isIndividual)
@@ -23,7 +23,7 @@ export default function MemberSelection({ isIndividual, selectedMemberProp, setS
           value={selectedMemberProp?.id || ''}
           onChange={(e) => {
             const memberId = e.target.value;
-            const member = members.find((m) => m.id === memberId) || null;
+            const member = members.find((m) => m.id === Number(memberId)) || null;
             setSelectedMemberProp(member);
           }}
         >
