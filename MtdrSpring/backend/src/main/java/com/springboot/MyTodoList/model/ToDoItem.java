@@ -14,42 +14,52 @@ public class ToDoItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     int ID;
-    
+
     @Column(name = "TITLE", nullable = false)
     String title;
-    
+
     @Column(name = "DESCRIPTION")
     String description;
-    
+
     @Column(name = "CREATION_TS")
     OffsetDateTime creation_ts;
-    
+
     @Column(name = "DUE_DATE")
     OffsetDateTime dueDate;
-    
+
     @Column(name = "ASSIGNEE_ID")
     private Long assigneeId;
-    
+
     @Column(name = "TEAM_ID")
     private Long teamId;
-    
+
     // Status values: SELECTED_FOR_DEVELOPMENT, IN_PROGRESS, DELAYED, IN_QA, DONE
     @Column(name = "STATUS")
     private String status;
-    
+
+    @Column(name = "ESTIMATED_HOURS")
+    private Double estimatedHours;
+
+    @Column(name = "ACTUAL_HOURS")
+    private Double actualHours;
+
+    @Column(name = "SPRINT_ID")
+    private Long sprintId;
+
     @Column(name = "PRIORITY")
     private String priority;
-    
+
     @Column(name = "DONE")
     boolean done;
-    
+
     @Column(name = "COMPLETED_AT")
     private OffsetDateTime completedAt;
-    
+
     public ToDoItem() {
     }
 
-    public ToDoItem(int ID, String title, String description, OffsetDateTime creation_ts, OffsetDateTime dueDate, Long assigneeId, Long teamId, String status, String priority, boolean done, OffsetDateTime completedAt) {
+    public ToDoItem(int ID, String title, String description, OffsetDateTime creation_ts, OffsetDateTime dueDate,
+            Long assigneeId, Long teamId, String status, String priority, boolean done, OffsetDateTime completedAt) {
         this.ID = ID;
         this.title = title;
         this.description = description;
@@ -98,13 +108,13 @@ public class ToDoItem {
     public String getStatus() {
         return status;
     }
-    
+
     public void setStatus(String status) {
         this.status = status;
-        
+
         // Update done flag based on status
         this.done = "DONE".equals(status);
-        
+
         // Update completion timestamp if done
         if (this.done && this.completedAt == null) {
             this.completedAt = OffsetDateTime.now();
@@ -147,6 +157,30 @@ public class ToDoItem {
 
     public String getPriority() {
         return priority;
+    }
+
+    public Double getEstimatedHours() {
+        return estimatedHours;
+    }
+
+    public void setEstimatedHours(Double estimatedHours) {
+        this.estimatedHours = estimatedHours;
+    }
+
+    public Double getActualHours() {
+        return actualHours;
+    }
+
+    public void setActualHours(Double actualHours) {
+        this.actualHours = actualHours;
+    }
+
+    public Long getSprintId() {
+        return sprintId;
+    }
+
+    public void setSprintId(Long sprintId) {
+        this.sprintId = sprintId;
     }
 
     public void setPriority(String priority) {
