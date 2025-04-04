@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashmaster
+  labels:
+    app: dashmaster
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dashmaster
+  template:
+    metadata:
+      labels:
+        app: dashmaster
+    spec:
+      containers:
+      - name: dashmaster
+        image: ${DOCKER_REGISTRY}/dashmaster:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:oracle:thin:@$(DB_SERVICE_NAME)?TNS_ADMIN=/app/wallet"
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: db-username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: db-password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: jwt-secret
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: telegram-bot-token
+        - name: TELEGRAM_BOT_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: telegram-bot-name
+        - name: OCI_REGION
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: OCI_REGION
+        volumeMounts:
+        - name: wallet-volume
+          mountPath: /app/wallet
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15
+      volumes:
+      - name: wallet-volume
+        secret:
+          secretName: oracle-wallet
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashmaster-service
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "lb"
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+  selector:
+    app: dashmaster

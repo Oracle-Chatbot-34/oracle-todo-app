@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
  * Each user belongs to exactly one team.
  */
 @Entity
-@Table(name = "USERS")
+@Table(name = "users")
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

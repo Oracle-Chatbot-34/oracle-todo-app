@@ -24,17 +24,17 @@ public class MyTodoListApplication implements CommandLineRunner {
 
     @Autowired
     private ToDoItemService toDoItemService;
-    
+
     @Autowired
     private UserService userService;
 
     @Autowired
     private SprintService sprintService;
 
-    @Value("${telegram.bot.token}")
+    @Value("${telegram.bot.token:disabled}")
     private String telegramBotToken;
 
-    @Value("${telegram.bot.name}")
+    @Value("${telegram.bot.name:DashMasterBot}")
     private String botName;
 
     public static void main(String[] args) {
@@ -44,25 +44,24 @@ public class MyTodoListApplication implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         // Verify Telegram bot configuration
-        if (telegramBotToken == null || telegramBotToken.isEmpty() ||
-            telegramBotToken.equals("disabled")) {
+        if (telegramBotToken == null || telegramBotToken.isEmpty()) {
+            logger.error("Telegram bot token is not set. Please set the TELEGRAM_BOT_TOKEN environment variable.");
             throw new IllegalStateException(
-                "Telegram bot token is required. Please set the TELEGRAM_BOT_TOKEN environment variable."
-            );
+                    "Telegram bot token is required. Please set the TELEGRAM_BOT_TOKEN environment variable.");
         }
-        
+
         try {
             TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
             telegramBotsApi.registerBot(new ToDoItemBotController(
-                telegramBotToken, 
-                botName, 
-                toDoItemService,
-                userService,
-                sprintService));
+                    telegramBotToken,
+                    botName,
+                    toDoItemService,
+                    userService,
+                    sprintService));
             logger.info(BotMessages.BOT_REGISTERED_STARTED.getMessage());
         } catch (TelegramApiException e) {
             logger.error("Failed to start Telegram bot", e);
-            throw new IllegalStateException("Failed to start Telegram bot. Application cannot continue.");
+            logger.warn("Application will continue without Telegram bot functionality.");
         }
     }
 }
