@@ -143,4 +143,11 @@ public class ToDoItemService {
         return toDoItemRepository.findByAssigneeIdAndStatusNot(assigneeId, TaskStatus.COMPLETED.name());
     }
 
+    /**
+     * Find all tasks for a specific assignee
+     */
+    public List<ToDoItem> findByAssigneeId(Long assigneeId) {
+        return toDoItemRepository.findByAssigneeId(assigneeId);
+    }
+
 }
