@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: app-config
-data:
-  SPRING_PROFILES_ACTIVE: "production"
-  OCI_REGION: "mx-queretaro-1"
-  DB_SERVICE_NAME: "javadev_high"
