@@ -1,7 +1,7 @@
 import api from './api';
 import { config } from '../lib/config';
 
-interface User {
+export interface User {
   id?: number;
   username: string;
   password?: string;
