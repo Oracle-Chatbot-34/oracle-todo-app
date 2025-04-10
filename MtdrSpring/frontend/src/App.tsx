@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation} from 'react-router-dom';
 import NavBar from './components/NavBar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -60,7 +60,11 @@ const App = () => {
               }
             />
 
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={
+              <ProtectedRoute>
+                <NotFound />
+              </ProtectedRoute>
+            } />
           </Routes>
         </div>
       </AuthProvider>

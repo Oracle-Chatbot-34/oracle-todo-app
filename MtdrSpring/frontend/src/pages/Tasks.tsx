@@ -145,12 +145,12 @@ export default function Tasks() {
     }
 
     // Filter by priority
-    if (priorityFilter && task.priority !== priorityFilter) {
+    if (priorityFilter && priorityFilter !== 'all' && task.priority !== priorityFilter) {
       return false;
     }
 
     // Filter by assignee
-    if (assigneeFilter && task.assigneeId !== parseInt(assigneeFilter)) {
+    if (assigneeFilter && assigneeFilter !== 'all' && task.assigneeId !== parseInt(assigneeFilter)) {
       return false;
     }
 
@@ -244,7 +244,7 @@ export default function Tasks() {
               value={priorityFilter}
               onChange={setPriorityFilter}
               values={[
-                { label: 'All priorities', value: '' },
+                { label: 'All priorities', value: 'all' },
                 { label: 'High', value: 'HIGH' },
                 { label: 'Medium', value: 'MEDIUM' },
                 { label: 'Low', value: 'LOW' },
@@ -257,7 +257,7 @@ export default function Tasks() {
               value={assigneeFilter}
               onChange={setAssigneeFilter}
               values={[
-                { label: 'All assignees', value: '' },
+                { label: 'All assignees', value: 'all' },
                 ...users.map((user) => ({
                   label: user.fullName,
                   value: user.id!.toString(),
@@ -458,7 +458,10 @@ function SelectOrder({
         <SelectGroup>
           <SelectLabel>{label}</SelectLabel>
           {values.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
+            <SelectItem 
+              key={option.value || 'empty-value'} 
+              value={option.value || 'empty-value'}
+            >
               {option.label}
             </SelectItem>
           ))}

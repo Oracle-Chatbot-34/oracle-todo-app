@@ -7,16 +7,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [username, setUsername] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     // Check authentication status on mount
     const storedToken = localStorage.getItem('token');
     const storedUsername = localStorage.getItem('username');
+    const storedFullName = localStorage.getItem('fullName');
 
     if (storedToken && storedUsername) {
       setIsAuthenticated(true);
       setUsername(storedUsername);
+      setFullName(storedFullName);
     }
 
     setLoading(false);
@@ -29,9 +32,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       localStorage.setItem('token', response.token);
       localStorage.setItem('username', response.username);
+      localStorage.setItem('fullName', response.fullName);
 
       setIsAuthenticated(true);
       setUsername(response.username);
+      setFullName(response.fullName);
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -44,15 +49,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     authService.logout();
     setIsAuthenticated(false);
     setUsername(null);
+    setFullName(null);
   };
 
   return (
     <AuthContext.Provider
-      value={{ isAuthenticated, username, login, logout, loading }}
+      value={{ isAuthenticated, username, fullName, login, logout, loading }}
     >
       {children}
     </AuthContext.Provider>
   );
 };
-
-
