@@ -109,4 +109,9 @@ public class SprintService {
                 .filter(sprint -> !"ACTIVE".equals(sprint.getStatus()))
                 .toList();
     }
+
+    /**
+     * Find Active sprints by team ID
+     */
+    
 }

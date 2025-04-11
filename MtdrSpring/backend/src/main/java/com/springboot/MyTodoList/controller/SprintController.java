@@ -45,7 +45,7 @@ public class SprintController {
 
     @GetMapping("/team/{teamId}/active")
     public ResponseEntity<ApiResponse<Sprint>> getActiveSprintByTeamId(@PathVariable("teamId") Long teamId) {
-        return sprintService.findActiveSprintByTeamId(teamId)
+        return sprintService.findActiveByTeamId(teamId)
                 .map(sprint -> ResponseEntity.ok(new ApiResponse<>(sprint)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(new ApiResponse<>("No active sprint found for team ID: " + teamId)));
@@ -65,7 +65,7 @@ public class SprintController {
     @PostMapping
     public ResponseEntity<ApiResponse<Sprint>> createSprint(@RequestBody Sprint sprint) {
         try {
-            Sprint createdSprint = sprintService.createSprint(sprint);
+            Sprint createdSprint = sprintService.save(sprint);
             return ResponseEntity.status(HttpStatus.CREATED).body(new ApiResponse<>(createdSprint));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -86,7 +86,7 @@ public class SprintController {
                         .body(new ApiResponse<>("Sprint not found with ID: " + id));
             }
 
-            Sprint updatedSprint = sprintService.updateSprint(sprint);
+            Sprint updatedSprint = sprintService.update(sprint);
             return ResponseEntity.ok(new ApiResponse<>(updatedSprint));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
