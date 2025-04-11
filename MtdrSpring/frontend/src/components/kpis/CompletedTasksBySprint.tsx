@@ -53,6 +53,13 @@ const generateChartConfig = (members: string[]): ChartConfig => {
   }, {} as ChartConfig);
 };
 
+// Helper function to truncate member names
+const truncateName = (name: string): string => {
+  const nameParts = name.split(' ');
+  // Get only first name and first last name
+  return nameParts.length > 1 ? `${nameParts[0]} ${nameParts[1]}` : name;
+};
+
 export default function CompletedTasksBySprint({
   isLoading,
   sprintData,
@@ -66,19 +73,47 @@ export default function CompletedTasksBySprint({
     if (!sprintData || sprintData.length === 0) return;
 
     const allChartData: ChartDataEntry[] = [];
-    const memberSet = new Set<string>();
+    const memberMap = new Map<string, string>(); // Original name to truncated name mapping
+    const truncatedMemberData = new Map<string, number>(); // For combining if truncated names match
 
+    // First pass - get all members and create truncated names
+    sprintData.forEach((sprint) => {
+      sprint.entries.forEach((entry) => {
+        const truncatedName = truncateName(entry.member);
+        memberMap.set(entry.member, truncatedName);
+      });
+    });
+
+    // Second pass - create chart data with truncated names
     sprintData.forEach((sprint) => {
       const sprintEntry: ChartDataEntry = { sprint: sprint.name };
+
+      // Clear accumulated task counts for this sprint
+      truncatedMemberData.clear();
+
+      // Combine task counts for members with same truncated name
       sprint.entries.forEach((entry) => {
-        sprintEntry[entry.member] = entry.tasksCompleted;
-        memberSet.add(entry.member);
+        const truncatedName = memberMap.get(entry.member) || entry.member;
+        const currentCount = truncatedMemberData.get(truncatedName) || 0;
+        truncatedMemberData.set(
+          truncatedName,
+          currentCount + entry.tasksCompleted
+        );
       });
+
+      // Add combined data to sprint entry
+      truncatedMemberData.forEach((count, name) => {
+        sprintEntry[name] = count;
+      });
+
       allChartData.push(sprintEntry);
     });
 
-    const members = Array.from(memberSet);
-    const newChartConfig = generateChartConfig(members);
+    // Get unique truncated member names for the chart config
+    const uniqueTruncatedMembers = Array.from(
+      new Set(Array.from(memberMap.values()))
+    );
+    const newChartConfig = generateChartConfig(uniqueTruncatedMembers);
 
     setChartConfig(newChartConfig);
     setChartData(allChartData);
@@ -98,6 +133,10 @@ export default function CompletedTasksBySprint({
           <div className="h-28/50 w-28/50">
             <LoadingSpinner />
           </div>
+        </div>
+      ) : chartData.length === 0 ? (
+        <div className="flex items-center justify-center h-40">
+          <p className="text-xl">No completed tasks data available</p>
         </div>
       ) : (
         <ResponsiveContainer height="100%" width="100%">
