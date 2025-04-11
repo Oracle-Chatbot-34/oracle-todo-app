@@ -76,6 +76,8 @@ export default function TaskInformationBySprint({
         setUsers(userMap);
       } catch (err) {
         console.error('Error fetching users:', err);
+      } finally {
+        // Don't finish loading here, wait for tasks to load too
       }
     };
 
@@ -96,10 +98,19 @@ export default function TaskInformationBySprint({
           try {
             // Get tasks for this sprint
             const response = await api.get(
-              `${config.apiEndpoint}/sprints/${sprint.sprintId}/tasks`
+              `${config.apiEndpoint}/tasks/sprint/${sprint.sprintId}`
             );
 
-            const tasksData = response.data?.data || response.data || [];
+            let tasksData;
+
+            // Handle different response formats
+            if (response.data?.data) {
+              tasksData = response.data.data;
+            } else if (Array.isArray(response.data)) {
+              tasksData = response.data;
+            } else {
+              tasksData = [];
+            }
 
             // Map the tasks data to our Task type
             const tasks = tasksData.map((task: ApiTask) => ({
@@ -152,11 +163,11 @@ export default function TaskInformationBySprint({
     const fullName = users[assigneeId] || `User ${assigneeId}`;
     const nameParts = fullName.split(' ');
 
-    // Fallbacks if second name or last name are missing
-    const secondName = nameParts[0] || nameParts[1];
-    const firstLastName = nameParts[2] || '';
+    // Get only first name and first last name
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.length > 1 ? nameParts[1] : '';
 
-    return `${secondName} ${firstLastName}`.trim();
+    return `${firstName} ${lastName}`.trim();
   };
 
   return (
@@ -169,9 +180,9 @@ export default function TaskInformationBySprint({
         />
       </div>
 
-      <div className="max-w-full max-h-[65vh] flex flex-col gap-2 p-4 overflow-y-auto ">
+      <div className="max-w-full max-h-[65vh] flex flex-col gap-2 p-4 overflow-y-auto">
         {loading ? (
-          <div className="">
+          <div className="flex items-center justify-center h-40">
             <div className="h-28/50 w-28/50">
               <LoadingSpinner />
             </div>
@@ -200,7 +211,9 @@ export default function TaskInformationBySprint({
                     >
                       <div className="flex flex-col gap-2 text-lg">
                         <div className="flex flex-row gap-4">
-                          <p className="font-semibold">{task.title}</p>
+                          <p className="font-semibold truncate max-w-[200px]">
+                            {task.title}
+                          </p>
                           <div className="flex flex-row gap-1">
                             <p>Assigned to:</p>
                             <p className="font-semibold">
