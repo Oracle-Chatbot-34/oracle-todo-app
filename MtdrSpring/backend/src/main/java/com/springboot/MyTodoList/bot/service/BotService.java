@@ -185,6 +185,21 @@ public class BotService {
     }
 
     /**
+     * Find all sprints
+     */
+    public List<Sprint> findAllSprints() {
+        logger.info("Finding all sprints");
+        try {
+            List<Sprint> sprints = sprintService.findAll();
+            logger.info("Found {} sprints", sprints.size());
+            return sprints;
+        } catch (Exception e) {
+            logger.error("Error finding all sprints", e);
+            throw new RuntimeException("Failed to find all sprints", e);
+        }
+    }
+
+    /**
      * Find completed sprints by team ID
      */
     public List<Sprint> findCompletedSprintsByTeamId(Long teamId) {
