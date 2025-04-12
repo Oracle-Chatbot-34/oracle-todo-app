@@ -57,6 +57,9 @@ export default function TaskInformationBySprint({
   );
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<Record<number, string>>({});
+  const [expandedSprints, setExpandedSprints] = useState<Set<number>>(
+    new Set()
+  );
 
   // Fetch all users first to have their names available
   useEffect(() => {
@@ -76,8 +79,6 @@ export default function TaskInformationBySprint({
         setUsers(userMap);
       } catch (err) {
         console.error('Error fetching users:', err);
-      } finally {
-        // Don't finish loading here, wait for tasks to load too
       }
     };
 
@@ -148,6 +149,11 @@ export default function TaskInformationBySprint({
         }
 
         setFormattedSprints(formattedSprintsData);
+
+        // Set the first sprint as expanded by default if there are sprints and no sprint is expanded
+        if (formattedSprintsData.length > 0 && expandedSprints.size === 0) {
+          setExpandedSprints(new Set([formattedSprintsData[0].id]));
+        }
       } catch (err) {
         console.error('Error fetching tasks:', err);
       } finally {
@@ -156,7 +162,7 @@ export default function TaskInformationBySprint({
     };
 
     fetchTasksForSprints();
-  }, [sprints, users]); // Add users to the dependency array
+  }, [sprints, users]); // Add users to the dependency array, remove expandedSprints to prevent re-fetching
 
   // Helper function to get user name
   const getUserName = (assigneeId: number) => {
@@ -170,9 +176,27 @@ export default function TaskInformationBySprint({
     return `${firstName} ${lastName}`.trim();
   };
 
+  // Toggle sprint expansion
+  const toggleSprint = (sprintId: number) => {
+    setExpandedSprints((prevExpanded) => {
+      const newExpanded = new Set(prevExpanded);
+      if (newExpanded.has(sprintId)) {
+        newExpanded.delete(sprintId);
+      } else {
+        newExpanded.add(sprintId);
+      }
+      return newExpanded;
+    });
+  };
+
+  // Function to check if a sprint is expanded
+  const isSprintExpanded = (sprintId: number): boolean => {
+    return expandedSprints.has(sprintId);
+  };
+
   return (
     <div className="w-full h-full flex flex-col p-5 bg-white rounded-xl shadow-lg">
-      <div className="flex flex-row text-2xl gap-4 w-17/18 items-center">
+      <div className="flex flex-row text-2xl gap-4 w-full items-center mb-4">
         <ClipboardList className="w-6 h-6" />
         <KPITitle
           title="Task Information by Sprint"
@@ -180,7 +204,7 @@ export default function TaskInformationBySprint({
         />
       </div>
 
-      <div className="max-w-full max-h-[65vh] flex flex-col gap-2 p-4 overflow-y-auto">
+      <div className="flex-1 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-40">
             <div className="h-28/50 w-28/50">
@@ -192,80 +216,90 @@ export default function TaskInformationBySprint({
             No sprint data available.
           </div>
         ) : (
-          formattedSprints.map((sprint) => (
-            <div
-              key={sprint.id}
-              className="w-full max-h-full flex flex-col gap-4 border-b px-4 pb-4"
-            >
-              <p className="text-2xl font-semibold">{sprint.name}</p>
-              <div className="flex flex-col gap-2 px-4 h-fit w-full">
-                {sprint.tasks.length === 0 ? (
-                  <div className="text-center text-gray-500 py-4">
-                    No tasks in this sprint.
+          <div className="h-full flex flex-col overflow-y-auto pr-2">
+            {formattedSprints.map((sprint) => (
+              <div
+                key={sprint.id}
+                className="w-full flex flex-col border-b border-gray-200 mb-2 pb-2 last:border-b-0"
+              >
+                <div
+                  className="flex items-center justify-between py-2 px-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100"
+                  onClick={() => toggleSprint(sprint.id)}
+                >
+                  <div className="flex items-center">
+                    <p className="text-xl font-semibold">{sprint.name}</p>
+                    <span className="ml-3 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                      {sprint.tasks.length} tasks
+                    </span>
                   </div>
-                ) : (
-                  sprint.tasks.map((task) => (
-                    <div
-                      key={task.id}
-                      className="flex flex-row gap-4 items-center justify-between"
-                    >
-                      <div className="flex flex-col gap-2 text-lg">
-                        <div className="flex flex-row gap-4">
-                          <p className="font-semibold truncate max-w-[200px]">
-                            {task.title}
-                          </p>
-                          <div className="flex flex-row gap-1">
-                            <p>Assigned to:</p>
-                            <p className="font-semibold">
-                              {getUserName(task.assigneeId)}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-row gap-4">
-                          {/* Status with colored dot */}
-                          <p className="flex items-center gap-2">
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                task.status === 'DONE' ||
-                                task.status === 'COMPLETED'
-                                  ? 'bg-green-500'
-                                  : task.status === 'IN_PROGRESS'
-                                  ? 'bg-yellow-500'
-                                  : 'bg-red-500'
-                              }`}
-                            ></span>
-                            {task.status}
-                          </p>
+                  <div className="text-gray-500">
+                    {isSprintExpanded(sprint.id) ? '▼' : '▶'}
+                  </div>
+                </div>
 
-                          {/* Priority with colored dot */}
-                          <p className="flex items-center gap-2">
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                task.priority === 'HIGH'
-                                  ? 'bg-red-500'
-                                  : task.priority === 'MEDIUM'
-                                  ? 'bg-yellow-500'
-                                  : 'bg-gray-400'
-                              }`}
-                            ></span>
-                            {task.priority}
-                          </p>
-                        </div>
+                {isSprintExpanded(sprint.id) && (
+                  <div className="max-h-[200px] overflow-y-auto mt-2 px-4">
+                    {sprint.tasks.length === 0 ? (
+                      <div className="text-center text-gray-500 py-4">
+                        No tasks in this sprint.
                       </div>
-                      <div className="flex flex-col gap-1">
-                        <p className="text-md text-gray-700 text-right">
-                          Estimated: {task.estimatedHours} hours
-                        </p>
-                        <p className="text-md text-gray-700 text-right">
-                          Actual: {task.actualHours} hours
-                        </p>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {sprint.tasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-100"
+                          >
+                            <div className="flex flex-col gap-1 mb-2 sm:mb-0">
+                              <div className="flex flex-wrap gap-2 items-center">
+                                <p className="font-semibold text-md truncate max-w-[170px] sm:max-w-[200px]">
+                                  {task.title}
+                                </p>
+                                <span className="text-sm text-gray-600">
+                                  {getUserName(task.assigneeId)}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap gap-2 mt-1 text-sm">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                    task.status === 'DONE' ||
+                                    task.status === 'COMPLETED'
+                                      ? 'bg-green-100 text-green-800'
+                                      : task.status === 'IN_PROGRESS'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}
+                                >
+                                  {task.status}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                    task.priority === 'HIGH'
+                                      ? 'bg-red-100 text-red-800'
+                                      : task.priority === 'MEDIUM'
+                                      ? 'bg-yellow-100 text-yellow-800'
+                                      : 'bg-gray-100 text-gray-800'
+                                  }`}
+                                >
+                                  {task.priority}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-gray-700">
+                              <div className="text-right">
+                                <div>Est: {task.estimatedHours}h</div>
+                                <div>Act: {task.actualHours}h</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  ))
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </div>
