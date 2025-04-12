@@ -25,6 +25,12 @@ export default function CountLegend({
   const formattedCount =
     typeof count === 'number' ? count.toLocaleString() : '0';
 
+  // For debugging
+  console.log(
+    `CountLegend rendering with ${isHours ? 'hours' : 'tasks'} count:`,
+    count
+  );
+
   return (
     <div className="w-2/3 h-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
       {isHours ? (
