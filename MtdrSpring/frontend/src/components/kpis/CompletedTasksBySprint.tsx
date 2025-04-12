@@ -72,9 +72,10 @@ export default function CompletedTasksBySprint({
   useEffect(() => {
     if (!sprintData || sprintData.length === 0) return;
 
+    console.log('Sprint data received:', sprintData);
+
     const allChartData: ChartDataEntry[] = [];
     const memberMap = new Map<string, string>(); // Original name to truncated name mapping
-    const truncatedMemberData = new Map<string, number>(); // For combining if truncated names match
 
     // First pass - get all members and create truncated names
     sprintData.forEach((sprint) => {
@@ -87,36 +88,42 @@ export default function CompletedTasksBySprint({
     // Second pass - create chart data with truncated names
     sprintData.forEach((sprint) => {
       const sprintEntry: ChartDataEntry = { sprint: sprint.name };
+      const truncatedMemberData = new Map<string, number>();
 
-      // Clear accumulated task counts for this sprint
-      truncatedMemberData.clear();
+      // Force at least one entry per sprint to make the chart display correctly
+      if (sprint.entries.length === 0) {
+        sprintEntry['No Data'] = 0;
+      } else {
+        // Combine task counts for members with same truncated name
+        sprint.entries.forEach((entry) => {
+          const truncatedName = memberMap.get(entry.member) || entry.member;
+          const currentCount = truncatedMemberData.get(truncatedName) || 0;
+          // Ensure we're working with at least 0 for task counts, never undefined
+          const taskCount = entry.tasksCompleted || 0;
+          truncatedMemberData.set(truncatedName, currentCount + taskCount);
+        });
 
-      // Combine task counts for members with same truncated name
-      sprint.entries.forEach((entry) => {
-        const truncatedName = memberMap.get(entry.member) || entry.member;
-        const currentCount = truncatedMemberData.get(truncatedName) || 0;
-        truncatedMemberData.set(
-          truncatedName,
-          currentCount + entry.tasksCompleted
-        );
-      });
-
-      // Add combined data to sprint entry
-      truncatedMemberData.forEach((count, name) => {
-        sprintEntry[name] = count;
-      });
+        // Add combined data to sprint entry
+        truncatedMemberData.forEach((count, name) => {
+          sprintEntry[name] = count;
+        });
+      }
 
       allChartData.push(sprintEntry);
     });
 
     // Get unique truncated member names for the chart config
     const uniqueTruncatedMembers = Array.from(
-      new Set(Array.from(memberMap.values()))
-    );
+      new Set([...Array.from(memberMap.values()), 'No Data'])
+    ).filter((member) => member !== 'No Data' || chartData.length === 0);
+
     const newChartConfig = generateChartConfig(uniqueTruncatedMembers);
+
+    console.log('Chart data prepared:', allChartData, newChartConfig);
 
     setChartConfig(newChartConfig);
     setChartData(allChartData);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sprintData]);
 
   return (
@@ -143,7 +150,7 @@ export default function CompletedTasksBySprint({
           <ChartContainer config={chartConfig}>
             <BarChart data={chartData}>
               <CartesianGrid vertical={false} />
-              <YAxis />
+              <YAxis domain={[0, 'auto']} />
               <XAxis
                 dataKey="sprint"
                 tickLine={false}
@@ -153,17 +160,14 @@ export default function CompletedTasksBySprint({
               />
               <ChartTooltip cursor={true} />
 
-              {chartData.length > 0 &&
-                Object.keys(chartData[0])
-                  .filter((key) => key !== 'sprint')
-                  .map((memberName) => (
-                    <Bar
-                      key={memberName}
-                      dataKey={memberName}
-                      fill={chartConfig[memberName]?.color}
-                      radius={[4, 4, 0, 0]}
-                    />
-                  ))}
+              {Object.keys(chartConfig).map((memberName) => (
+                <Bar
+                  key={memberName}
+                  dataKey={memberName}
+                  fill={chartConfig[memberName]?.color}
+                  radius={[4, 4, 0, 0]}
+                />
+              ))}
             </BarChart>
           </ChartContainer>
         </ResponsiveContainer>
