@@ -104,27 +104,31 @@ export default function KPI() {
       }
 
       const kpiResult: KpiResult = response.data.getKpiData;
+      console.log('KPI Result received:', kpiResult);
 
       // Update sprints with the full data from the KPI service
       if (kpiResult.sprintData && kpiResult.sprintData.length > 0) {
-        // Process sprint data to ensure each entry has entries, totalHours, and totalTasks
+        // Process sprint data to ensure each entry has proper totalHours and totalTasks
         const processedSprintData = kpiResult.sprintData.map((sprint) => {
-          // Calculate total hours and tasks if not already provided
-          const totalHours = sprint.entries.reduce(
-            (sum, entry) => sum + (entry.hours || 0),
-            0
-          );
-          const totalTasks = sprint.entries.reduce(
-            (sum, entry) => sum + (entry.tasksCompleted || 0),
-            0
-          );
+          // Calculate total hours and tasks for each sprint
+          let totalHours = 0;
+          let totalTasks = 0;
 
+          // Sum up all hours and tasks completed by all members in this sprint
+          sprint.entries.forEach((entry) => {
+            totalHours += entry.hours || 0;
+            totalTasks += entry.tasksCompleted || 0;
+          });
+
+          // If the backend provided totals, use those, otherwise use our calculated values
           return {
             ...sprint,
             totalHours: sprint.totalHours || totalHours,
             totalTasks: sprint.totalTasks || totalTasks,
           };
         });
+
+        console.log('Processed sprint data:', processedSprintData);
 
         setSprints((prevSprints) => {
           // Update the existing sprints with the full data
@@ -142,13 +146,31 @@ export default function KPI() {
           return updatedSprints;
         });
 
-        // Process sprint hours and tasks data to ensure no zero values
-        const processedHours = (kpiResult.sprintHours || []).filter(
-          (item) => item.count > 0
-        );
-        const processedTasks = (kpiResult.sprintTasks || []).filter(
-          (item) => item.count > 0
-        );
+        // Make sure the sprint hours and tasks data include calculated totals
+        const processedHours = kpiResult.sprintHours.map((item) => {
+          // Find corresponding sprint data to update count if needed
+          const matchingSprint = processedSprintData.find(
+            (s) => s.id === item.id
+          );
+          return {
+            ...item,
+            count: item.count || matchingSprint?.totalHours || 0,
+          };
+        });
+
+        const processedTasks = kpiResult.sprintTasks.map((item) => {
+          // Find corresponding sprint data to update count if needed
+          const matchingSprint = processedSprintData.find(
+            (s) => s.id === item.id
+          );
+          return {
+            ...item,
+            count: item.count || matchingSprint?.totalTasks || 0,
+          };
+        });
+
+        console.log('Processed hours:', processedHours);
+        console.log('Processed tasks:', processedTasks);
 
         // Set filtered data
         setFilteredSprints(processedSprintData);
@@ -186,7 +208,6 @@ export default function KPI() {
       setLoading(false);
     }
   };
-
   // When start or end sprint selection changes
   useEffect(() => {
     if (!startSprint) return;
