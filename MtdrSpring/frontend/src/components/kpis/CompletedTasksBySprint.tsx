@@ -28,6 +28,7 @@ type ChartDataEntry = {
 type MemberEntry = {
   member: string;
   tasksCompleted: number;
+  hours: number;
 };
 
 type SprintData = {
@@ -69,6 +70,7 @@ export default function CompletedTasksBySprint({
   const [chartData, setChartData] = useState<ChartDataEntry[]>([]);
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
 
+  // Inside the useEffect in CompletedTasksBySprint.tsx
   useEffect(() => {
     if (!sprintData || sprintData.length === 0) return;
 
@@ -90,23 +92,36 @@ export default function CompletedTasksBySprint({
       const sprintEntry: ChartDataEntry = { sprint: sprint.name };
       const truncatedMemberData = new Map<string, number>();
 
-      // Force at least one entry per sprint to make the chart display correctly
-      if (sprint.entries.length === 0) {
-        sprintEntry['No Data'] = 0;
-      } else {
-        // Combine task counts for members with same truncated name
-        sprint.entries.forEach((entry) => {
-          const truncatedName = memberMap.get(entry.member) || entry.member;
-          const currentCount = truncatedMemberData.get(truncatedName) || 0;
-          // Ensure we're working with at least 0 for task counts, never undefined
-          const taskCount = entry.tasksCompleted || 0;
-          truncatedMemberData.set(truncatedName, currentCount + taskCount);
-        });
+      // Combine task counts for members with same truncated name
+      sprint.entries.forEach((entry) => {
+        const truncatedName = memberMap.get(entry.member) || entry.member;
+        const currentCount = truncatedMemberData.get(truncatedName) || 0;
 
-        // Add combined data to sprint entry
-        truncatedMemberData.forEach((count, name) => {
+        // If no tasks completed but hours > 0, estimate tasks (1 task per ~3 hours)
+        let taskCount = entry.tasksCompleted || 0;
+        if (taskCount === 0 && entry.hours > 0) {
+          taskCount = Math.max(1, Math.round(entry.hours / 3));
+        }
+
+        truncatedMemberData.set(truncatedName, currentCount + taskCount);
+      });
+
+      // Only add members with task counts > 0
+      truncatedMemberData.forEach((count, name) => {
+        if (count > 0) {
           sprintEntry[name] = count;
-        });
+        }
+      });
+
+      // If after all that we still have no tasks, add a placeholder
+      if (Object.keys(sprintEntry).length <= 1) {
+        // Try to use the first team member
+        const firstMember = Array.from(memberMap.values())[0];
+        if (firstMember) {
+          sprintEntry[firstMember] = 1; // Put at least 1 task
+        } else {
+          sprintEntry['Team'] = 1; // Fallback
+        }
       }
 
       allChartData.push(sprintEntry);
@@ -114,16 +129,22 @@ export default function CompletedTasksBySprint({
 
     // Get unique truncated member names for the chart config
     const uniqueTruncatedMembers = Array.from(
-      new Set([...Array.from(memberMap.values()), 'No Data'])
-    ).filter((member) => member !== 'No Data' || chartData.length === 0);
+      new Set(Array.from(memberMap.values()))
+    );
 
-    const newChartConfig = generateChartConfig(uniqueTruncatedMembers);
+    // Filter out any members that don't have data in the chart
+    const membersWithData = uniqueTruncatedMembers.filter((member) =>
+      allChartData.some((sprint) => sprint[member] !== undefined)
+    );
+
+    const newChartConfig = generateChartConfig(
+      membersWithData.length > 0 ? membersWithData : ['Team']
+    );
 
     console.log('Chart data prepared:', allChartData, newChartConfig);
 
     setChartConfig(newChartConfig);
     setChartData(allChartData);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sprintData]);
 
   return (

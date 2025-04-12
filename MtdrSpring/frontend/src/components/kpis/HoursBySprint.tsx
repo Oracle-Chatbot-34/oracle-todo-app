@@ -47,13 +47,27 @@ export default function HoursBySprints({
   definition,
   example,
 }: HoursBySprintProps) {
+  // Log the incoming data
+  console.log(
+    `HoursBySprints received ${isHours ? 'hours' : 'tasks'} chartData:`,
+    chartData
+  );
+
   // Calculate the total count from chartData
   const totalCount = React.useMemo(() => {
-    return chartData.reduce((acc, entry) => acc + entry.count, 0);
-  }, [chartData]);
+    const sum = chartData.reduce((acc, entry) => acc + (entry.count || 0), 0);
+    console.log(`Total ${isHours ? 'hours' : 'tasks'} calculated:`, sum);
+    return sum;
+  }, [chartData, isHours]);
 
-  // Filter out any entries with zero count
+  // Ensure we don't have zero values showing (but keep entries if that's all we have)
   const filteredChartData = React.useMemo(() => {
+    // If all entries are zero, keep them
+    if (chartData.every((entry) => !entry.count)) {
+      return chartData;
+    }
+
+    // Otherwise filter out zero entries
     return chartData.filter((entry) => entry.count > 0);
   }, [chartData]);
 

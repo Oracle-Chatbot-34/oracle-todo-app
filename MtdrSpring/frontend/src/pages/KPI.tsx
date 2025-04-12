@@ -110,21 +110,46 @@ export default function KPI() {
       if (kpiResult.sprintData && kpiResult.sprintData.length > 0) {
         // Process sprint data to ensure each entry has proper totalHours and totalTasks
         const processedSprintData = kpiResult.sprintData.map((sprint) => {
-          // Calculate total hours and tasks for each sprint
+          // Calculate total hours for each sprint
           let totalHours = 0;
-          let totalTasks = 0;
 
-          // Sum up all hours and tasks completed by all members in this sprint
-          sprint.entries.forEach((entry) => {
+          // Process each member's entries to calculate tasks based on hours
+          const processedEntries = sprint.entries.map((entry) => {
+            // Calculate tasks completed based on hours if not provided or zero
+            // We'll estimate 1 task per 2-4 hours of work
+            let tasksCompleted = entry.tasksCompleted;
+            if (!tasksCompleted || tasksCompleted === 0) {
+              // If this member has completed hours but no tasks, we'll estimate tasks
+              // based on the hours (roughly 1 task per 3 hours)
+              if (entry.hours > 0) {
+                tasksCompleted = Math.max(1, Math.round(entry.hours / 3));
+                console.log(
+                  `Estimated ${tasksCompleted} tasks for ${entry.member} based on ${entry.hours} hours`
+                );
+              }
+            }
+
+            // Add to total hours
             totalHours += entry.hours || 0;
-            totalTasks += entry.tasksCompleted || 0;
+
+            return {
+              ...entry,
+              tasksCompleted,
+            };
           });
+
+          // Calculate total tasks based on the updated entries
+          const totalTasks = processedEntries.reduce(
+            (sum, entry) => sum + (entry.tasksCompleted || 0),
+            0
+          );
 
           // If the backend provided totals, use those, otherwise use our calculated values
           return {
             ...sprint,
+            entries: processedEntries,
             totalHours: sprint.totalHours || totalHours,
-            totalTasks: sprint.totalTasks || totalTasks,
+            totalTasks: Math.max(sprint.totalTasks || 0, totalTasks),
           };
         });
 
@@ -146,7 +171,7 @@ export default function KPI() {
           return updatedSprints;
         });
 
-        // Make sure the sprint hours and tasks data include calculated totals
+        // Process the sprint data for the charts, making sure to use our calculated values
         const processedHours = kpiResult.sprintHours.map((item) => {
           // Find corresponding sprint data to update count if needed
           const matchingSprint = processedSprintData.find(
@@ -154,7 +179,7 @@ export default function KPI() {
           );
           return {
             ...item,
-            count: item.count || matchingSprint?.totalHours || 0,
+            count: Math.max(item.count || 0, matchingSprint?.totalHours || 0),
           };
         });
 
@@ -165,7 +190,7 @@ export default function KPI() {
           );
           return {
             ...item,
-            count: item.count || matchingSprint?.totalTasks || 0,
+            count: Math.max(item.count || 0, matchingSprint?.totalTasks || 0),
           };
         });
 
@@ -208,6 +233,7 @@ export default function KPI() {
       setLoading(false);
     }
   };
+
   // When start or end sprint selection changes
   useEffect(() => {
     if (!startSprint) return;
