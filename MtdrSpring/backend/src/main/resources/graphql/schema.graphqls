@@ -1,0 +1,79 @@
+scalar DateTime
+
+type Query {
+    # KPI query with flexible parameters
+    getKpiData(userId: ID, teamId: ID, startSprintId: ID!, endSprintId: ID): KpiResult
+}
+
+# Main KPI result structure
+type KpiResult {
+    data: KpiData
+    charts: ChartData
+    insights: String
+}
+
+# Core KPI calculations
+type KpiData {
+    taskCompletionRate: Float
+    taskCompletionTrend: [Float]
+    trendLabels: [String]
+    onTimeCompletionRate: Float
+    overdueTasksRate: Float
+    inProgressRate: Float
+    ociResourcesUtilization: Float
+    tasksCompletedPerWeek: Float
+    workedHours: Float
+    plannedHours: Float
+    hoursUtilizationPercent: Float
+    averageTasksPerEmployee: Float
+    startDate: DateTime
+    endDate: DateTime
+    userId: ID
+    teamId: ID
+}
+
+# Chart data for frontend rendering
+type ChartData {
+    hoursByDeveloper: [DeveloperMetric]
+    tasksByDeveloper: [DeveloperMetric]
+    hoursBySprint: [SprintMetric]
+    tasksBySprint: [SprintMetric]
+    taskInformation: [SprintTaskInfo]
+}
+
+# Developer-specific metrics
+type DeveloperMetric {
+    developerId: ID
+    developerName: String
+    values: [Float]
+    sprints: [String]
+}
+
+# Sprint-specific metrics
+type SprintMetric {
+    sprintId: ID
+    sprintName: String
+    value: Float
+}
+
+# Task information by sprint
+type SprintTaskInfo {
+    sprintId: ID
+    sprintName: String
+    tasks: [TaskInfo]
+}
+
+# Individual task data
+type TaskInfo {
+    id: ID
+    title: String
+    description: String
+    status: String
+    priority: String
+    estimatedHours: Float
+    actualHours: Float
+    assigneeId: ID
+    assigneeName: String
+    dueDate: DateTime
+    completedAt: DateTime
+}
