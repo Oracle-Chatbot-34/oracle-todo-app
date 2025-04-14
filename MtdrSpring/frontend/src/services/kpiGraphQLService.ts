@@ -3,66 +3,68 @@ import { config } from '../lib/config';
 
 export interface KpiGraphQLResult {
   data: {
-    kpiData: {
-      taskCompletionRate: number;
-      taskCompletionTrend: number[];
-      trendLabels: string[];
-      onTimeCompletionRate: number;
-      overdueTasksRate: number;
-      inProgressRate: number;
-      ociResourcesUtilization: number;
-      tasksCompletedPerWeek: number;
-      workedHours: number;
-      plannedHours: number;
-      hoursUtilizationPercent: number;
-      averageTasksPerEmployee: number;
-      startDate: string;
-      endDate: string;
-      userId?: number;
-      teamId?: number;
-    };
-    charts: {
-      hoursByDeveloper: Array<{
-        developerId: number;
-        developerName: string;
-        values: number[];
-        sprints: string[];
-      }>;
-      tasksByDeveloper: Array<{
-        developerId: number;
-        developerName: string;
-        values: number[];
-        sprints: string[];
-      }>;
-      hoursBySprint: Array<{
-        sprintId: number;
-        sprintName: string;
-        value: number;
-      }>;
-      tasksBySprint: Array<{
-        sprintId: number;
-        sprintName: string;
-        value: number;
-      }>;
-      taskInformation: Array<{
-        sprintId: number;
-        sprintName: string;
-        tasks: Array<{
-          id: number;
-          title: string;
-          description?: string;
-          status: string;
-          priority: string;
-          estimatedHours?: number;
-          actualHours?: number;
-          assigneeId?: number;
-          assigneeName?: string;
-          dueDate?: string;
-          completedAt?: string;
+    getKpiData: {
+      data: {
+        taskCompletionRate: number;
+        taskCompletionTrend: number[];
+        trendLabels: string[];
+        onTimeCompletionRate: number;
+        overdueTasksRate: number;
+        inProgressRate: number;
+        ociResourcesUtilization: number;
+        tasksCompletedPerWeek: number;
+        workedHours: number;
+        plannedHours: number;
+        hoursUtilizationPercent: number;
+        averageTasksPerEmployee: number;
+        startDate: string;
+        endDate: string;
+        userId?: number;
+        teamId?: number;
+      };
+      charts: {
+        hoursByDeveloper: Array<{
+          developerId: number;
+          developerName: string;
+          values: number[];
+          sprints: string[];
         }>;
-      }>;
+        tasksByDeveloper: Array<{
+          developerId: number;
+          developerName: string;
+          values: number[];
+          sprints: string[];
+        }>;
+        hoursBySprint: Array<{
+          sprintId: number;
+          sprintName: string;
+          value: number;
+        }>;
+        tasksBySprint: Array<{
+          sprintId: number;
+          sprintName: string;
+          value: number;
+        }>;
+        taskInformation: Array<{
+          sprintId: number;
+          sprintName: string;
+          tasks: Array<{
+            id: number;
+            title: string;
+            description?: string;
+            status: string;
+            priority: string;
+            estimatedHours?: number;
+            actualHours?: number;
+            assigneeId?: number;
+            assigneeName?: string;
+            dueDate?: string;
+            completedAt?: string;
+          }>;
+        }>;
+      };
+      insights: string;
     };
-    insights: string;
   };
 }
 
@@ -75,10 +77,6 @@ const kpiGraphQLService = {
   ): Promise<KpiGraphQLResult> => {
     if (!startSprintId) {
       throw new Error('Start sprint ID is required');
-    }
-
-    if (!userId && !teamId) {
-      throw new Error('Either userId or teamId must be provided');
     }
 
     const query = `

@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react';
 import KPIScopeSelection from '@/components/kpis/KPIScopeSelection';
 import { ChartPie } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-// KPI dictionary
 import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
 
-// Components
 import CompletedTasksBySprint from '@/components/kpis/CompletedTasksBySprint';
 import HoursByTeam from '@/components/kpis/HoursByTeam';
 import HoursBySprints from '@/components/kpis/HoursBySprint';

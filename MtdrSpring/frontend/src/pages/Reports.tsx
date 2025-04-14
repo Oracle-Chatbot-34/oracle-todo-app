@@ -15,29 +15,79 @@ import kpiGraphQLService from '@/services/kpiGraphQLService';
 import { useAuth } from '@/hooks/useAuth';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: {
+      startY?: number;
+      head?: string[][];
+      body: string[][];
+      margin?: { top?: number; right?: number; bottom?: number; left?: number };
+      theme?: string;
+      styles?: Record<string, unknown>;
+      headStyles?: Record<string, unknown>;
+      bodyStyles?: Record<string, unknown>;
+      alternateRowStyles?: Record<string, unknown>;
+      columnStyles?: Record<string, unknown>;
+    }) => void;
+    lastAutoTable: {
+      finalY: number;
+    };
+  }
+}
 
 type Member = {
   id: number;
   name: string;
 };
+
 type SprintData = {
   id: number;
   name: string;
   members: Member[];
 };
 
+type KpiData = {
+  taskCompletionRate: number;
+  onTimeCompletionRate: number;
+  overdueTasksRate: number;
+  workedHours: number;
+  plannedHours: number;
+  hoursUtilizationPercent: number;
+};
+
+type TaskInfo = {
+  id: string | number;
+  title: string;
+  status: string;
+  dueDate?: string;
+  assigneeName?: string;
+};
+
+type SprintTaskInfo = {
+  tasks: TaskInfo[];
+};
+
+type ReportCharts = {
+  taskInformation: SprintTaskInfo[];
+};
+
+type ReportData = {
+  isIndividual: boolean;
+  reportType: string;
+  generatedAt: string;
+  kpiData: KpiData;
+  charts: ReportCharts;
+  insights: string;
+  user: Member | null;
+  teamId: number | null;
+  dateRange: {
+    startSprint: string;
+    endSprint: string;
+  };
+};
+
 export default function Reports() {
-  const form = useForm({
-    resolver: zodResolver(
-      z.object({
-        startDate: z.date(),
-        endDate: z.date(),
-      })
-    ),
-  });
 
   const { isAuthenticated } = useAuth();
 
@@ -55,7 +105,7 @@ export default function Reports() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [reportData, setReportData] = useState<any>(null);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   // Load users and teams on component mount
@@ -164,7 +214,7 @@ export default function Reports() {
       ],
     ];
 
-    (doc as any).autoTable({
+    doc.autoTable({
       startY: 70,
       head: [['Metric', 'Value']],
       body: kpiData,
@@ -172,13 +222,13 @@ export default function Reports() {
 
     // Add AI insights
     doc.setFontSize(14);
-    doc.text('AI Insights', 20, (doc as any).lastAutoTable.finalY + 15);
+    doc.text('AI Insights', 20, doc.lastAutoTable.finalY + 15);
 
     // Add insights content with text wrapping
     doc.setFontSize(10);
     const insightsText = reportData.insights;
     const splitInsights = doc.splitTextToSize(insightsText, 170);
-    doc.text(splitInsights, 20, (doc as any).lastAutoTable.finalY + 25);
+    doc.text(splitInsights, 20, doc.lastAutoTable.finalY + 25);
 
     // Save PDF
     const pdfBlob = doc.output('blob');
@@ -208,14 +258,14 @@ export default function Reports() {
 
       // Call GraphQL service
       const kpiResult = await kpiGraphQLService.getKpiData(
-        selectedUserId,
-        selectedTeamId,
+        selectedUserId!,
+        selectedTeamId!,
         startSprint.id,
         endSprint?.id
       );
 
       // Format report data
-      const formattedResult = {
+      const formattedResult: ReportData = {
         isIndividual: selectedUserId !== null,
         reportType: 'Performance',
         generatedAt: new Date().toISOString(),
@@ -223,7 +273,7 @@ export default function Reports() {
         charts: kpiResult.data.getKpiData.charts,
         insights: kpiResult.data.getKpiData.insights,
         user: selectedUserId
-          ? users.find((u) => u.id === selectedUserId)
+          ? users.find((u) => u.id === selectedUserId) || null
           : null,
         teamId: selectedTeamId,
         dateRange: {
@@ -475,8 +525,8 @@ export default function Reports() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {reportData.charts.taskInformation.flatMap(
-                        (sprintInfo: any) =>
-                          sprintInfo.tasks.map((task: any) => (
+                        (sprintInfo: SprintTaskInfo) =>
+                          sprintInfo.tasks.map((task) => (
                             <tr key={task.id}>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 {task.title}
