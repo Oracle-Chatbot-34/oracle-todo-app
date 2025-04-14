@@ -116,7 +116,7 @@ public class ReportService {
                     taskMap.put("description", task.getDescription());
                     taskMap.put("status", task.getStatus());
                     taskMap.put("priority", task.getPriority());
-                    taskMap.put("createdAt", task.getCreation_ts());
+                    taskMap.put("createdAt", task.getCreationTs());
                     taskMap.put("dueDate", task.getDueDate());
                     taskMap.put("completedAt", task.getCompletedAt());
                     taskMap.put("estimatedHours", task.getEstimatedHours());
@@ -156,7 +156,7 @@ public class ReportService {
         // Filter by date range
         List<ToDoItem> dateFilteredTasks = tasks.stream()
                 .filter(task -> {
-                    OffsetDateTime taskDate = task.getCreation_ts();
+                    OffsetDateTime taskDate = task.getCreationTs();
                     return taskDate != null && 
                            (taskDate.isEqual(request.getStartDate()) || taskDate.isAfter(request.getStartDate())) && 
                            (taskDate.isEqual(request.getEndDate()) || taskDate.isBefore(request.getEndDate()));

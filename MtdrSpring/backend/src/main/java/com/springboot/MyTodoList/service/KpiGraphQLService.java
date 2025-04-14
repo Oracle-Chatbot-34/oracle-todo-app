@@ -103,7 +103,7 @@ public class KpiGraphQLService {
         for (User user : users) {
             List<ToDoItem> userTasks = todoItemRepository.findByAssigneeId(user.getId()).stream()
                     .filter(task -> {
-                        OffsetDateTime taskDate = task.getCreation_ts();
+                        OffsetDateTime taskDate = task.getCreationTs();
                         return taskDate != null &&
                                 (taskDate.isEqual(startDate) || taskDate.isAfter(startDate)) &&
                                 (taskDate.isEqual(endDate) || taskDate.isBefore(endDate));
@@ -141,7 +141,7 @@ public class KpiGraphQLService {
         Map<String, List<ToDoItem>> tasksByWeek = allTasks.stream()
                 .collect(Collectors.groupingBy(task -> {
                     // Format as "YYYY-WW" (year and week number)
-                    return task.getCreation_ts().format(DateTimeFormatter.ofPattern("YYYY-w"));
+                    return task.getCreationTs().format(DateTimeFormatter.ofPattern("YYYY-w"));
                 }));
 
         List<Double> weeklyTrends = new ArrayList<>();
