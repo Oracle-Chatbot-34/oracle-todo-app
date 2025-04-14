@@ -39,11 +39,11 @@ public class WebSecurityConfiguration {
                 // 3. Set permissions on endpoints
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints:
-                        .requestMatchers(new AntPathRequestMatcher("/auth/login")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/auth/register")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/v3/api-docs/**")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/swagger-ui/**")).permitAll()
-                        .requestMatchers(new AntPathRequestMatcher("/swagger-ui.html")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/auth/login")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/auth/register")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/v3/api-docs/**")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/swagger-ui/**")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/swagger-ui.html")).permitAll()
                         .requestMatchers(new AntPathRequestMatcher(HttpMethod.OPTIONS.name(), "/**")).permitAll()
 
                         // Protected endpoints:
@@ -68,8 +68,6 @@ public class WebSecurityConfiguration {
         provider.setPasswordEncoder(passwordEncoder);
         return provider;
     }
-
-    // PasswordEncoder is now provided by PasswordEncoderConfig
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
