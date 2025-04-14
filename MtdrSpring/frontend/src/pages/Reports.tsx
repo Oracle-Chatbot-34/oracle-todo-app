@@ -18,7 +18,6 @@ import 'jspdf-autotable';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import ReportUserSelection from '@/components/reports/ReportUserSelection';
 
 type Member = {
   id: number;
@@ -83,28 +82,29 @@ export default function Reports() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    
+
     const fetchAllSprints = async () => {
       try {
         setLoading(true);
         const sprintsResponse = await sprintService.getAllSprints();
-        
+
         if (!sprintsResponse || sprintsResponse.length === 0) {
           setError('No sprints available');
           setLoading(false);
           return;
         }
-        
+
         // Format sprints
-        const formattedSprints: SprintData[] = sprintsResponse.map(sprint => ({
-          id: sprint.id!,
-          name: sprint.name,
-          members: []
-        }));
-        
+        const formattedSprints: SprintData[] = sprintsResponse.map(
+          (sprint) => ({
+            id: sprint.id!,
+            name: sprint.name,
+            members: [],
+          })
+        );
+
         setSprints(formattedSprints);
         setStartSprint(formattedSprints[0]);
-        
       } catch (err) {
         console.error('Error fetching sprints:', err);
         setError('Failed to load sprints');
@@ -118,54 +118,73 @@ export default function Reports() {
 
   const generatePdf = () => {
     if (!reportData) return;
-    
+
     const doc = new jsPDF();
-    
+
     // Add title
     doc.setFontSize(18);
-    doc.text("Performance Report", 20, 20);
-    
+    doc.text('Performance Report', 20, 20);
+
     // Add metadata
     doc.setFontSize(12);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
-    doc.text(`Report Type: ${reportData.isIndividual ? 'Individual' : 'Team'}`, 20, 40);
-    doc.text(`Sprint Range: ${startSprint?.name} ${endSprint ? `to ${endSprint.name}` : ''}`, 20, 50);
-    
+    doc.text(
+      `Report Type: ${reportData.isIndividual ? 'Individual' : 'Team'}`,
+      20,
+      40
+    );
+    doc.text(
+      `Sprint Range: ${startSprint?.name} ${
+        endSprint ? `to ${endSprint.name}` : ''
+      }`,
+      20,
+      50
+    );
+
     // Add KPI summary
     doc.setFontSize(14);
-    doc.text("KPI Summary", 20, 65);
-    
+    doc.text('KPI Summary', 20, 65);
+
     // Add KPI table
     const kpiData = [
-      ['Task Completion Rate', `${reportData.kpiData.taskCompletionRate.toFixed(2)}%`],
-      ['On-Time Completion', `${reportData.kpiData.onTimeCompletionRate.toFixed(2)}%`],
+      [
+        'Task Completion Rate',
+        `${reportData.kpiData.taskCompletionRate.toFixed(2)}%`,
+      ],
+      [
+        'On-Time Completion',
+        `${reportData.kpiData.onTimeCompletionRate.toFixed(2)}%`,
+      ],
       ['Overdue Tasks', `${reportData.kpiData.overdueTasksRate.toFixed(2)}%`],
       ['Worked Hours', `${reportData.kpiData.workedHours.toFixed(1)} hrs`],
       ['Planned Hours', `${reportData.kpiData.plannedHours.toFixed(1)} hrs`],
-      ['Hours Utilization', `${reportData.kpiData.hoursUtilizationPercent.toFixed(2)}%`],
+      [
+        'Hours Utilization',
+        `${reportData.kpiData.hoursUtilizationPercent.toFixed(2)}%`,
+      ],
     ];
-    
+
     (doc as any).autoTable({
       startY: 70,
       head: [['Metric', 'Value']],
       body: kpiData,
     });
-    
+
     // Add AI insights
     doc.setFontSize(14);
-    doc.text("AI Insights", 20, (doc as any).lastAutoTable.finalY + 15);
-    
+    doc.text('AI Insights', 20, (doc as any).lastAutoTable.finalY + 15);
+
     // Add insights content with text wrapping
     doc.setFontSize(10);
     const insightsText = reportData.insights;
     const splitInsights = doc.splitTextToSize(insightsText, 170);
     doc.text(splitInsights, 20, (doc as any).lastAutoTable.finalY + 25);
-    
+
     // Save PDF
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
     setPdfUrl(pdfUrl);
-    
+
     return pdfUrl;
   };
 
@@ -174,13 +193,13 @@ export default function Reports() {
       setLoading(true);
       setError('');
       setPdfUrl(null);
-      
+
       if (!startSprint) {
         setError('Please select a start sprint');
         setLoading(false);
         return;
       }
-      
+
       if (!selectedUserId && !selectedTeamId) {
         setError('Please select either a user or a team');
         setLoading(false);
@@ -194,7 +213,7 @@ export default function Reports() {
         startSprint.id,
         endSprint?.id
       );
-      
+
       // Format report data
       const formattedResult = {
         isIndividual: selectedUserId !== null,
@@ -203,21 +222,22 @@ export default function Reports() {
         kpiData: kpiResult.data.getKpiData.data,
         charts: kpiResult.data.getKpiData.charts,
         insights: kpiResult.data.getKpiData.insights,
-        user: selectedUserId ? users.find(u => u.id === selectedUserId) : null,
+        user: selectedUserId
+          ? users.find((u) => u.id === selectedUserId)
+          : null,
         teamId: selectedTeamId,
         dateRange: {
           startSprint: startSprint.name,
-          endSprint: endSprint?.name || startSprint.name
-        }
+          endSprint: endSprint?.name || startSprint.name,
+        },
       };
-      
+
       setReportData(formattedResult);
-      
+
       // Generate PDF
       setTimeout(() => {
         generatePdf();
       }, 500);
-      
     } catch (err) {
       console.error('Error generating report:', err);
       setError('Failed to generate report. Please try again.');
@@ -230,7 +250,7 @@ export default function Reports() {
     setSelectedUserId(userId);
     setSelectedTeamId(null); // Clear team selection when user is selected
   };
-  
+
   const handleTeamSelect = (teamId: number) => {
     setSelectedTeamId(teamId);
     setSelectedUserId(null); // Clear user selection when team is selected
@@ -271,11 +291,15 @@ export default function Reports() {
                 <PopoverContent className="w-full">
                   <div className="p-4 space-y-6">
                     <div>
-                      <h3 className="font-semibold mb-3 text-2xl">Individual Report</h3>
+                      <h3 className="font-semibold mb-3 text-2xl">
+                        Individual Report
+                      </h3>
                       <select
                         className="w-full pl-4 pr-2 rounded-xl h-12 border-2 border-[#DFDFE4] bg-white text-[20px]"
                         value={selectedUserId || ''}
-                        onChange={(e) => handleUserSelect(Number(e.target.value))}
+                        onChange={(e) =>
+                          handleUserSelect(Number(e.target.value))
+                        }
                       >
                         <option value="">Select a user</option>
                         {users.map((user) => (
@@ -285,15 +309,19 @@ export default function Reports() {
                         ))}
                       </select>
                     </div>
-                    
+
                     <div className="text-center font-semibold">- OR -</div>
-                    
+
                     <div>
-                      <h3 className="font-semibold mb-3 text-2xl">Team Report</h3>
+                      <h3 className="font-semibold mb-3 text-2xl">
+                        Team Report
+                      </h3>
                       <select
                         className="w-full pl-4 pr-2 rounded-xl h-12 border-2 border-[#DFDFE4] bg-white text-[20px]"
                         value={selectedTeamId || ''}
-                        onChange={(e) => handleTeamSelect(Number(e.target.value))}
+                        onChange={(e) =>
+                          handleTeamSelect(Number(e.target.value))
+                        }
                       >
                         <option value="">Select a team</option>
                         <option value="1">Alpha Team</option>
@@ -333,10 +361,10 @@ export default function Reports() {
                 <h2 className="text-2xl font-bold">
                   {reportData.reportType} Report
                 </h2>
-                
+
                 {pdfUrl && (
-                  <a 
-                    href={pdfUrl} 
+                  <a
+                    href={pdfUrl}
                     download="performance_report.pdf"
                     className="flex items-center gap-2 bg-greenie text-white px-4 py-2 rounded-lg"
                   >
@@ -345,7 +373,7 @@ export default function Reports() {
                   </a>
                 )}
               </div>
-              
+
               <p>
                 Generated at:{' '}
                 {new Date(reportData.generatedAt).toLocaleString()}
@@ -354,11 +382,14 @@ export default function Reports() {
               <div className="w-full p-4 bg-white rounded-lg shadow-md">
                 <h3 className="text-xl font-semibold mb-2">Report Summary</h3>
                 <p>
-                  Date Range: {reportData.dateRange.startSprint} 
-                  {reportData.dateRange.endSprint !== reportData.dateRange.startSprint && 
+                  Date Range: {reportData.dateRange.startSprint}
+                  {reportData.dateRange.endSprint !==
+                    reportData.dateRange.startSprint &&
                     ` to ${reportData.dateRange.endSprint}`}
                 </p>
-                <p>Report Type: {reportData.isIndividual ? 'Individual' : 'Team'}</p>
+                <p>
+                  Report Type: {reportData.isIndividual ? 'Individual' : 'Team'}
+                </p>
 
                 {reportData.isIndividual && reportData.user && (
                   <div className="mt-4">
@@ -393,8 +424,13 @@ export default function Reports() {
                   </div>
 
                   <div>
-                    <p>Planned Hours: {reportData.kpiData.plannedHours.toFixed(1)}</p>
-                    <p>Worked Hours: {reportData.kpiData.workedHours.toFixed(1)}</p>
+                    <p>
+                      Planned Hours:{' '}
+                      {reportData.kpiData.plannedHours.toFixed(1)}
+                    </p>
+                    <p>
+                      Worked Hours: {reportData.kpiData.workedHours.toFixed(1)}
+                    </p>
                     <p>
                       Hours Utilization:{' '}
                       {reportData.kpiData.hoursUtilizationPercent.toFixed(2)}%
@@ -406,9 +442,13 @@ export default function Reports() {
               <div className="w-full mt-4 p-4 bg-white rounded-lg shadow-md">
                 <h3 className="text-xl font-semibold mb-2">AI Insights</h3>
                 <div className="prose max-w-none">
-                  {reportData.insights.split('\n\n').map((paragraph: string, idx: number) => (
-                    <p key={idx} className="mb-2">{paragraph}</p>
-                  ))}
+                  {reportData.insights
+                    .split('\n\n')
+                    .map((paragraph: string, idx: number) => (
+                      <p key={idx} className="mb-2">
+                        {paragraph}
+                      </p>
+                    ))}
                 </div>
               </div>
 
@@ -434,25 +474,26 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.charts.taskInformation.flatMap((sprintInfo: any) => 
-                        sprintInfo.tasks.map((task: any) => (
-                          <tr key={task.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {task.title}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {task.status}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {task.dueDate
-                                ? new Date(task.dueDate).toLocaleDateString()
-                                : 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {task.assigneeName || 'Unassigned'}
-                            </td>
-                          </tr>
-                        ))
+                      {reportData.charts.taskInformation.flatMap(
+                        (sprintInfo: any) =>
+                          sprintInfo.tasks.map((task: any) => (
+                            <tr key={task.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {task.title}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.status}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.dueDate
+                                  ? new Date(task.dueDate).toLocaleDateString()
+                                  : 'N/A'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.assigneeName || 'Unassigned'}
+                              </td>
+                            </tr>
+                          ))
                       )}
                     </tbody>
                   </table>
