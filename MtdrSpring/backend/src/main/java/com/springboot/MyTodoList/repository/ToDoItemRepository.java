@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import java.util.List;
+import java.time.OffsetDateTime;
 
 import jakarta.transaction.Transactional;
 
@@ -32,5 +33,28 @@ public interface ToDoItemRepository extends JpaRepository<ToDoItem, Integer> {
      */
     List<ToDoItem> findByTeamId(Long teamId);
 
+    /**
+     * Find tasks by assignee ID
+     */
     List<ToDoItem> findByAssigneeId(Long assigneeId);
+    
+    /**
+     * Find tasks by assignee ID and sprint ID
+     */
+    List<ToDoItem> findByAssigneeIdAndSprintId(Long assigneeId, Long sprintId);
+    
+    /**
+     * Find tasks by creation date range
+     */
+    List<ToDoItem> findByCreation_tsBetween(OffsetDateTime startDate, OffsetDateTime endDate);
+    
+    /**
+     * Find tasks by team ID and creation date range
+     */
+    List<ToDoItem> findByTeamIdAndCreation_tsBetween(Long teamId, OffsetDateTime startDate, OffsetDateTime endDate);
+    
+    /**
+     * Find tasks by assignee ID and creation date range
+     */
+    List<ToDoItem> findByAssigneeIdAndCreation_tsBetween(Long assigneeId, OffsetDateTime startDate, OffsetDateTime endDate);
 }

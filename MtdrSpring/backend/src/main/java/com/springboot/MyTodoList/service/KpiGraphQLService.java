@@ -51,7 +51,7 @@ public class KpiGraphQLService {
         List<Sprint> sprintsInRange = sprintRepository.findAll().stream()
                 .filter(sprint -> {
                     Long sprintId = sprint.getId();
-                    return sprintId >= startSprintId && sprintId <= endSprintId;
+                    return sprintId >= startSprintId && (endSprintId == null || sprintId <= endSprintId);
                 })
                 .collect(Collectors.toList());
 
@@ -61,6 +61,9 @@ public class KpiGraphQLService {
 
         if (isIndividual) {
             // Individual analysis
+            if (userId == null) {
+                throw new IllegalArgumentException("User ID cannot be null");
+            }
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
             users.add(user);
