@@ -46,15 +46,15 @@ public interface ToDoItemRepository extends JpaRepository<ToDoItem, Integer> {
     /**
      * Find tasks by creation date range
      */
-    List<ToDoItem> findByCreation_tsBetween(OffsetDateTime startDate, OffsetDateTime endDate);
+    List<ToDoItem> findByCreationTsBetween(OffsetDateTime startDate, OffsetDateTime endDate);
     
     /**
      * Find tasks by team ID and creation date range
      */
-    List<ToDoItem> findByTeamIdAndCreation_tsBetween(Long teamId, OffsetDateTime startDate, OffsetDateTime endDate);
+    List<ToDoItem> findByTeamIdAndCreationTsBetween(Long teamId, OffsetDateTime startDate, OffsetDateTime endDate);
     
     /**
      * Find tasks by assignee ID and creation date range
      */
-    List<ToDoItem> findByAssigneeIdAndCreation_tsBetween(Long assigneeId, OffsetDateTime startDate, OffsetDateTime endDate);
+    List<ToDoItem> findByAssigneeIdAndCreationTsBetween(Long assigneeId, OffsetDateTime startDate, OffsetDateTime endDate);
 }

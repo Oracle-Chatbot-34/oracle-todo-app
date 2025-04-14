@@ -1,6 +1,5 @@
 package com.springboot.MyTodoList.controller;
 
-import com.springboot.MyTodoList.dto.KpiData;
 import com.springboot.MyTodoList.dto.KpiResult;
 import com.springboot.MyTodoList.service.KpiGraphQLService;
 import org.springframework.beans.factory.annotation.Autowired;
