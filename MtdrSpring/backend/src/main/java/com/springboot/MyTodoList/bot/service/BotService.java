@@ -139,6 +139,16 @@ public class BotService {
 
     // User operations
 
+    public Optional<User> findUserById(Long userId) {
+        logger.info("Finding user by ID: {}", userId);
+        return userService.findById(userId);
+    }
+
+    public List<User> findUsersByTeamId(Long teamId) {
+        logger.info("Finding users by team ID: {}", teamId);
+        return userService.findByTeamId(teamId);
+    }
+
     public Optional<User> findUserByTelegramId(Long telegramId) {
         logger.info("Finding user by Telegram ID: {}", telegramId);
         return userService.findByTelegramId(telegramId);
