@@ -50,7 +50,7 @@ public class ToDoItemService {
         if (toDoItemData.isPresent()) {
             ToDoItem toDoItem = toDoItemData.get();
             toDoItem.setID(id);
-            toDoItem.setCreation_ts(td.getCreation_ts());
+            toDoItem.setCreationTs(td.getCreationTs()); // Updated from getCreation_ts to getCreationTs
             toDoItem.setDescription(td.getDescription());
             toDoItem.setDone(td.isDone());
             return toDoItemRepository.save(toDoItem);
@@ -74,7 +74,7 @@ public class ToDoItemService {
         }
 
         // Set default values
-        toDoItem.setCreation_ts(OffsetDateTime.now());
+        toDoItem.setCreationTs(OffsetDateTime.now()); // Updated from setCreation_ts to setCreationTs
         if (toDoItem.getStatus() == null) {
             toDoItem.setStatus(TaskStatus.BACKLOG.name());
         }
@@ -149,5 +149,4 @@ public class ToDoItemService {
     public List<ToDoItem> findByAssigneeId(Long assigneeId) {
         return toDoItemRepository.findByAssigneeId(assigneeId);
     }
-
 }

@@ -489,7 +489,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                             ToDoItem newItem = new ToDoItem();
                             newItem.setDescription(messageText);
                             newItem.setTitle(messageText.length() > 50 ? messageText.substring(0, 50) : messageText);
-                            newItem.setCreation_ts(OffsetDateTime.now());
+                            newItem.setCreationTs(OffsetDateTime.now());
                             newItem.setDone(false);
                             logger.debug("Created new item with title: {}", newItem.getTitle());
 
@@ -1654,7 +1654,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     task.setDescription(state.getTempTaskDescription());
                     task.setEstimatedHours(state.getTempEstimatedHours());
                     task.setPriority(state.getTempPriority());
-                    task.setCreation_ts(OffsetDateTime.now());
+                    task.setCreationTs(OffsetDateTime.now());
 
                     // Set assignee (from temp state or current user)
                     if (state.getTempAssigneeId() != null) {
