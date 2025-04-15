@@ -23,7 +23,7 @@ public class GraphQLSecurityConfig {
     @Bean
     public SecurityFilterChain graphqlFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/api/graphql/**")
+                .securityMatcher("/api/graphql")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth

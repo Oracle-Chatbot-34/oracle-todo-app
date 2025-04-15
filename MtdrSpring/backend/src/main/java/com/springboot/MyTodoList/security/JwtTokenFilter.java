@@ -29,9 +29,16 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
     @Autowired
     private OciUserDetailsService userDetailsService;
+
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain chain)
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+            @NonNull FilterChain chain)
             throws ServletException, IOException {
+
+        String path = request.getServletPath();
+        System.out.println("Request path: " + path); // Debug path
+        String token = jwtTokenProvider.resolveToken(request);
+        System.out.println("Token: " + (token != null ? "present" : "missing"));
 
         // Skip JWT validation for public endpoints
         if (isPublicPath(request.getServletPath())) {
@@ -40,7 +47,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         }
 
         // Proceed with JWT validation for other endpoints
-        String token = jwtTokenProvider.resolveToken(request);
+        // String token = jwtTokenProvider.resolveToken(request);
 
         if (token != null && jwtTokenProvider.validateToken(token)) {
             String username = jwtTokenProvider.getUsername(token);

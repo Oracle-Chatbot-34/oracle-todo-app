@@ -31,7 +31,8 @@ public class KpiGraphQLService {
     @Autowired
     private InsightService insightService;
 
-    public KpiResult generateKpiResult(Long userId, Long teamId, Long startSprintId, Long endSprintId) {
+    public KpiResult generateKpiResult(Long userId, Long teamId, Boolean allUsers, Long startSprintId,
+            Long endSprintId) {
         // Get sprint range
         Sprint startSprint = sprintRepository.findById(startSprintId)
                 .orElseThrow(() -> new IllegalArgumentException("Start sprint not found"));
@@ -61,17 +62,20 @@ public class KpiGraphQLService {
 
         if (isIndividual) {
             // Individual analysis
-            if (userId == null) {
-                throw new IllegalArgumentException("User ID cannot be null");
-            }
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User not found"));
             users.add(user);
-        } else {
+        } else if (teamId != null) {
             // Team analysis
             users = userRepository.findByTeamId(teamId);
             if (users.isEmpty()) {
                 throw new IllegalArgumentException("No users found for team");
+            }
+        } else {
+            // All users analysis (when allUsers is true)
+            users = userRepository.findAll();
+            if (users.isEmpty()) {
+                throw new IllegalArgumentException("No users found in the system");
             }
         }
 
@@ -86,6 +90,7 @@ public class KpiGraphQLService {
         dataForInsights.put("kpiData", kpiData);
         dataForInsights.put("sprintCount", sprintsInRange.size());
         dataForInsights.put("userCount", users.size());
+        dataForInsights.put("isAllUsers", allUsers != null && allUsers);
 
         String insights = insightService.generateInsights(dataForInsights, isIndividual);
 

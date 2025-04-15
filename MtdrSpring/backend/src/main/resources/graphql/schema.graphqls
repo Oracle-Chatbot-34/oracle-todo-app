@@ -1,8 +1,8 @@
 scalar DateTime
 
 type Query {
-    # KPI query with flexible parameters
-    getKpiData(userId: ID, teamId: ID, startSprintId: ID!, endSprintId: ID): KpiResult
+    # KPI query with flexible parameters - added allUsers parameter
+    getKpiData(userId: ID, teamId: ID, allUsers: Boolean, startSprintId: ID!, endSprintId: ID): KpiResult
 }
 
 # Main KPI result structure
