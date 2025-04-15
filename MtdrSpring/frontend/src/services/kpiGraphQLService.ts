@@ -63,7 +63,6 @@ export interface KpiGraphQLResult {
           }>;
         }>;
       };
-      insights: string;
     };
   };
 }
@@ -139,7 +138,6 @@ const kpiGraphQLService = {
               }
             }
           }
-          insights
         }
       }
     `;

@@ -148,7 +148,7 @@ export default function KPI() {
           teamId || undefined,
         );
         
-        const { charts, insights } = kpiResult.data.getKpiData;
+        const { charts } = kpiResult.data.getKpiData;
         
         // Process developer hours and tasks data
         const processedSprints: SprintData[] = [];
@@ -240,6 +240,7 @@ export default function KPI() {
     };
     
     fetchKpiData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startSprint, endSprint, currentUser, currentTeam]);
 
   return (

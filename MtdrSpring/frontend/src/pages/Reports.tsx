@@ -269,7 +269,7 @@ export default function Reports() {
         generatedAt: new Date().toISOString(),
         kpiData: kpiResult.data.getKpiData.data,
         charts: kpiResult.data.getKpiData.charts,
-        insights: kpiResult.data.getKpiData.insights,
+        insights: "AI-generated insights here",
         user: selectedUserId
           ? users.find((u) => u.id === selectedUserId) || null
           : null,

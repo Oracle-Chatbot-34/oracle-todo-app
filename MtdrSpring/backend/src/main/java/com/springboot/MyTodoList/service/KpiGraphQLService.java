@@ -59,28 +59,14 @@ public class KpiGraphQLService {
         // Get all users - always analyze all users
         List<User> users = userRepository.findAll();
 
-        // Calculate basic KPI data - passing null for userId and teamId since we're
-        // analyzing all users
+        // Calculate basic KPI data - passing null for userId and teamId since we're analyzing all users
         KpiData kpiData = calculateKpiData(users, startDate, endDate, null, null);
 
         // Generate chart data
         ChartData chartData = generateChartData(users, sprintsInRange);
 
-        // Generate AI insights
-        Map<String, Object> dataForInsights = new HashMap<>();
-        dataForInsights.put("kpiData", kpiData);
-        dataForInsights.put("sprintCount", sprintsInRange.size());
-        dataForInsights.put("userCount", users.size());
-        dataForInsights.put("isAllUsers", true);
-
-        String insights = "No data available for insights.";
-        // Only generate insights if there are users to analyze
-        if (!users.isEmpty()) {
-            insights = insightService.generateInsights(dataForInsights, false); // false = not individual
-        }
-
-        // Combine everything into a result
-        return new KpiResult(kpiData, chartData, insights);
+        // Combine everything into a result - without insights
+        return new KpiResult(kpiData, chartData);
     }
 
     private KpiData calculateKpiData(List<User> users, OffsetDateTime startDate, OffsetDateTime endDate,

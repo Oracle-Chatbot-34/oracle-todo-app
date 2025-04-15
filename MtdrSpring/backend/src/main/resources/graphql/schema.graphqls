@@ -9,7 +9,6 @@ type Query {
 type KpiResult {
     data: KpiData
     charts: ChartData
-    insights: String
 }
 
 # Core KPI calculations

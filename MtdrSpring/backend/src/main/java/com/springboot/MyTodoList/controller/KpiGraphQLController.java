@@ -25,7 +25,6 @@ public class KpiGraphQLController {
             throw new IllegalArgumentException("startSprintId is required");
         }
         
-        // Always pass null for userId and teamId, with allUsers=true
         return kpiGraphQLService.generateKpiResult(startSprintId, endSprintId);
     }
 }
