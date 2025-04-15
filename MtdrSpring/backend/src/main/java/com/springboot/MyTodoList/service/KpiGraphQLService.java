@@ -31,8 +31,8 @@ public class KpiGraphQLService {
     @Autowired
     private InsightService insightService;
 
-    public KpiResult generateKpiResult(Long userId, Long teamId, Boolean allUsers, Long startSprintId,
-            Long endSprintId) {
+    // Simplified method that only requires sprint IDs
+    public KpiResult generateKpiResult(Long startSprintId, Long endSprintId) {
         // Get sprint range
         Sprint startSprint = sprintRepository.findById(startSprintId)
                 .orElseThrow(() -> new IllegalArgumentException("Start sprint not found"));
@@ -56,31 +56,12 @@ public class KpiGraphQLService {
                 })
                 .collect(Collectors.toList());
 
-        // Get users to analyze
-        List<User> users = new ArrayList<>();
-        boolean isIndividual = userId != null;
+        // Get all users - always analyze all users
+        List<User> users = userRepository.findAll();
 
-        if (isIndividual) {
-            // Individual analysis
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
-            users.add(user);
-        } else if (teamId != null) {
-            // Team analysis
-            users = userRepository.findByTeamId(teamId);
-            if (users.isEmpty()) {
-                throw new IllegalArgumentException("No users found for team");
-            }
-        } else {
-            // All users analysis (when allUsers is true)
-            users = userRepository.findAll();
-            if (users.isEmpty()) {
-                throw new IllegalArgumentException("No users found in the system");
-            }
-        }
-
-        // Calculate basic KPI data
-        KpiData kpiData = calculateKpiData(users, startDate, endDate, userId, teamId);
+        // Calculate basic KPI data - passing null for userId and teamId since we're
+        // analyzing all users
+        KpiData kpiData = calculateKpiData(users, startDate, endDate, null, null);
 
         // Generate chart data
         ChartData chartData = generateChartData(users, sprintsInRange);
@@ -90,9 +71,13 @@ public class KpiGraphQLService {
         dataForInsights.put("kpiData", kpiData);
         dataForInsights.put("sprintCount", sprintsInRange.size());
         dataForInsights.put("userCount", users.size());
-        dataForInsights.put("isAllUsers", allUsers != null && allUsers);
+        dataForInsights.put("isAllUsers", true);
 
-        String insights = insightService.generateInsights(dataForInsights, isIndividual);
+        String insights = "No data available for insights.";
+        // Only generate insights if there are users to analyze
+        if (!users.isEmpty()) {
+            insights = insightService.generateInsights(dataForInsights, false); // false = not individual
+        }
 
         // Combine everything into a result
         return new KpiResult(kpiData, chartData, insights);

@@ -258,8 +258,6 @@ export default function Reports() {
 
       // Call GraphQL service
       const kpiResult = await kpiGraphQLService.getKpiData(
-        selectedUserId!,
-        selectedTeamId!,
         startSprint.id,
         endSprint?.id
       );

@@ -70,9 +70,6 @@ export interface KpiGraphQLResult {
 
 const kpiGraphQLService = {
   getKpiData: async (
-    userId?: number,
-    teamId?: number,
-    allUsers?: boolean,
     startSprintId?: number,
     endSprintId?: number
   ): Promise<KpiGraphQLResult> => {
@@ -81,8 +78,8 @@ const kpiGraphQLService = {
     }
 
     const query = `
-      query GetKpiData($userId: ID, $teamId: ID, $allUsers: Boolean, $startSprintId: ID!, $endSprintId: ID) {
-        getKpiData(userId: $userId, teamId: $teamId, allUsers: $allUsers, startSprintId: $startSprintId, endSprintId: $endSprintId) {
+      query GetKpiData($startSprintId: ID!, $endSprintId: ID) {
+        getKpiData(startSprintId: $startSprintId, endSprintId: $endSprintId) {
           data {
             taskCompletionRate
             taskCompletionTrend
@@ -148,16 +145,16 @@ const kpiGraphQLService = {
     `;
 
     try {
-      const response = await api.post(`${config.apiEndpoint}/graphql`, {
-        query,
-        variables: {
-          userId: userId ? String(userId) : null,
-          teamId: teamId ? String(teamId) : null,
-          allUsers: !userId && !teamId ? true : null,
-          startSprintId: String(startSprintId),
-          endSprintId: endSprintId ? String(endSprintId) : null,
-        },
-      });
+      const response = await api.post(
+        `${config.apiEndpoint}/graphql`,
+        {
+          query,
+          variables: {
+            startSprintId: String(startSprintId),
+            endSprintId: endSprintId ? String(endSprintId) : null,
+          },
+        }
+      );
 
       return response.data;
     } catch (error) {

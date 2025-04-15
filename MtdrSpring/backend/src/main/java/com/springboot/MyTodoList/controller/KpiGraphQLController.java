@@ -17,22 +17,15 @@ public class KpiGraphQLController {
     @QueryMapping
     @PreAuthorize("isAuthenticated()")
     public KpiResult getKpiData(
-            @Argument Long userId,
-            @Argument Long teamId,
-            @Argument Boolean allUsers,
             @Argument Long startSprintId,
             @Argument Long endSprintId) {
         
-        // Modified validation - allow allUsers flag as a valid option
-        if (userId == null && teamId == null && (allUsers == null || !allUsers)) {
-            throw new IllegalArgumentException("Either userId, teamId, or allUsers must be provided");
-        }
-        
-        // Validate that startSprintId is provided
+        // Only validate that startSprintId is provided
         if (startSprintId == null) {
             throw new IllegalArgumentException("startSprintId is required");
         }
         
-        return kpiGraphQLService.generateKpiResult(userId, teamId, allUsers, startSprintId, endSprintId);
+        // Always pass null for userId and teamId, with allUsers=true
+        return kpiGraphQLService.generateKpiResult(startSprintId, endSprintId);
     }
 }

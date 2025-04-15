@@ -140,18 +140,12 @@ export default function KPI() {
         // Determine if we're showing individual or team data
         const userId = currentUser?.id;
         const teamId = currentTeam;
-        const startSprintId = startSprint.id;
-        const endSprintId = endSprint?.id;
 
-        const allUsers = !userId && !teamId;
         
         // Call GraphQL service
         const kpiResult = await kpiGraphQLService.getKpiData(
           userId,
-          teamId ?? 1,
-          allUsers,
-          startSprintId,
-          endSprintId
+          teamId || undefined,
         );
         
         const { charts, insights } = kpiResult.data.getKpiData;
