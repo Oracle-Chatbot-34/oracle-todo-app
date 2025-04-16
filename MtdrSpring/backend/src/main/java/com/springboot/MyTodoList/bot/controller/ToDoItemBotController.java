@@ -16,8 +16,14 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import com.springboot.MyTodoList.model.User;
 
 /**
  * Main controller for the Telegram bot interactions
@@ -55,6 +61,11 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         this.sprintHandler = new SprintHandler(botService, this);
 
         logger.info("ToDoItemBotController successfully initialized");
+    }
+
+    @Override
+    public String getBotUsername() {
+        return botName;
     }
 
     @Override
@@ -97,6 +108,9 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                             sprintHandler.processSprintModeInput(chatId, callbackData, state);
                         }
                     }
+                } else if (callbackData.startsWith("task_")) {
+                    // Task management callbacks
+                    processTaskCallback(chatId, callbackData, state, message.getMessageId());
                 } else {
                     logger.warn(chatId, "Unknown callback data: {}", callbackData);
                 }
@@ -222,6 +236,55 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     /**
+     * Process task callbacks
+     */
+    private void processTaskCallback(long chatId, String callbackData, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Processing task callback: {}", callbackData);
+        try {
+            if (callbackData.startsWith("task_complete_")) {
+                // Extract task ID from callback data
+                int taskId = Integer.parseInt(callbackData.substring("task_complete_".length()));
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, "DONE", taskId);
+            } else if (callbackData.startsWith("task_undo_")) {
+                int taskId = Integer.parseInt(callbackData.substring("task_undo_".length()));
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, "UNDO", taskId);
+            } else if (callbackData.startsWith("task_delete_")) {
+                int taskId = Integer.parseInt(callbackData.substring("task_delete_".length()));
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, "DELETE", taskId);
+            } else if (callbackData.equals("task_create_new")) {
+                taskCreationHandler.startTaskCreation(chatId, state);
+            } else if (callbackData.equals("task_view_active")) {
+                showActiveTasksForUser(chatId, state);
+            } else if (callbackData.equals("task_view_all")) {
+                MessageHandler.showTaskList(chatId, botService.getAllToDoItems(state.getUser().getId()), state, this);
+            } else {
+                logger.warn(chatId, "Unknown task callback: {}", callbackData);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing task callback", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to process task action. Please try again.", this);
+        }
+    }
+
+    /**
+     * Show active tasks for the current user
+     */
+    private void showActiveTasksForUser(long chatId, UserBotState state) {
+        logger.info(chatId, "Showing active tasks for user");
+        try {
+            // Get active tasks for the user
+            MessageHandler.showTaskList(
+                    chatId,
+                    botService.getActiveToDoItems(state.getUser().getId()),
+                    state,
+                    this);
+        } catch (Exception e) {
+            logger.error(chatId, "Error showing active tasks", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to retrieve active tasks. Please try again.", this);
+        }
+    }
+
+    /**
      * Handle standard commands from authenticated users
      */
     private void handleCommands(long chatId, String messageText, UserBotState state) {
@@ -256,6 +319,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 break;
 
             case "/help":
+            case "❓ Help":
                 MessageHandler.showHelpInformation(chatId, this);
                 break;
 
@@ -267,6 +331,18 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 taskCompletionHandler.startTaskCompletion(chatId, state);
                 break;
 
+            case "❌ Hide Keyboard":
+                MessageHandler.hideKeyboard(chatId, this);
+                break;
+
+            case "👥 Team Management":
+                showTeamManagement(chatId, state);
+                break;
+
+            case "📊 KPI Dashboard":
+                showKpiDashboard(chatId, state);
+                break;
+
             default:
                 logger.warn(chatId, "Unknown command: '{}'", messageText);
                 MessageHandler.sendMessage(chatId,
@@ -275,56 +351,136 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         }
     }
 
-    /**
-     * Handle task status update commands (DONE/UNDO/DELETE)
-     */
-    private void handleTaskStatusCommand(long chatId, String messageText, UserBotState state) {
+    private void showTeamManagement(long chatId, UserBotState state) {
+        logger.info(chatId, "Showing team management options");
         try {
-            String command = null;
-            int taskId;
-
-            if (messageText.contains("-DONE")) {
-                command = "DONE";
-                taskId = Integer.parseInt(messageText.substring(0, messageText.indexOf("-DONE")));
-            } else if (messageText.contains("-UNDO")) {
-                command = "UNDO";
-                taskId = Integer.parseInt(messageText.substring(0, messageText.indexOf("-UNDO")));
-            } else if (messageText.contains("-DELETE")) {
-                command = "DELETE";
-                taskId = Integer.parseInt(messageText.substring(0, messageText.indexOf("-DELETE")));
-            } else {
-                logger.warn(chatId, "Invalid task command format: '{}'", messageText);
+            // Only managers can access team management
+            if (!state.getUser().isManager()) {
+                MessageHandler.sendErrorMessage(chatId,
+                        "You don't have permission to access team management. Only managers can access this feature.",
+                        this);
                 return;
             }
 
-            logger.info(chatId, "Processing task command: {} for task ID: {}", command, taskId);
-            taskCompletionHandler.handleTaskStatusUpdate(chatId, state, command, taskId);
-        } catch (NumberFormatException e) {
-            logger.error(chatId, "Invalid task ID format in message: '{}'", messageText, e);
-            MessageHandler.sendErrorMessage(chatId, "Invalid task ID format. Please try again.", this);
+            // Get the team info if user has a team
+            if (state.getUser().getTeam() == null) {
+                MessageHandler.sendMessage(chatId,
+                        "You are not currently associated with any team. Please contact the system administrator.",
+                        this);
+                return;
+            }
+
+            // Display team information
+            StringBuilder messageText = new StringBuilder();
+            messageText.append("<b>Team Management</b>\n\n");
+            messageText.append("<b>Team:</b> ").append(state.getUser().getTeam().getName()).append("\n");
+
+            if (state.getUser().getTeam().getDescription() != null) {
+                messageText.append("<b>Description:</b> ").append(state.getUser().getTeam().getDescription())
+                        .append("\n");
+            }
+
+            // Display team members
+            messageText.append("\n<b>Team Members:</b>\n");
+            List<User> teamMembers = botService.findUsersByTeamId(state.getUser().getTeam().getId());
+
+            for (User member : teamMembers) {
+                messageText.append("• ")
+                        .append(member.getFullName())
+                        .append(" (").append(member.getRole()).append(")\n");
+            }
+
+            messageText.append("\nTeam management features are available through the web interface. " +
+                    "For advanced team management options, please use the DashMaster web application.");
+
+            // Create a keyboard with options
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row1 = new KeyboardRow();
+            row1.add("🏃‍♂️ Sprint Management");
+            row1.add("📊 KPI Dashboard");
+            keyboard.add(row1);
+
+            KeyboardRow row2 = new KeyboardRow();
+            row2.add("🏠 Main Menu");
+            keyboard.add(row2);
+
+            keyboardMarkup.setKeyboard(keyboard);
+
+            // Send the message with the keyboard
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.enableHtml(true);
+            message.setText(messageText.toString());
+            message.setReplyMarkup(keyboardMarkup);
+
+            execute(message);
+            logger.info(chatId, "Team management information sent successfully");
         } catch (Exception e) {
-            logger.error(chatId, "Error processing task status update", e);
-            MessageHandler.sendErrorMessage(chatId, "Failed to update task. Please try again later.", this);
+            logger.error(chatId, "Error showing team management", e);
+            MessageHandler.sendErrorMessage(chatId,
+                    "There was an error accessing team management. Please try again later.",
+                    this);
         }
     }
 
     /**
-     * Show active tasks for the user
+     * Show KPI Dashboard for the user
      */
-    private void showActiveTasksForUser(long chatId, UserBotState state) {
-        logger.info(chatId, "Showing active tasks for user: {}", state.getUser().getFullName());
+    private void showKpiDashboard(long chatId, UserBotState state) {
+        logger.info(chatId, "Showing KPI dashboard");
         try {
-            MessageHandler.showActiveTasksList(chatId,
-                    botService.findActiveTasksByAssigneeId(state.getUser().getId()), state, this);
-        } catch (Exception e) {
-            logger.error(chatId, "Error showing active tasks", e);
-            MessageHandler.sendErrorMessage(chatId,
-                    "There was an error retrieving your active tasks. Please try again later.", this);
-        }
-    }
+            MessageHandler.sendMessage(chatId,
+                    "The KPI Dashboard feature is available in the web interface. " +
+                            "Please use the DashMaster web application to view detailed KPI metrics and performance statistics.",
+                    this);
 
-    @Override
-    public String getBotUsername() {
-        return botName;
+            // After showing the message, return to main menu
+            MessageHandler.showMainScreen(chatId, state, this);
+        } catch (Exception e) {
+            logger.error(chatId, "Error showing KPI dashboard", e);
+            MessageHandler.sendErrorMessage(chatId,
+                    "There was an error accessing the KPI dashboard. Please try again later.",
+                    this);
+        }
+        MessageHandler.sendErrorMessage(chatId,
+                "There was an error accessing team management. Please try again later.",
+                this);
+    }
+    
+    /**
+     * Handle task status update commands in format "TaskID-ACTION"
+     * e.g., "123-DONE", "456-UNDO", "789-DELETE"
+     */
+    private void handleTaskStatusCommand(long chatId, String messageText, UserBotState state) {
+        logger.info(chatId, "Processing task status command: '{}'", messageText);
+        try {
+            // Parse the command format: TaskID-ACTION
+            String[] parts = messageText.split("-");
+            if (parts.length != 2) {
+                MessageHandler.sendErrorMessage(chatId, "Invalid command format. Use 'TaskID-ACTION' (e.g., '123-DONE').", this);
+                return;
+            }
+            
+            int taskId;
+            try {
+                taskId = Integer.parseInt(parts[0].trim());
+            } catch (NumberFormatException e) {
+                MessageHandler.sendErrorMessage(chatId, "Invalid task ID. Please provide a valid number.", this);
+                return;
+            }
+            
+            String action = parts[1].trim().toUpperCase();
+            if (action.equals("DONE") || action.equals("UNDO") || action.equals("DELETE")) {
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, action, taskId);
+            } else {
+                MessageHandler.sendErrorMessage(chatId, "Invalid action. Valid actions are DONE, UNDO, and DELETE.", this);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing task status command", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to update task status. Please try again.", this);
+        }
     }
 }

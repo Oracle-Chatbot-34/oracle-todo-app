@@ -328,4 +328,19 @@ public class BotService {
         user.setTelegramId(telegramId);
         return userService.updateUser(user);
     }
+
+    /**
+     * Get Active Todo item by user ID
+     */
+    public List<ToDoItem> getActiveToDoItems(Long userId) {
+        logger.info("Fetching active todo items for user ID: {}", userId);
+        try {
+            List<ToDoItem> items = toDoItemService.findActiveTasksByAssigneeId(userId);
+            logger.info("Successfully fetched {} active todo items for user", items.size());
+            return items;
+        } catch (Exception e) {
+            logger.error("Error fetching active todo items for user: {}", userId, e);
+            throw new RuntimeException("Failed to fetch active todo items", e);
+        }
+    }
 }

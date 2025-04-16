@@ -4,8 +4,8 @@ import com.springboot.MyTodoList.bot.service.BotService;
 import com.springboot.MyTodoList.bot.util.BotLogger;
 import com.springboot.MyTodoList.model.Sprint;
 import com.springboot.MyTodoList.model.TaskStatus;
-import com.springboot.MyTodoList.model.Team;
 import com.springboot.MyTodoList.model.ToDoItem;
+import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -17,8 +17,6 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -171,7 +169,7 @@ public class SprintHandler {
             markupInline.setKeyboard(rowsInline);
             message.setReplyMarkup(markupInline);
 
-            Message sentMessage = bot.execute(message);
+            Message sentMessage = (Message) bot.execute(message);
             activeMessageIds.put(chatId, sentMessage.getMessageId());
             logger.info(chatId, "Sprint mode main menu sent successfully with message ID: {}",
                     sentMessage.getMessageId());
