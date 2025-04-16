@@ -1,28 +1,22 @@
 package com.springboot.MyTodoList.bot.handler;
 
-import com.springboot.MyTodoList.bot.keyboard.KeyboardFactory;
 import com.springboot.MyTodoList.bot.service.BotService;
 import com.springboot.MyTodoList.bot.util.BotLogger;
 import com.springboot.MyTodoList.model.Sprint;
 import com.springboot.MyTodoList.model.TaskStatus;
 import com.springboot.MyTodoList.model.Team;
 import com.springboot.MyTodoList.model.ToDoItem;
-import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -1210,9 +1204,9 @@ public class SprintHandler {
                 messageBuilder.append("<b>Tasks:</b> ").append(sprintTasks.size()).append(" total\n");
 
                 int completedCount = taskCountByStatus.getOrDefault("DONE", 0);
-                int progressCount = taskCountByStatus.getOrDefault("IN_PROGRESS", 0);
-                int backlogCount = taskCountByStatus.getOrDefault("BACKLOG", 0);
-                int blockedCount = taskCountByStatus.getOrDefault("BLOCKED", 0);
+                //int progressCount = taskCountByStatus.getOrDefault("IN_PROGRESS", 0);
+                //int backlogCount = taskCountByStatus.getOrDefault("BACKLOG", 0);
+                // int blockedCount = taskCountByStatus.getOrDefault("BLOCKED", 0);
 
                 float completionPercentage = (float) completedCount / sprintTasks.size() * 100;
 
