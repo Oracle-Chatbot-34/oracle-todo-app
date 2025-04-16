@@ -9,9 +9,11 @@ import com.springboot.MyTodoList.model.bot.UserBotState;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -484,19 +486,62 @@ public class TaskCreationHandler {
             message.setChatId(chatId);
             message.setText("✅ Task created successfully with ID: " + savedTask.getID());
 
+            // Create a properly initialized keyboard
             ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
             keyboardMarkup.setResizeKeyboard(true);
-            // Add keyboard options here
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            // Add rows with buttons
+            KeyboardRow row1 = new KeyboardRow();
+            row1.add("📝 Create New Task");
+            row1.add("🔄 My Active Tasks");
+            keyboard.add(row1);
+
+            KeyboardRow row2 = new KeyboardRow();
+            row2.add("📝 List All Tasks");
+            row2.add("📊 Sprint Board");
+            keyboard.add(row2);
+
+            KeyboardRow row3 = new KeyboardRow();
+            row3.add("🏠 Main Menu");
+            keyboard.add(row3);
+
+            // Set the keyboard to the markup
+            keyboardMarkup.setKeyboard(keyboard);
             message.setReplyMarkup(keyboardMarkup);
 
             bot.execute(message);
             logger.info(chatId, "Task creation success message sent");
 
-            // Return to main screen
-            MessageHandler.showMainScreen(chatId, state, bot);
+            // No need to call showMainScreen here since we're already showing a keyboard
+            // The user can navigate from there
         } catch (Exception e) {
             logger.error(chatId, "Error creating task", e);
-            MessageHandler.sendErrorMessage(chatId, "There was an error creating the task. Please try again.", bot);
+
+            try {
+                // Create a safe error message with a valid keyboard
+                SendMessage errorMessage = new SendMessage();
+                errorMessage.setChatId(chatId);
+                errorMessage.setText("❌ There was an error creating the task. Please try again.");
+
+                // Always provide a valid keyboard for error messages
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                errorMessage.setReplyMarkup(keyboardMarkup);
+
+                bot.execute(errorMessage);
+            } catch (Exception ex) {
+                // If even the error handling fails, log it but don't throw
+                logger.error(chatId, "Failed to send error message", ex);
+            }
+
             state.resetTaskCreation();
         }
     }

@@ -11,6 +11,7 @@ import com.springboot.MyTodoList.model.bot.UserBotState;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.OffsetDateTime;
@@ -49,10 +50,16 @@ public class SprintHandler {
                 message.setChatId(chatId);
                 message.setText("You are not associated with any team.");
 
-                // Create keyboard for next actions
+                // Create keyboard for next actions - ensure keyboard is properly initialized
                 ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
                 keyboardMarkup.setResizeKeyboard(true);
-                // Add keyboard options
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard); // Set the keyboard rows
                 message.setReplyMarkup(keyboardMarkup);
 
                 bot.execute(message);
@@ -71,10 +78,19 @@ public class SprintHandler {
                 message.setChatId(chatId);
                 message.setText("There is no active sprint for your team.");
 
-                // Create keyboard for next actions
+                // Create keyboard with appropriate options for when no sprint exists
                 ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
                 keyboardMarkup.setResizeKeyboard(true);
-                // Add keyboard options
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                if (state.getUser().isManager()) {
+                    row.add("🆕 Create New Sprint");
+                }
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard); // Set the keyboard rows
                 message.setReplyMarkup(keyboardMarkup);
 
                 bot.execute(message);
@@ -94,9 +110,22 @@ public class SprintHandler {
                 message.setChatId(chatId);
                 message.setText("There are no tasks in the current sprint: " + activeSprint.get().getName());
 
-                // Create keyboard for next actions
-                message.setReplyMarkup(KeyboardFactory.createSprintBoardKeyboard(state.getUser().isManager()));
-                logger.debug(chatId, "Created empty sprint keyboard");
+                // Create keyboard for next actions when sprint exists but has no tasks
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("📝 Create New Task");
+                row.add("➕ Assign Task to Sprint");
+                keyboard.add(row);
+
+                row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard); // Set the keyboard rows
+                message.setReplyMarkup(keyboardMarkup);
 
                 bot.execute(message);
                 logger.info(chatId, "Empty sprint message sent");
@@ -110,14 +139,64 @@ public class SprintHandler {
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
             message.setText(boardText);
-            message.setReplyMarkup(KeyboardFactory.createSprintBoardKeyboard(state.getUser().isManager()));
+
+            // Create keyboard with appropriate options for sprint board view
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("🔄 My Active Tasks");
+            row.add("📝 Create New Task");
+            keyboard.add(row);
+
+            row = new KeyboardRow();
+            row.add("✅ Mark Task Complete");
+            row.add("➕ Assign Task to Sprint");
+            keyboard.add(row);
+
+            if (state.getUser().isManager()) {
+                row = new KeyboardRow();
+                row.add("⏹️ End Active Sprint");
+                keyboard.add(row);
+            }
+
+            row = new KeyboardRow();
+            row.add("🏠 Main Menu");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard); // Set the keyboard rows
+            message.setReplyMarkup(keyboardMarkup);
 
             bot.execute(message);
             logger.info(chatId, "Sprint board sent");
         } catch (Exception e) {
             logger.error(chatId, "Error showing sprint board", e);
-            MessageHandler.sendErrorMessage(chatId,
-                    "There was an error retrieving the sprint board. Please try again later.", bot);
+
+            try {
+                // Create a safe error message with a valid keyboard
+                SendMessage errorMessage = new SendMessage();
+                errorMessage.setChatId(chatId);
+                errorMessage.setText("❌ There was an error retrieving the sprint board. Please try again later.");
+
+                // Always provide a valid keyboard for error messages
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row = new KeyboardRow();
+                row.add("🏠 Main Menu");
+                keyboard.add(row);
+
+                keyboardMarkup.setKeyboard(keyboard); // Set the keyboard rows
+                errorMessage.setReplyMarkup(keyboardMarkup);
+
+                bot.execute(errorMessage);
+                logger.info(chatId, "Error message with safe keyboard sent");
+            } catch (Exception ex) {
+                // If even the error handling fails, log it but don't throw
+                logger.error(chatId, "Failed to send error message", ex);
+            }
         }
     }
 
