@@ -18,35 +18,35 @@ public class SprintService {
 
     @Autowired
     private SprintRepository sprintRepository;
-    
+
     /**
      * Find all sprints
      */
     public List<Sprint> findAll() {
         return sprintRepository.findAll();
     }
-    
+
     /**
      * Find a sprint by ID
      */
     public Optional<Sprint> findById(Long id) {
         return sprintRepository.findById(id);
     }
-    
+
     /**
      * Find all sprints for a team
      */
     public List<Sprint> findByTeamId(Long teamId) {
         return sprintRepository.findByTeamId(teamId);
     }
-    
+
     /**
      * Find the active sprint for a team
      */
     public Optional<Sprint> findActiveSprintByTeamId(Long teamId) {
         return sprintRepository.findByTeamIdAndStatus(teamId, "ACTIVE");
     }
-    
+
     /**
      * Create a new sprint
      */
@@ -56,7 +56,7 @@ public class SprintService {
         sprint.setUpdatedAt(OffsetDateTime.now());
         return sprintRepository.save(sprint);
     }
-    
+
     /**
      * Update an existing sprint
      */
@@ -65,7 +65,7 @@ public class SprintService {
         sprint.setUpdatedAt(OffsetDateTime.now());
         return sprintRepository.save(sprint);
     }
-    
+
     /**
      * Start a sprint
      */
@@ -76,7 +76,7 @@ public class SprintService {
         sprint.setStartDate(OffsetDateTime.now());
         return sprintRepository.save(sprint);
     }
-    
+
     /**
      * Complete a sprint
      */
@@ -87,12 +87,31 @@ public class SprintService {
         sprint.setEndDate(OffsetDateTime.now());
         return sprintRepository.save(sprint);
     }
-    
+
     /**
      * Delete a sprint
      */
     @Transactional
     public void deleteSprint(Long id) {
         sprintRepository.deleteById(id);
+    }
+
+    /**
+     * Find completed sprints by team ID
+     */
+    public List<Sprint> findCompletedByTeamId(Long teamId) {
+        return sprintRepository.findByTeamIdAndStatusNot(teamId, "ACTIVE");
+    }
+
+    /**
+     * Complete a sprint
+     */
+    public Sprint completeSprint(Long sprintId) {
+        Sprint sprint = findById(sprintId)
+                .orElseThrow(() -> new RuntimeException("Sprint not found with ID: " + sprintId));
+
+        sprint.setStatus("COMPLETED");
+
+        return update(sprint);
     }
 }
