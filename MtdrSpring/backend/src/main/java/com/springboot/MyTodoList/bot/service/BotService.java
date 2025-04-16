@@ -1,19 +1,21 @@
 package com.springboot.MyTodoList.bot.service;
 
-import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.Sprint;
+import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.User;
-import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.SprintService;
+import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Service layer for the bot to interact with domain services
+ */
 @Service
 public class BotService {
     private static final Logger logger = LoggerFactory.getLogger(BotService.class);
@@ -31,8 +33,33 @@ public class BotService {
         this.sprintService = sprintService;
     }
 
-    // ToDoItem operations
+    /**
+     * Authenticate user by employee ID
+     */
+    public Optional<User> authenticateUser(String employeeId) {
+        logger.info("Authenticating user with employee ID: {}", employeeId);
+        return userService.findByEmployeeId(employeeId);
+    }
 
+    /**
+     * Find user by ID
+     */
+    public Optional<User> findUserById(Long userId) {
+        logger.info("Finding user by ID: {}", userId);
+        return userService.findById(userId);
+    }
+
+    /**
+     * Find users by team ID
+     */
+    public List<User> findUsersByTeamId(Long teamId) {
+        logger.info("Finding users by team ID: {}", teamId);
+        return userService.findByTeamId(teamId);
+    }
+
+    /**
+     * Get all ToDoItems for a user
+     */
     public List<ToDoItem> getAllToDoItems(Long userId) {
         logger.info("Fetching todo items for user ID: {}", userId);
         try {
@@ -45,6 +72,9 @@ public class BotService {
         }
     }
 
+    /**
+     * Get a specific ToDoItem by ID
+     */
     public Optional<ToDoItem> getToDoItemById(int id) {
         logger.info("Fetching todo item by ID: {}", id);
         try {
@@ -61,152 +91,204 @@ public class BotService {
         }
     }
 
-    public ToDoItem addToDoItem(ToDoItem todoItem) {
-        logger.info("Adding new todo item: {}", todoItem.getTitle());
+    /**
+     * Add a new ToDoItem
+     */
+    public ToDoItem addToDoItem(ToDoItem item) {
+        logger.info("Adding new todo item: {}", item.getTitle());
         try {
-            logger.debug("Todo item details - Description: {}, Done: {}, Team ID: {}, Assignee ID: {}",
-                    todoItem.getDescription(), todoItem.isDone(), todoItem.getTeamId(), todoItem.getAssigneeId());
-
-            ToDoItem savedItem = toDoItemService.addToDoItem(todoItem);
+            ToDoItem savedItem = toDoItemService.save(item);
             logger.info("Successfully added todo item with ID: {}", savedItem.getID());
             return savedItem;
         } catch (Exception e) {
-            logger.error("Error adding todo item: {}", todoItem.getTitle(), e);
+            logger.error("Error adding todo item: {}", item.getTitle(), e);
             throw new RuntimeException("Failed to add todo item", e);
         }
     }
 
-    public ToDoItem updateToDoItem(ToDoItem toDoItem) {
-        logger.info("Updating todo item with ID: {}", toDoItem.getID());
-        logger.debug("Update details - Title: {}, Description: {}, Done: {}, Status: {}",
-                toDoItem.getTitle(), toDoItem.getDescription(), toDoItem.isDone(), toDoItem.getStatus());
-
+    /**
+     * Update an existing ToDoItem
+     */
+    public ToDoItem updateToDoItem(ToDoItem item) {
+        logger.info("Updating todo item with ID: {}", item.getID());
         try {
-            ToDoItem updatedItem = toDoItemService.updateToDoItem(toDoItem.getID(), toDoItem);
-            logger.info("Successfully updated todo item with ID: {}", toDoItem.getID());
+            ToDoItem updatedItem = toDoItemService.update(item);
+            logger.info("Successfully updated todo item with ID: {}", updatedItem.getID());
             return updatedItem;
         } catch (Exception e) {
-            logger.error("Error updating todo item with ID: {}", toDoItem.getID(), e);
+            logger.error("Error updating todo item with ID: {}", item.getID(), e);
             throw new RuntimeException("Failed to update todo item", e);
         }
     }
 
-    public boolean deleteToDoItem(int id) {
+    /**
+     * Delete a ToDoItem
+     */
+    public void deleteToDoItem(int id) {
         logger.info("Deleting todo item with ID: {}", id);
         try {
-            boolean result = toDoItemService.deleteToDoItem(id);
-            if (result) {
-                logger.info("Successfully deleted todo item with ID: {}", id);
-            } else {
-                logger.warn("Failed to delete todo item with ID: {}, item may not exist", id);
-            }
-            return result;
+            toDoItemService.delete(id);
+            logger.info("Successfully deleted todo item with ID: {}", id);
         } catch (Exception e) {
             logger.error("Error deleting todo item with ID: {}", id, e);
             throw new RuntimeException("Failed to delete todo item", e);
         }
     }
 
-    public ToDoItem startTask(int taskId, Long userId) {
-        logger.info("Starting task with ID: {} for user: {}", taskId, userId);
+    /**
+     * Find active tasks by assignee ID
+     */
+    public List<ToDoItem> findActiveTasksByAssigneeId(Long assigneeId) {
+        logger.info("Finding active tasks for assignee ID: {}", assigneeId);
         try {
-            return toDoItemService.startTask(taskId, userId);
+            List<ToDoItem> tasks = toDoItemService.findActiveByAssigneeId(assigneeId);
+            logger.info("Found {} active tasks for assignee", tasks.size());
+            return tasks;
         } catch (Exception e) {
-            logger.error("Error starting task with ID: {}", taskId, e);
-            throw new RuntimeException("Failed to start task", e);
+            logger.error("Error finding active tasks for assignee ID: {}", assigneeId, e);
+            throw new RuntimeException("Failed to find active tasks", e);
         }
     }
 
+    /**
+     * Complete a task
+     */
     public ToDoItem completeTask(int taskId, double actualHours, String comments) {
-        logger.info("Completing task with ID: {}, actual hours: {}", taskId, actualHours);
+        logger.info("Completing task with ID: {}", taskId);
         try {
-            return toDoItemService.completeTask(taskId, actualHours, comments);
+            ToDoItem completedTask = toDoItemService.completeTask(taskId, actualHours, comments);
+            logger.info("Successfully completed task with ID: {}", completedTask.getID());
+            return completedTask;
         } catch (Exception e) {
             logger.error("Error completing task with ID: {}", taskId, e);
             throw new RuntimeException("Failed to complete task", e);
         }
     }
 
-    public ToDoItem assignTaskToSprint(int taskId, Long sprintId) {
-        logger.info("Assigning task with ID: {} to sprint: {}", taskId, sprintId);
-        try {
-            return toDoItemService.assignTaskToSprint(taskId, sprintId);
-        } catch (Exception e) {
-            logger.error("Error assigning task with ID: {} to sprint: {}", taskId, sprintId, e);
-            throw new RuntimeException("Failed to assign task to sprint", e);
-        }
-    }
-
-    // User operations
-
-    public Optional<User> findUserById(Long userId) {
-        logger.info("Finding user by ID: {}", userId);
-        return userService.findById(userId);
-    }
-
-    public List<User> findUsersByTeamId(Long teamId) {
-        logger.info("Finding users by team ID: {}", teamId);
-        return userService.findByTeamId(teamId);
-    }
-
-    public Optional<User> findUserByTelegramId(Long telegramId) {
-        logger.info("Finding user by Telegram ID: {}", telegramId);
-        return userService.findByTelegramId(telegramId);
-    }
-
-    public Optional<User> findUserByEmployeeId(String employeeId) {
-        logger.info("Finding user by employee ID: {}", employeeId);
-        return userService.findByEmployeeId(employeeId);
-    }
-
-    public User updateUserTelegramId(User user, Long telegramId) {
-        logger.info("Updating Telegram ID for user: {} to {}", user.getUsername(), telegramId);
-        try {
-            user.setTelegramId(telegramId);
-            return userService.updateUser(user);
-        } catch (Exception e) {
-            logger.error("Error updating Telegram ID for user: {}", user.getUsername(), e);
-            throw new RuntimeException("Failed to update user's Telegram ID", e);
-        }
-    }
-
-    // Sprint operations
-
+    /**
+     * Find active sprint by team ID
+     */
     public Optional<Sprint> findActiveSprintByTeamId(Long teamId) {
         logger.info("Finding active sprint for team ID: {}", teamId);
-        return sprintService.findActiveSprintByTeamId(teamId);
+        try {
+            Optional<Sprint> sprint = sprintService.findActiveByTeamId(teamId);
+            if (sprint.isPresent()) {
+                logger.info("Found active sprint with ID: {} for team", sprint.get().getId());
+            } else {
+                logger.info("No active sprint found for team ID: {}", teamId);
+            }
+            return sprint;
+        }}catch(
+
+    Exception e)
+    {
+        logger.error("Error finding active sprint for team ID: {}", teamId, e);
+        throw new RuntimeException("Failed to find active sprint", e);
+    }
     }
 
+    /**
+     * Find completed sprints by team ID
+     */
+    public List<Sprint> findCompletedSprintsByTeamId(Long teamId) {
+        logger.info("Finding completed sprints for team ID: {}", teamId);
+        try {
+            List<Sprint> sprints = sprintService.findCompletedByTeamId(teamId);
+            logger.info("Found {} completed sprints for team", sprints.size());
+            return sprints;
+        } catch (Exception e) {
+            logger.error("Error finding completed sprints for team ID: {}", teamId, e);
+            throw new RuntimeException("Failed to find completed sprints", e);
+        }
+    }
+
+    /**
+     * Find tasks by sprint ID
+     */
     public List<ToDoItem> findTasksBySprintId(Long sprintId) {
         logger.info("Finding tasks for sprint ID: {}", sprintId);
-        return toDoItemService.findTasksBySprintId(sprintId);
+        try {
+            List<ToDoItem> tasks = toDoItemService.findBySprintId(sprintId);
+            logger.info("Found {} tasks for sprint", tasks.size());
+            return tasks;
+        } catch (Exception e) {
+            logger.error("Error finding tasks for sprint ID: {}", sprintId, e);
+            throw new RuntimeException("Failed to find tasks for sprint", e);
+        }
     }
 
-    public List<ToDoItem> findActiveTasksByAssigneeId(Long userId) {
-        logger.info("Finding active tasks for user ID: {}", userId);
-        return toDoItemService.findActiveTasksByAssigneeId(userId);
+    /**
+     * Find tasks by sprint ID and assignee ID
+     */
+    public List<ToDoItem> findTasksBySprintIdAndAssigneeId(Long sprintId, Long assigneeId) {
+        logger.info("Finding tasks for sprint ID: {} and assignee ID: {}", sprintId, assigneeId);
+        try {
+            List<ToDoItem> tasks = toDoItemService.findBySprintIdAndAssigneeId(sprintId, assigneeId);
+            logger.info("Found {} tasks for sprint and assignee", tasks.size());
+            return tasks;
+        } catch (Exception e) {
+            logger.error("Error finding tasks for sprint ID: {} and assignee ID: {}", sprintId, assigneeId, e);
+            throw new RuntimeException("Failed to find tasks for sprint and assignee", e);
+        }
     }
 
+    /**
+     * Create a new sprint
+     */
     public Sprint createSprint(Sprint sprint) {
         logger.info("Creating new sprint: {}", sprint.getName());
         try {
-            sprint.setCreatedAt(OffsetDateTime.now());
-            Sprint createdSprint = sprintService.createSprint(sprint);
-            logger.info("Successfully created sprint with ID: {}", createdSprint.getId());
-            return createdSprint;
+            Sprint savedSprint = sprintService.save(sprint);
+            logger.info("Successfully created sprint with ID: {}", savedSprint.getId());
+            return savedSprint;
         } catch (Exception e) {
             logger.error("Error creating sprint: {}", sprint.getName(), e);
             throw new RuntimeException("Failed to create sprint", e);
         }
     }
 
+    /**
+     * Update an existing sprint
+     */
+    public Sprint updateSprint(Sprint sprint) {
+        logger.info("Updating sprint with ID: {}", sprint.getId());
+        try {
+            Sprint updatedSprint = sprintService.update(sprint);
+            logger.info("Successfully updated sprint with ID: {}", updatedSprint.getId());
+            return updatedSprint;
+        } catch (Exception e) {
+            logger.error("Error updating sprint with ID: {}", sprint.getId(), e);
+            throw new RuntimeException("Failed to update sprint", e);
+        }
+    }
+
+    /**
+     * Complete a sprint
+     */
     public Sprint completeSprint(Long sprintId) {
         logger.info("Completing sprint with ID: {}", sprintId);
         try {
-            return sprintService.completeSprint(sprintId);
+            Sprint completedSprint = sprintService.completeSprint(sprintId);
+            logger.info("Successfully completed sprint with ID: {}", completedSprint.getId());
+            return completedSprint;
         } catch (Exception e) {
             logger.error("Error completing sprint with ID: {}", sprintId, e);
             throw new RuntimeException("Failed to complete sprint", e);
+        }
+    }
+
+    /**
+     * Assign a task to a sprint
+     */
+    public ToDoItem assignTaskToSprint(int taskId, Long sprintId) {
+        logger.info("Assigning task {} to sprint {}", taskId, sprintId);
+        try {
+            ToDoItem updatedTask = toDoItemService.assignToSprint(taskId, sprintId);
+            logger.info("Successfully assigned task {} to sprint {}", updatedTask.getID(), sprintId);
+            return updatedTask;
+        } catch (Exception e) {
+            logger.error("Error assigning task {} to sprint {}", taskId, sprintId, e);
+            throw new RuntimeException("Failed to assign task to sprint", e);
         }
     }
 }

@@ -7,20 +7,16 @@ import com.springboot.MyTodoList.bot.handler.TaskCompletionHandler;
 import com.springboot.MyTodoList.bot.handler.TaskCreationHandler;
 import com.springboot.MyTodoList.bot.service.BotService;
 import com.springboot.MyTodoList.bot.util.BotLogger;
-import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.bot.UserBotState;
 import com.springboot.MyTodoList.service.SprintService;
 import com.springboot.MyTodoList.service.ToDoItemService;
 import com.springboot.MyTodoList.service.UserService;
-import com.springboot.MyTodoList.util.BotCommands;
-
 
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -66,6 +62,48 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         long chatId = 0;
 
         try {
+            // Handle callback queries (inline keyboard buttons)
+            if (update.hasCallbackQuery()) {
+                CallbackQuery callbackQuery = update.getCallbackQuery();
+                String callbackData = callbackQuery.getData();
+                Message message = callbackQuery.getMessage();
+                chatId = message.getChatId();
+
+                logger.info(chatId, "Received callback query: '{}'", callbackData);
+
+                // Get or initialize user state
+                UserBotState state = userStates.getOrDefault(chatId, new UserBotState());
+                userStates.put(chatId, state);
+
+                // Make sure user is authenticated
+                if (!state.isAuthenticated()) {
+                    logger.warn(chatId, "Received callback from unauthenticated user, ignoring");
+                    return;
+                }
+
+                // Handle callback based on prefix
+                if (callbackData.startsWith("sprint_")) {
+                    // Sprint management callbacks
+                    sprintHandler.processSprintModeCallback(chatId, callbackData, state, message.getMessageId());
+                } else if (callbackData.startsWith("main_")) {
+                    // Main menu callbacks
+                    processMainMenuCallback(chatId, callbackData, state);
+                } else if (callbackData.startsWith("date_")) {
+                    // Date selection for sprint creation
+                    if (state.isSprintMode() && state.getSprintModeStage() != null) {
+                        if (state.getSprintModeStage().equals("CREATE_START_DATE")) {
+                            sprintHandler.processSprintModeInput(chatId, callbackData, state);
+                        } else if (state.getSprintModeStage().equals("CREATE_END_DATE")) {
+                            sprintHandler.processSprintModeInput(chatId, callbackData, state);
+                        }
+                    }
+                } else {
+                    logger.warn(chatId, "Unknown callback data: {}", callbackData);
+                }
+
+                return;
+            }
+
             // Process message if it exists and has text
             if (update.hasMessage() && update.getMessage().hasText()) {
                 String messageText = update.getMessage().getText();
@@ -76,9 +114,9 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 UserBotState state = userStates.getOrDefault(chatId, new UserBotState());
                 userStates.put(chatId, state);
                 logger.debug(chatId,
-                        "User state: authenticated={}, newTaskMode={}, taskCompletionMode={}, assignToSprintMode={}",
-                        state.isAuthenticated(), state.isNewTaskMode(), state.isTaskCompletionMode(),
-                        state.isAssignToSprintMode());
+                        "User state: authenticated={}, sprintMode={}, newTaskMode={}, taskCompletionMode={}",
+                        state.isAuthenticated(), state.isSprintMode(), state.isNewTaskMode(),
+                        state.isTaskCompletionMode());
 
                 // Handle authentication flow
                 if (!state.isAuthenticated()) {
@@ -86,7 +124,12 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     return;
                 }
 
-                // Handle various task modes
+                // Handle active modes
+                if (state.isSprintMode()) {
+                    sprintHandler.processSprintModeInput(chatId, messageText, state);
+                    return;
+                }
+
                 if (state.isNewTaskMode()) {
                     taskCreationHandler.processTaskCreation(chatId, messageText, state);
                     return;
@@ -129,7 +172,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             }
         } catch (Exception e) {
             // Global error handler
-            logger.error("Unexpected error in bot operation", e);
+            logger.error(chatId, "Unexpected error in bot operation", e);
             if (chatId != 0) {
                 MessageHandler.sendErrorMessage(chatId, "An unexpected error occurred. Please try again later.", this);
             }
@@ -141,23 +184,40 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
      */
     private void handleUnauthenticatedUser(long chatId, String messageText, UserBotState state) {
         logger.info(chatId, "Processing unauthenticated user message");
-        if (messageText.equals(BotCommands.START_COMMAND.getCommand())) {
+        if (messageText.equals("/start")) {
             logger.info(chatId, "Processing start command for unauthenticated user");
-            // Send authentication prompt for /start command
-            try {
-                SendMessage message = new SendMessage();
-                message.setChatId(chatId);
-                message.setText("Welcome to DashMaster! Please enter your Employee ID to authenticate:");
-                execute(message);
-                logger.info(chatId, "Authentication prompt sent");
-            } catch (TelegramApiException e) {
-                logger.error(chatId, "Error sending authentication prompt", e);
-                MessageHandler.sendErrorMessage(chatId, "Communication error. Please try again.", this);
-            }
+            authHandler.handleInitialGreeting(chatId);
         } else {
             logger.info(chatId, "Processing authentication attempt with employee ID: {}", messageText);
-            // Process message as authentication attempt
             authHandler.handleAuthentication(chatId, messageText, state);
+        }
+    }
+
+    /**
+     * Process main menu callbacks
+     */
+    private void processMainMenuCallback(long chatId, String callbackData, UserBotState state) {
+        logger.info(chatId, "Processing main menu callback: {}", callbackData);
+        try {
+            switch (callbackData) {
+                case "main_sprint":
+                    // Enter sprint management mode
+                    sprintHandler.enterSprintMode(chatId, state);
+                    break;
+                case "main_tasks":
+                    // Show tasks menu
+                    MessageHandler.showDeveloperTaskMenu(chatId, state, this);
+                    break;
+                case "main_help":
+                    // Show help information
+                    MessageHandler.showHelpInformation(chatId, this);
+                    break;
+                default:
+                    logger.warn(chatId, "Unknown main menu callback: {}", callbackData);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing main menu callback", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to process your request. Please try again.", this);
         }
     }
 
@@ -180,19 +240,19 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 MessageHandler.showMainScreen(chatId, state, this);
                 break;
 
+            case "/sprint":
+            case "🏃‍♂️ Sprint Management":
+                sprintHandler.enterSprintMode(chatId, state);
+                break;
+
             case "/todolist":
             case "📝 List All Tasks":
-                showUserTaskList(chatId, state);
+                MessageHandler.showTaskList(chatId, botService.getAllToDoItems(state.getUser().getId()), state, this);
                 break;
 
             case "/additem":
             case "📝 Create New Task":
-                startTaskCreation(chatId, state);
-                break;
-
-            case "/hide":
-            case "❌ Hide Keyboard":
-                MessageHandler.hideKeyboard(chatId, this);
+                taskCreationHandler.startTaskCreation(chatId, state);
                 break;
 
             case "/help":
@@ -205,23 +265,6 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
             case "✅ Mark Task Complete":
                 taskCompletionHandler.startTaskCompletion(chatId, state);
-                break;
-
-            case "📊 Sprint Board":
-            case "📊 View Sprint Board":
-                sprintHandler.showSprintBoard(chatId, state);
-                break;
-
-            case "🆕 Create New Sprint":
-                sprintHandler.startSprintCreation(chatId, state);
-                break;
-
-            case "➕ Assign Task to Sprint":
-                sprintHandler.startAssignTaskToSprint(chatId, state);
-                break;
-
-            case "⏹️ End Active Sprint":
-                sprintHandler.startEndActiveSprint(chatId, state);
                 break;
 
             default:
@@ -266,69 +309,13 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     /**
-     * Show the user's task list
-     */
-    private void showUserTaskList(long chatId, UserBotState state) {
-        logger.info(chatId, "Showing task list for user: {}", state.getUser().getFullName());
-        try {
-            List<ToDoItem> tasks = botService.getAllToDoItems(state.getUser().getId());
-            MessageHandler.showTaskList(chatId, tasks, state, this);
-        } catch (Exception e) {
-            logger.error(chatId, "Error showing task list", e);
-            MessageHandler.sendErrorMessage(chatId, "Failed to load your task list. Please try again later.", this);
-        }
-    }
-
-    /**
-     * Start the task creation process based on user role
-     */
-    private void startTaskCreation(long chatId, UserBotState state) {
-        logger.info(chatId, "Starting task creation for user: {}", state.getUser().getFullName());
-        try {
-            // Different flows for different user roles
-            if (state.getUser().isDeveloper() || state.getUser().isManager()) {
-                // Full task creation flow for developers/managers
-                taskCreationHandler.startTaskCreation(chatId, state);
-            } else {
-                // Simple item creation for regular employees
-                taskCreationHandler.startSimpleItemCreation(chatId, state);
-            }
-        } catch (Exception e) {
-            logger.error(chatId, "Error starting task creation", e);
-            MessageHandler.sendErrorMessage(chatId, "Failed to start task creation. Please try again later.", this);
-        }
-    }
-
-    /**
      * Show active tasks for the user
      */
     private void showActiveTasksForUser(long chatId, UserBotState state) {
         logger.info(chatId, "Showing active tasks for user: {}", state.getUser().getFullName());
         try {
-            List<ToDoItem> activeTasks = botService.findActiveTasksByAssigneeId(state.getUser().getId());
-
-            if (activeTasks.isEmpty()) {
-                MessageHandler.sendMessage(chatId, "You don't have any active tasks at the moment.", this);
-                return;
-            }
-
-            StringBuilder tasksText = new StringBuilder();
-            tasksText.append("Your Active Tasks:\n\n");
-
-            for (ToDoItem task : activeTasks) {
-                tasksText.append("ID: ").append(task.getID()).append("\n");
-                tasksText.append("Title: ").append(task.getTitle()).append("\n");
-                tasksText.append("Status: ").append(task.getStatus()).append("\n");
-                tasksText.append("Estimated Hours: ").append(task.getEstimatedHours()).append("\n");
-                tasksText.append("Priority: ").append(task.getPriority()).append("\n\n");
-            }
-
-            SendMessage message = new SendMessage();
-            message.setChatId(chatId);
-            message.setText(tasksText.toString());
-
-            execute(message);
-            logger.info(chatId, "Active tasks list sent");
+            MessageHandler.showActiveTasksList(chatId,
+                    botService.findActiveTasksByAssigneeId(state.getUser().getId()), state, this);
         } catch (Exception e) {
             logger.error(chatId, "Error showing active tasks", e);
             MessageHandler.sendErrorMessage(chatId,
