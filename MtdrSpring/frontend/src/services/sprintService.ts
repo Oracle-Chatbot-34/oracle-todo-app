@@ -1,7 +1,7 @@
 import api from './api';
 import { config } from '../lib/config';
 
-interface Sprint {
+export interface Sprint {
   id?: number;
   name: string;
   description?: string;

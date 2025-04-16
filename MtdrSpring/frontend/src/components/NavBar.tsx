@@ -49,7 +49,7 @@ const Navbar = () => {
             </li>
           </Link>
           {/* Pages */}
-          {['Reports', 'Tasks', 'KPIs'].map((item) => (
+          {['Reports', 'Tasks', 'KPIs','Groups','Sprints'].map((item) => (
             <Link to={`/${item.toLowerCase()}`} key={item}>
               <li
                 onClick={() => setActive(item)}
