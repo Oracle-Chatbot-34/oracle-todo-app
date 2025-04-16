@@ -15,7 +15,6 @@ import java.util.Optional;
  */
 @Service
 public class SprintService {
-
     @Autowired
     private SprintRepository sprintRepository;
 
@@ -43,7 +42,7 @@ public class SprintService {
     /**
      * Find the active sprint for a team
      */
-    public Optional<Sprint> findActiveSprintByTeamId(Long teamId) {
+    public Optional<Sprint> findActiveByTeamId(Long teamId) {
         return sprintRepository.findByTeamIdAndStatus(teamId, "ACTIVE");
     }
 
@@ -51,8 +50,10 @@ public class SprintService {
      * Create a new sprint
      */
     @Transactional
-    public Sprint createSprint(Sprint sprint) {
-        sprint.setCreatedAt(OffsetDateTime.now());
+    public Sprint save(Sprint sprint) {
+        if (sprint.getCreatedAt() == null) {
+            sprint.setCreatedAt(OffsetDateTime.now());
+        }
         sprint.setUpdatedAt(OffsetDateTime.now());
         return sprintRepository.save(sprint);
     }
@@ -61,7 +62,7 @@ public class SprintService {
      * Update an existing sprint
      */
     @Transactional
-    public Sprint updateSprint(Sprint sprint) {
+    public Sprint update(Sprint sprint) {
         sprint.setUpdatedAt(OffsetDateTime.now());
         return sprintRepository.save(sprint);
     }
@@ -71,7 +72,8 @@ public class SprintService {
      */
     @Transactional
     public Sprint startSprint(Long sprintId) {
-        Sprint sprint = sprintRepository.findById(sprintId).orElseThrow();
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new RuntimeException("Sprint not found with ID: " + sprintId));
         sprint.setStatus("ACTIVE");
         sprint.setStartDate(OffsetDateTime.now());
         return sprintRepository.save(sprint);
@@ -82,9 +84,9 @@ public class SprintService {
      */
     @Transactional
     public Sprint completeSprint(Long sprintId) {
-        Sprint sprint = sprintRepository.findById(sprintId).orElseThrow();
+        Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new RuntimeException("Sprint not found with ID: " + sprintId));
         sprint.setStatus("COMPLETED");
-        sprint.setEndDate(OffsetDateTime.now());
         return sprintRepository.save(sprint);
     }
 
@@ -100,18 +102,11 @@ public class SprintService {
      * Find completed sprints by team ID
      */
     public List<Sprint> findCompletedByTeamId(Long teamId) {
-        return sprintRepository.findByTeamIdAndStatusNot(teamId, "ACTIVE");
-    }
-
-    /**
-     * Complete a sprint
-     */
-    public Sprint completeSprint(Long sprintId) {
-        Sprint sprint = findById(sprintId)
-                .orElseThrow(() -> new RuntimeException("Sprint not found with ID: " + sprintId));
-
-        sprint.setStatus("COMPLETED");
-
-        return update(sprint);
+        // Since we don't have findByTeamIdAndStatusNot, let's use findByTeamId and
+        // filter the results
+        List<Sprint> allTeamSprints = sprintRepository.findByTeamId(teamId);
+        return allTeamSprints.stream()
+                .filter(sprint -> !"ACTIVE".equals(sprint.getStatus()))
+                .toList();
     }
 }
