@@ -9,8 +9,10 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -18,7 +20,7 @@ import java.util.List;
  */
 public class MessageHandler {
     private static final BotLogger logger = new BotLogger(MessageHandler.class);
-    
+
     /**
      * Shows the main menu screen to the user
      */
@@ -47,7 +49,7 @@ public class MessageHandler {
                     "There was a problem displaying the main menu. Please try again by typing /start.", bot);
         }
     }
-    
+
     /**
      * Shows the task list for a user
      */
@@ -63,7 +65,7 @@ public class MessageHandler {
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
             message.setText("MY TASK LIST");
-            
+
             // Create keyboard with tasks
             ReplyKeyboardMarkup keyboardMarkup = KeyboardFactory.createTaskListKeyboard(tasks);
             message.setReplyMarkup(keyboardMarkup);
@@ -76,7 +78,7 @@ public class MessageHandler {
             sendErrorMessage(chatId, "Failed to load your todo list. Please try again later.", bot);
         }
     }
-    
+
     /**
      * Show the developer task menu
      */
@@ -94,7 +96,7 @@ public class MessageHandler {
             // Create keyboard with task management options
             ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
             message.setReplyMarkup(keyboardMarkup);
-            
+
             // Create task management keyboard by role
             if (state.getUser().isManager()) {
                 message.setReplyMarkup(createManagerTaskMenu());
@@ -109,7 +111,7 @@ public class MessageHandler {
             sendErrorMessage(chatId, "There was a problem displaying the task menu. Please try again.", bot);
         }
     }
-    
+
     /**
      * Create task management menu for developers
      */
@@ -118,7 +120,7 @@ public class MessageHandler {
         keyboardMarkup.setResizeKeyboard(true);
         return keyboardMarkup;
     }
-    
+
     /**
      * Create task management menu for managers
      */
@@ -127,7 +129,7 @@ public class MessageHandler {
         keyboardMarkup.setResizeKeyboard(true);
         return keyboardMarkup;
     }
-    
+
     /**
      * Remove the keyboard
      */
@@ -147,7 +149,7 @@ public class MessageHandler {
             logger.error(chatId, "Error hiding keyboard", e);
         }
     }
-    
+
     /**
      * Show help information
      */
@@ -167,7 +169,7 @@ public class MessageHandler {
             message.setChatId(chatId);
             message.setText(helpText.toString());
             message.enableMarkdown(true);
-            
+
             bot.execute(message);
             logger.info(chatId, "Help information sent successfully");
         } catch (TelegramApiException e) {
@@ -175,7 +177,7 @@ public class MessageHandler {
             sendErrorMessage(chatId, "Failed to send help information. Please try again later.", bot);
         }
     }
-    
+
     /**
      * Send regular message to user
      */
@@ -191,7 +193,7 @@ public class MessageHandler {
             logger.error(chatId, "Failed to send message", e);
         }
     }
-    
+
     /**
      * Send error message to user
      */
@@ -206,6 +208,103 @@ public class MessageHandler {
             logger.info(chatId, "Error message successfully sent");
         } catch (TelegramApiException e) {
             logger.error(chatId, "Failed to send error message", e);
+        }
+    }
+
+    /**
+     * Show active tasks list with proper keyboard
+     */
+    public static void showActiveTasksList(long chatId, List<ToDoItem> tasks, UserBotState state,
+            TelegramLongPollingBot bot) {
+        logger.info(chatId, "Displaying active tasks list, count: {}", tasks.size());
+        try {
+            if (tasks.isEmpty()) {
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText("You don't have any active tasks at the moment.");
+                message.enableHtml(true);
+
+                // Create keyboard with options
+                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+                keyboardMarkup.setResizeKeyboard(true);
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row1 = new KeyboardRow();
+                row1.add("📝 Create New Task");
+                row1.add("🏃‍♂️ Sprint Management");
+                keyboard.add(row1);
+
+                KeyboardRow row2 = new KeyboardRow();
+                row2.add("🏠 Main Menu");
+                keyboard.add(row2);
+
+                keyboardMarkup.setKeyboard(keyboard);
+                message.setReplyMarkup(keyboardMarkup);
+
+                bot.execute(message);
+                logger.info(chatId, "No active tasks message sent");
+                return;
+            }
+
+            StringBuilder tasksText = new StringBuilder();
+            tasksText.append("<b>Your Active Tasks:</b>\n\n");
+
+            for (ToDoItem task : tasks) {
+                tasksText.append("<b>ID:</b> ").append(task.getID()).append("\n");
+                tasksText.append("<b>Title:</b> ").append(task.getTitle()).append("\n");
+
+                if (task.getStatus() != null) {
+                    tasksText.append("<b>Status:</b> ").append(task.getStatus()).append("\n");
+                }
+
+                if (task.getEstimatedHours() != null) {
+                    tasksText.append("<b>Estimated Hours:</b> ").append(task.getEstimatedHours()).append("\n");
+                }
+
+                if (task.getPriority() != null) {
+                    tasksText.append("<b>Priority:</b> ").append(task.getPriority()).append("\n");
+                }
+
+                // Show sprint info if task is in a sprint
+                if (task.getSprintId() != null) {
+                    tasksText.append("<b>Sprint:</b> ID ").append(task.getSprintId()).append("\n");
+                }
+
+                tasksText.append("\n");
+            }
+
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.setText(tasksText.toString());
+            message.enableHtml(true);
+
+            // Create keyboard with options for task management
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row1 = new KeyboardRow();
+            row1.add("✅ Mark Task Complete");
+            row1.add("📝 Create New Task");
+            keyboard.add(row1);
+
+            KeyboardRow row2 = new KeyboardRow();
+            row2.add("🏃‍♂️ Sprint Management");
+            row2.add("📝 List All Tasks");
+            keyboard.add(row2);
+
+            KeyboardRow row3 = new KeyboardRow();
+            row3.add("🏠 Main Menu");
+            keyboard.add(row3);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            bot.execute(message);
+            logger.info(chatId, "Active tasks list sent successfully");
+        } catch (Exception e) {
+            logger.error(chatId, "Error showing active tasks list", e);
+            sendErrorMessage(chatId, "Failed to display active tasks. Please try again later.", bot);
         }
     }
 }
