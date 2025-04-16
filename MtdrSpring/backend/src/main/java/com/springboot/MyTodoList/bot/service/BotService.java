@@ -288,4 +288,29 @@ public class BotService {
             throw new RuntimeException("Failed to assign task to sprint", e);
         }
     }
+
+    /**
+     * Find user by employee ID
+     */
+    public Optional<User> findUserByEmployeeId(String employeeId) {
+        logger.info("Finding user by employee ID: {}", employeeId);
+        return userService.findByEmployeeId(employeeId);
+    }
+
+    /**
+     * Find user by Telegram ID
+     */
+    public Optional<User> findUserByTelegramId(long telegramId) {
+        logger.info("Finding user by Telegram ID: {}", telegramId);
+        return userService.findByTelegramId(telegramId);
+    }
+
+    /**
+     * Update user's Telegram ID
+     */
+    public User updateUserTelegramId(User user, long telegramId) {
+        logger.info("Updating Telegram ID for user: {}", user.getFullName());
+        user.setTelegramId(telegramId);
+        return userService.updateUser(user);
+    }
 }
