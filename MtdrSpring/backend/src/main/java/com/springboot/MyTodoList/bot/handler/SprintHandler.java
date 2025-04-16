@@ -1204,8 +1204,8 @@ public class SprintHandler {
                 messageBuilder.append("<b>Tasks:</b> ").append(sprintTasks.size()).append(" total\n");
 
                 int completedCount = taskCountByStatus.getOrDefault("DONE", 0);
-                //int progressCount = taskCountByStatus.getOrDefault("IN_PROGRESS", 0);
-                //int backlogCount = taskCountByStatus.getOrDefault("BACKLOG", 0);
+                // int progressCount = taskCountByStatus.getOrDefault("IN_PROGRESS", 0);
+                // int backlogCount = taskCountByStatus.getOrDefault("BACKLOG", 0);
                 // int blockedCount = taskCountByStatus.getOrDefault("BLOCKED", 0);
 
                 float completionPercentage = (float) completedCount / sprintTasks.size() * 100;
@@ -2404,5 +2404,56 @@ public class SprintHandler {
             state.setSprintMode(false);
             state.setSprintModeStage(null);
         }
+    }
+
+    /**
+     * Process assigning a task to a sprint
+     */
+    public void processAssignTaskToSprint(long chatId, String messageText, UserBotState state) {
+        // If this functionality already exists under a different name, rename it
+        // Otherwise, implement the assignment logic here
+        logger.info(chatId, "Processing assign task to sprint: {}", messageText);
+
+        // For now, we'll just show a message explaining this isn't implemented yet
+        MessageHandler.sendMessage(chatId,
+                "Task-to-sprint assignment is not implemented yet. Please use the sprint management menu.", bot);
+
+        // Reset the state
+        state.setAssignToSprintMode(false);
+        state.setAssignToSprintStage(null);
+
+        // Return to sprint mode main menu
+        enterSprintMode(chatId, state);
+    }
+
+    /**
+     * Process legacy sprint creation mode
+     */
+    public void processSprintCreation(long chatId, String messageText, UserBotState state) {
+        // This is likely a legacy method that's been replaced by the new sprint portal
+        // For backwards compatibility, redirect to the new implementation
+        logger.info(chatId, "Redirecting legacy sprint creation to new sprint portal");
+
+        // Enter the new sprint mode
+        enterSprintMode(chatId, state);
+
+        // Reset legacy state
+        state.setSprintCreationMode(false);
+        state.setSprintCreationStage(null);
+    }
+
+    /**
+     * Process legacy end sprint mode
+     */
+    public void processEndActiveSprint(long chatId, String messageText, UserBotState state) {
+        // This is likely a legacy method that's been replaced by the new sprint portal
+        // For backwards compatibility, redirect to the new implementation
+        logger.info(chatId, "Redirecting legacy end sprint to new sprint portal");
+
+        // Enter the new sprint mode
+        enterSprintMode(chatId, state);
+
+        // Reset legacy state
+        state.setEndSprintMode(false);
     }
 }

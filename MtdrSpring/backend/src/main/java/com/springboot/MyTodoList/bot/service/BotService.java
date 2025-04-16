@@ -97,7 +97,7 @@ public class BotService {
     public ToDoItem addToDoItem(ToDoItem item) {
         logger.info("Adding new todo item: {}", item.getTitle());
         try {
-            ToDoItem savedItem = toDoItemService.save(item);
+            ToDoItem savedItem = toDoItemService.addToDoItem(item);
             logger.info("Successfully added todo item with ID: {}", savedItem.getID());
             return savedItem;
         } catch (Exception e) {
@@ -112,7 +112,7 @@ public class BotService {
     public ToDoItem updateToDoItem(ToDoItem item) {
         logger.info("Updating todo item with ID: {}", item.getID());
         try {
-            ToDoItem updatedItem = toDoItemService.update(item);
+            ToDoItem updatedItem = toDoItemService.updateToDoItem(item.getID(), item);
             logger.info("Successfully updated todo item with ID: {}", updatedItem.getID());
             return updatedItem;
         } catch (Exception e) {
@@ -127,7 +127,7 @@ public class BotService {
     public void deleteToDoItem(int id) {
         logger.info("Deleting todo item with ID: {}", id);
         try {
-            toDoItemService.delete(id);
+            toDoItemService.deleteToDoItem(id);
             logger.info("Successfully deleted todo item with ID: {}", id);
         } catch (Exception e) {
             logger.error("Error deleting todo item with ID: {}", id, e);
@@ -141,7 +141,7 @@ public class BotService {
     public List<ToDoItem> findActiveTasksByAssigneeId(Long assigneeId) {
         logger.info("Finding active tasks for assignee ID: {}", assigneeId);
         try {
-            List<ToDoItem> tasks = toDoItemService.findActiveByAssigneeId(assigneeId);
+            List<ToDoItem> tasks = toDoItemService.findActiveTasksByAssigneeId(assigneeId);
             logger.info("Found {} active tasks for assignee", tasks.size());
             return tasks;
         } catch (Exception e) {
@@ -178,13 +178,10 @@ public class BotService {
                 logger.info("No active sprint found for team ID: {}", teamId);
             }
             return sprint;
-        }}catch(
-
-    Exception e)
-    {
-        logger.error("Error finding active sprint for team ID: {}", teamId, e);
-        throw new RuntimeException("Failed to find active sprint", e);
-    }
+        } catch (Exception e) {
+            logger.error("Error finding active sprint for team ID: {}", teamId, e);
+            throw new RuntimeException("Failed to find active sprint", e);
+        }
     }
 
     /**
@@ -208,7 +205,7 @@ public class BotService {
     public List<ToDoItem> findTasksBySprintId(Long sprintId) {
         logger.info("Finding tasks for sprint ID: {}", sprintId);
         try {
-            List<ToDoItem> tasks = toDoItemService.findBySprintId(sprintId);
+            List<ToDoItem> tasks = toDoItemService.findTasksBySprintId(sprintId);
             logger.info("Found {} tasks for sprint", tasks.size());
             return tasks;
         } catch (Exception e) {
@@ -283,7 +280,7 @@ public class BotService {
     public ToDoItem assignTaskToSprint(int taskId, Long sprintId) {
         logger.info("Assigning task {} to sprint {}", taskId, sprintId);
         try {
-            ToDoItem updatedTask = toDoItemService.assignToSprint(taskId, sprintId);
+            ToDoItem updatedTask = toDoItemService.assignTaskToSprint(taskId, sprintId);
             logger.info("Successfully assigned task {} to sprint {}", updatedTask.getID(), sprintId);
             return updatedTask;
         } catch (Exception e) {

@@ -17,12 +17,12 @@ public class AuthenticationHandler {
     private final BotLogger logger = new BotLogger(AuthenticationHandler.class);
     private final BotService botService;
     private final TelegramLongPollingBot bot;
-    
+
     public AuthenticationHandler(BotService botService, TelegramLongPollingBot bot) {
         this.botService = botService;
         this.bot = bot;
     }
-    
+
     /**
      * Handle authentication via employee ID
      */
@@ -45,7 +45,7 @@ public class AuthenticationHandler {
             sendErrorMessage(chatId, "Authentication system is currently unavailable. Please try again later.");
         }
     }
-    
+
     /**
      * Handle existing user (already authenticated by Telegram ID)
      */
@@ -68,7 +68,7 @@ public class AuthenticationHandler {
                     "Authentication successful, but there was an error displaying the menu. Please type /start to continue.");
         }
     }
-    
+
     /**
      * Handle new authentication via employee ID
      */
@@ -77,7 +77,7 @@ public class AuthenticationHandler {
         Optional<User> userOpt = botService.findUserByEmployeeId(employeeId);
         logger.debug(chatId, "User lookup by employee ID: present={}", userOpt.isPresent());
 
-        if (userOpt.isPresent() && 
+        if (userOpt.isPresent() &&
                 (userOpt.get().isEmployee() || userOpt.get().isDeveloper() || userOpt.get().isManager())) {
             User user = userOpt.get();
             logger.info(chatId, "User found: {}, role: employee={}, developer={}, manager={}",
@@ -101,7 +101,7 @@ public class AuthenticationHandler {
 
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
-            message.setText("Authentication successful! Welcome, " + user.getFullName() 
+            message.setText("Authentication successful! Welcome, " + user.getFullName()
                     + ". Your Telegram account is now linked to your DashMaster profile.");
 
             try {
@@ -128,7 +128,7 @@ public class AuthenticationHandler {
             }
         }
     }
-    
+
     /**
      * Send error message to user
      */
@@ -143,6 +143,31 @@ public class AuthenticationHandler {
             logger.info(chatId, "Error message successfully sent");
         } catch (TelegramApiException e) {
             logger.error(chatId, "Failed to send error message", e);
+        }
+    }
+
+    /**
+     * Handle the initial greeting for new users
+     */
+    public void handleInitialGreeting(long chatId) {
+        logger.info(chatId, "Sending initial greeting");
+        try {
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+            message.enableHtml(true);
+
+            StringBuilder msgText = new StringBuilder();
+            msgText.append("<b>Welcome to the Task Management Bot!</b>\n\n");
+            msgText.append("This bot helps you manage your tasks and sprints.\n\n");
+            msgText.append("To get started, please provide your employee ID for authentication.");
+
+            message.setText(msgText.toString());
+
+            bot.execute(message);
+            logger.info(chatId, "Initial greeting sent successfully");
+        } catch (Exception e) {
+            logger.error(chatId, "Error sending initial greeting", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to send welcome message. Please try again.", bot);
         }
     }
 }
