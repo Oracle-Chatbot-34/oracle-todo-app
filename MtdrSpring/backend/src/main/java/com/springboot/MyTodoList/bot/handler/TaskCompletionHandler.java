@@ -7,9 +7,13 @@ import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.bot.UserBotState;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,36 +24,51 @@ public class TaskCompletionHandler {
     private final BotLogger logger = new BotLogger(TaskCompletionHandler.class);
     private final BotService botService;
     private final TelegramLongPollingBot bot;
-    
+
+    // Animation frames for loading indicators
+    private static final String[] LOADING_FRAMES = { "⬜⬜⬜", "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+
     public TaskCompletionHandler(BotService botService, TelegramLongPollingBot bot) {
         this.botService = botService;
         this.bot = bot;
     }
-    
+
     /**
      * Start the task completion flow
      */
     public void startTaskCompletion(long chatId, UserBotState state) {
         logger.info(chatId, "Starting task completion flow for user: {}", state.getUser().getFullName());
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Fetching your tasks...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Fetching your tasks...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             logger.debug(chatId, "Fetching active tasks for user ID: {}", state.getUser().getId());
             List<ToDoItem> activeTasks = botService.findActiveTasksByAssigneeId(state.getUser().getId());
             logger.debug(chatId, "Found {} active tasks for user", activeTasks.size());
 
             if (activeTasks.isEmpty()) {
                 logger.info(chatId, "No active tasks found for user");
-                SendMessage message = new SendMessage();
-                message.setChatId(chatId);
-                message.setText("You don't have any active tasks to complete.");
-
-                // Create keyboard with options
-                ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-                keyboardMarkup.setResizeKeyboard(true);
-                // Add keyboard rows and options
-                message.setReplyMarkup(keyboardMarkup);
-
-                bot.execute(message);
-                logger.info(chatId, "Empty tasks message sent");
+                EditMessageText noTasksMessage = new EditMessageText();
+                noTasksMessage.setChatId(chatId);
+                noTasksMessage.setMessageId(sentMessage.getMessageId());
+                noTasksMessage.setText("✅ You don't have any active tasks to complete.");
+                bot.execute(noTasksMessage);
                 return;
             }
 
@@ -57,25 +76,58 @@ public class TaskCompletionHandler {
             state.setTaskCompletionStage("SELECT_TASK");
             logger.debug(chatId, "Set user state: taskCompletionMode=true, taskCompletionStage=SELECT_TASK");
 
-            SendMessage message = new SendMessage();
-            message.setChatId(chatId);
-            message.setText("Please enter the ID of the task you want to mark as complete:");
+            // Create task selection message with inline keyboard
+            StringBuilder messageText = new StringBuilder();
+            messageText.append("<b>Select a Task to Complete</b>\n\n");
+            messageText.append("Please select one of your active tasks to mark as complete:");
 
-            // Create keyboard with task list
-            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-            keyboardMarkup.setResizeKeyboard(true);
-            // Add keyboard rows and options with task IDs and titles
-            message.setReplyMarkup(keyboardMarkup);
+            // Create inline keyboard with task options
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
 
-            bot.execute(message);
-            logger.info(chatId, "Task selection prompt sent");
+            // Add each task as a button
+            for (ToDoItem task : activeTasks) {
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton taskButton = new InlineKeyboardButton();
+
+                String taskLabel = "ID " + task.getID() + ": " + task.getTitle();
+                if (taskLabel.length() > 30) {
+                    taskLabel = taskLabel.substring(0, 27) + "...";
+                }
+
+                taskButton.setText(taskLabel);
+                taskButton.setCallbackData("task_complete_" + task.getID());
+                row.add(taskButton);
+                rows.add(row);
+            }
+
+            // Add cancel button
+            List<InlineKeyboardButton> cancelRow = new ArrayList<>();
+            InlineKeyboardButton cancelButton = new InlineKeyboardButton();
+            cancelButton.setText("❌ Cancel");
+            cancelButton.setCallbackData("task_back_to_menu");
+            cancelRow.add(cancelButton);
+            rows.add(cancelRow);
+
+            markup.setKeyboard(rows);
+
+            EditMessageText taskSelectionMessage = new EditMessageText();
+            taskSelectionMessage.setChatId(chatId);
+            taskSelectionMessage.setMessageId(sentMessage.getMessageId());
+            taskSelectionMessage.setText(messageText.toString());
+            taskSelectionMessage.enableHtml(true);
+            taskSelectionMessage.setReplyMarkup(markup);
+
+            bot.execute(taskSelectionMessage);
+            logger.info(chatId, "Task selection prompt sent with {} tasks", activeTasks.size());
         } catch (Exception e) {
             logger.error(chatId, "Error starting task completion", e);
-            MessageHandler.sendErrorMessage(chatId, 
+            MessageHandler.sendErrorMessage(chatId,
                     "There was an error starting the task completion process. Please try again later.", bot);
+            state.resetTaskCompletion();
         }
     }
-    
+
     /**
      * Process task completion stages
      */
@@ -97,20 +149,20 @@ public class TaskCompletionHandler {
                     break;
                 default:
                     logger.warn(chatId, "Unknown task completion stage: {}", stage);
-                    MessageHandler.sendErrorMessage(chatId, 
+                    MessageHandler.sendErrorMessage(chatId,
                             "An error occurred in the task completion process. Please try again.", bot);
                     state.resetTaskCompletion();
             }
         } catch (Exception e) {
             logger.error(chatId, "Error in task completion process", e);
-            MessageHandler.sendErrorMessage(chatId, 
+            MessageHandler.sendErrorMessage(chatId,
                     "There was an error in the task completion process. Please try again.", bot);
 
             // Reset task completion state
             state.resetTaskCompletion();
         }
     }
-    
+
     /**
      * Process task selection
      */
@@ -160,7 +212,8 @@ public class TaskCompletionHandler {
         ToDoItem task = taskOpt.get();
         if (!task.getAssigneeId().equals(state.getUser().getId())) {
             logger.warn(chatId, "Task {} is not assigned to user {}", taskId, state.getUser().getId());
-            MessageHandler.sendErrorMessage(chatId, "This task is not assigned to you. Please enter a valid task ID.", bot);
+            MessageHandler.sendErrorMessage(chatId, "This task is not assigned to you. Please enter a valid task ID.",
+                    bot);
             return;
         }
 
@@ -172,7 +225,8 @@ public class TaskCompletionHandler {
         try {
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
-            message.setText("Please enter the actual hours spent on this task:");
+            message.setText("Please enter the actual hours spent on this task <b>" + task.getTitle() + "</b>:");
+            message.enableHtml(true);
 
             // Hide keyboard
             message.setReplyMarkup(KeyboardFactory.createEmptyKeyboard());
@@ -185,7 +239,7 @@ public class TaskCompletionHandler {
             throw new RuntimeException("Failed to send message", e);
         }
     }
-    
+
     /**
      * Process actual hours
      */
@@ -229,7 +283,7 @@ public class TaskCompletionHandler {
             throw new RuntimeException("Failed to send message", e);
         }
     }
-    
+
     /**
      * Process comments and complete the task
      */
@@ -239,6 +293,25 @@ public class TaskCompletionHandler {
         logger.debug(chatId, "Processing comments: '{}'", comments);
 
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Completing task...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Completing task...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             // Complete the task
             logger.debug(chatId, "Completing task ID {} with actual hours {} and comments",
                     state.getTempTaskId(), state.getTempActualHours());
@@ -250,64 +323,124 @@ public class TaskCompletionHandler {
             logger.debug(chatId, "Reset task completion state");
 
             // Show success message
-            SendMessage message = new SendMessage();
-            message.setChatId(chatId);
-            message.setText("✅ Task " + task.getID() + " marked as completed successfully!");
+            EditMessageText successMessage = new EditMessageText();
+            successMessage.setChatId(chatId);
+            successMessage.setMessageId(sentMessage.getMessageId());
+            successMessage.setText("✅ Task " + task.getID() + " marked as completed successfully!" +
+                    "\n\nTitle: " + task.getTitle() +
+                    "\nActual Hours: " + task.getActualHours());
+            successMessage.enableHtml(true);
 
-            // Create keyboard for next actions
-            message.setReplyMarkup(KeyboardFactory.createAfterTaskCompletionKeyboard());
-            logger.debug(chatId, "Created success keyboard");
-
-            bot.execute(message);
+            bot.execute(successMessage);
             logger.info(chatId, "Task completion success message sent");
+
+            // Show updated task list after a short delay
+            Thread.sleep(1000);
+            MessageHandler.showActiveTasksList(chatId, botService.getActiveToDoItems(state.getUser().getId()), state,
+                    bot);
         } catch (Exception e) {
             logger.error(chatId, "Error completing task", e);
             MessageHandler.sendErrorMessage(chatId, "Failed to complete the task. Please try again later.", bot);
             state.resetTaskCompletion();
         }
     }
-    
+
     /**
      * Handle task status updates (mark as done/undone/delete)
      */
     public void handleTaskStatusUpdate(long chatId, UserBotState state, String command, int taskId) {
         logger.info(chatId, "Handling task status update: {} for task ID: {}", command, taskId);
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Processing task...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Processing task...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+                Thread.sleep(300);
+            }
+
             Optional<ToDoItem> taskOpt = botService.getToDoItemById(taskId);
             if (taskOpt.isEmpty()) {
                 logger.warn(chatId, "Task not found with ID {}", taskId);
-                MessageHandler.sendErrorMessage(chatId, "Task not found. Please try again.", bot);
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(sentMessage.getMessageId());
+                errorMessage.setText("❌ Task not found. Please try again.");
+                bot.execute(errorMessage);
                 return;
             }
-            
+
             ToDoItem task = taskOpt.get();
             String message = "";
-            
+            String actionEmoji = "";
+
             switch (command) {
                 case "DONE":
+                    // For DONE, we need actual hours, so we'll start the full completion flow
+                    if (command.equals("DONE") && !task.isDone()) {
+                        // Set up state for completion flow
+                        state.setTaskCompletionMode(true);
+                        state.setTaskCompletionStage("ACTUAL_HOURS");
+                        state.setTempTaskId(taskId);
+
+                        // Show actual hours prompt
+                        EditMessageText hoursPrompt = new EditMessageText();
+                        hoursPrompt.setChatId(chatId);
+                        hoursPrompt.setMessageId(sentMessage.getMessageId());
+                        hoursPrompt.setText(
+                                "Please enter the actual hours spent on this task <b>" + task.getTitle() + "</b>:");
+                        hoursPrompt.enableHtml(true);
+                        bot.execute(hoursPrompt);
+                        return;
+                    }
                     task.setDone(true);
                     botService.updateToDoItem(task);
-                    message = "✅ Task marked as done!";
+                    message = "Task marked as done!";
+                    actionEmoji = "✅";
                     break;
                 case "UNDO":
                     task.setDone(false);
                     botService.updateToDoItem(task);
-                    message = "↩️ Task marked as not done!";
+                    message = "Task marked as not done!";
+                    actionEmoji = "↩️";
                     break;
                 case "DELETE":
                     botService.deleteToDoItem(taskId);
-                    message = "🗑️ Task deleted!";
+                    message = "Task deleted!";
+                    actionEmoji = "🗑️";
                     break;
                 default:
                     logger.warn(chatId, "Unknown task command: {}", command);
-                    MessageHandler.sendErrorMessage(chatId, "Invalid command. Please try again.", bot);
+                    EditMessageText invalidMessage = new EditMessageText();
+                    invalidMessage.setChatId(chatId);
+                    invalidMessage.setMessageId(sentMessage.getMessageId());
+                    invalidMessage.setText("❌ Invalid command. Please try again.");
+                    bot.execute(invalidMessage);
                     return;
             }
-            
-            // Send confirmation
-            MessageHandler.sendMessage(chatId, message, bot);
-            
-            // Update task list
+
+            // Send confirmation with animation
+            EditMessageText confirmationMessage = new EditMessageText();
+            confirmationMessage.setChatId(chatId);
+            confirmationMessage.setMessageId(sentMessage.getMessageId());
+            confirmationMessage.setText(actionEmoji + " " + message);
+            confirmationMessage.enableHtml(true);
+            bot.execute(confirmationMessage);
+
+            // Update task list after a short delay
+            Thread.sleep(1000);
             List<ToDoItem> updatedTasks = botService.getAllToDoItems(state.getUser().getId());
             MessageHandler.showTaskList(chatId, updatedTasks, state, bot);
         } catch (Exception e) {
