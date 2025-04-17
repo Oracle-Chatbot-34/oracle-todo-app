@@ -29,6 +29,71 @@ public class MessageHandler {
     private static final String[] LOADING_FRAMES = { "⬜⬜⬜", "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
 
     /**
+     * Send animated message with loading indicator
+     */
+    public static void sendAnimatedMessage(long chatId, Integer messageId, String finalText,
+            TelegramLongPollingBot bot, boolean includeBackButton) {
+        logger.info(chatId, "Sending animated message");
+        try {
+            if (messageId == null) {
+                // If no message ID is provided, send a new message
+                SendMessage initialMessage = new SendMessage();
+                initialMessage.setChatId(chatId);
+                initialMessage.setText("Loading...\n⬜⬜⬜");
+                initialMessage.enableHtml(true);
+
+                Message sentMessage = bot.execute(initialMessage);
+                messageId = sentMessage.getMessageId();
+            }
+
+            // Show animation
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText("Loading...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+
+                bot.execute(updateMessage);
+                Thread.sleep(300);
+            }
+
+            // Final message
+            EditMessageText finalMessage = new EditMessageText();
+            finalMessage.setChatId(chatId);
+            finalMessage.setMessageId(messageId);
+            finalMessage.setText(finalText);
+            finalMessage.enableHtml(true);
+
+            // Add back button if requested
+            if (includeBackButton) {
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back");
+                backButton.setCallbackData("task_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+
+                markup.setKeyboard(rows);
+                finalMessage.setReplyMarkup(markup);
+            }
+
+            bot.execute(finalMessage);
+            logger.info(chatId, "Animated message sent successfully");
+        } catch (Exception e) {
+            logger.error(chatId, "Failed to send animated message", e);
+            try {
+                sendErrorMessage(chatId, "An error occurred while processing your request.", bot);
+            } catch (Exception ex) {
+                logger.error(chatId, "Failed to send error message after animation failure", ex);
+            }
+        }
+    }
+
+    /**
      * Shows the main menu screen to the user with proper role-based options
      */
     public static void showMainScreen(long chatId, UserBotState state, TelegramLongPollingBot bot) {
@@ -65,6 +130,25 @@ public class MessageHandler {
     public static void showTaskList(long chatId, List<ToDoItem> tasks, UserBotState state, TelegramLongPollingBot bot) {
         logger.info(chatId, "Showing task list with {} tasks", tasks.size());
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading your tasks...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading your tasks...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             if (tasks.isEmpty()) {
                 logger.info(chatId, "No tasks found");
                 SendMessage message = new SendMessage();
@@ -338,71 +422,6 @@ public class MessageHandler {
             logger.info(chatId, "Error message successfully sent");
         } catch (TelegramApiException e) {
             logger.error(chatId, "Failed to send error message", e);
-        }
-    }
-
-    /**
-     * Send animated message with loading indicator
-     */
-    public static void sendAnimatedMessage(long chatId, Integer messageId, String finalText,
-            TelegramLongPollingBot bot, boolean includeBackButton) {
-        logger.info(chatId, "Sending animated message");
-        try {
-            if (messageId == null) {
-                // If no message ID is provided, send a new message
-                SendMessage initialMessage = new SendMessage();
-                initialMessage.setChatId(chatId);
-                initialMessage.setText("Loading...\n⬜⬜⬜");
-                initialMessage.enableHtml(true);
-
-                Message sentMessage = bot.execute(initialMessage);
-                messageId = sentMessage.getMessageId();
-            }
-
-            // Show animation
-            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
-                EditMessageText updateMessage = new EditMessageText();
-                updateMessage.setChatId(chatId);
-                updateMessage.setMessageId(messageId);
-                updateMessage.setText("Loading...\n" + LOADING_FRAMES[i]);
-                updateMessage.enableHtml(true);
-
-                bot.execute(updateMessage);
-                Thread.sleep(300);
-            }
-
-            // Final message
-            EditMessageText finalMessage = new EditMessageText();
-            finalMessage.setChatId(chatId);
-            finalMessage.setMessageId(messageId);
-            finalMessage.setText(finalText);
-            finalMessage.enableHtml(true);
-
-            // Add back button if requested
-            if (includeBackButton) {
-                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-                List<InlineKeyboardButton> row = new ArrayList<>();
-
-                InlineKeyboardButton backButton = new InlineKeyboardButton();
-                backButton.setText("🔙 Back");
-                backButton.setCallbackData("task_back_to_menu");
-                row.add(backButton);
-                rows.add(row);
-
-                markup.setKeyboard(rows);
-                finalMessage.setReplyMarkup(markup);
-            }
-
-            bot.execute(finalMessage);
-            logger.info(chatId, "Animated message sent successfully");
-        } catch (Exception e) {
-            logger.error(chatId, "Failed to send animated message", e);
-            try {
-                sendErrorMessage(chatId, "An error occurred while processing your request.", bot);
-            } catch (Exception ex) {
-                logger.error(chatId, "Failed to send error message after animation failure", ex);
-            }
         }
     }
 
