@@ -4,6 +4,7 @@ import com.springboot.MyTodoList.bot.handler.*;
 import com.springboot.MyTodoList.bot.service.BotService;
 import com.springboot.MyTodoList.bot.util.BotLogger;
 import com.springboot.MyTodoList.model.Sprint;
+import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
 import com.springboot.MyTodoList.service.SprintService;
@@ -17,13 +18,17 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -95,9 +100,19 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                 // Handle callback based on prefix
                 if (callbackData.startsWith("sprint_")) {
+                    // Reset all modes except sprint mode to avoid state issues
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(true);
+
                     // Sprint management callbacks
                     sprintHandler.processSprintModeCallback(chatId, callbackData, state, message.getMessageId());
                 } else if (callbackData.startsWith("main_")) {
+                    // Reset all modes to avoid state issues
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(false);
+
                     // Main menu callbacks
                     processMainMenuCallback(chatId, callbackData, state);
                 } else if (callbackData.startsWith("date_")) {
@@ -110,12 +125,26 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         }
                     }
                 } else if (callbackData.startsWith("task_")) {
+                    // Reset all modes except task completion
+                    state.resetTaskCreation();
+                    state.setSprintMode(false);
+
                     // Task management callbacks
                     processTaskCallback(chatId, callbackData, state, message.getMessageId());
                 } else if (callbackData.startsWith("team_")) {
+                    // Reset all modes
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(false);
+
                     // Team management callbacks
                     processTeamCallback(chatId, callbackData, state, message.getMessageId());
                 } else if (callbackData.startsWith("kpi_")) {
+                    // Reset all modes
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(false);
+
                     // KPI Dashboard callbacks
                     processKpiCallback(chatId, callbackData, state, message.getMessageId());
                 } else {
@@ -147,31 +176,67 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                 // Handle active modes
                 if (state.isSprintMode()) {
+                    // If it's a main menu command, prioritize it over sprint mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.setSprintMode(false);
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processSprintModeInput(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isNewTaskMode()) {
+                    // If it's a main menu command, prioritize it over task creation mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetTaskCreation();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     taskCreationHandler.processTaskCreation(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isTaskCompletionMode()) {
+                    // If it's a main menu command, prioritize it over task completion mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetTaskCompletion();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     taskCompletionHandler.processTaskCompletion(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isAssignToSprintMode()) {
+                    // If it's a main menu command, prioritize it over task assignment mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetAssignToSprint();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processAssignTaskToSprint(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isSprintCreationMode()) {
+                    // If it's a main menu command, prioritize it over sprint creation mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetSprintCreation();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processSprintCreation(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isEndSprintMode()) {
+                    // If it's a main menu command, prioritize it over sprint end mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.setEndSprintMode(false);
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processEndActiveSprint(chatId, messageText, state);
                     return;
                 }
@@ -302,13 +367,38 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     private void startAssignTaskToSprint(long chatId, int taskId, UserBotState state) {
         logger.info(chatId, "Starting process to assign task {} to a sprint", taskId);
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading active sprints...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = execute(loadingMessage);
+
+            // Animation frames
+            String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+            for (String frame : frames) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading active sprints...\n" + frame);
+                updateMessage.enableHtml(true);
+                execute(updateMessage);
+            }
+
             // Get active sprints
             List<Sprint> activeSprints = botService.findAllSprints().stream()
                     .filter(sprint -> "ACTIVE".equals(sprint.getStatus()))
                     .toList();
 
             if (activeSprints.isEmpty()) {
-                MessageHandler.sendMessage(chatId, "No active sprints found. Please create a sprint first.", this);
+                EditMessageText noSprintsMessage = new EditMessageText();
+                noSprintsMessage.setChatId(chatId);
+                noSprintsMessage.setMessageId(sentMessage.getMessageId());
+                noSprintsMessage.setText("No active sprints found. Please create a sprint first.");
+                noSprintsMessage.enableHtml(true);
+                execute(noSprintsMessage);
                 return;
             }
 
@@ -328,7 +418,13 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
             message.append("\nReply with the Sprint ID to assign the task.");
 
-            MessageHandler.sendMessage(chatId, message.toString(), this);
+            EditMessageText sprintSelectionMessage = new EditMessageText();
+            sprintSelectionMessage.setChatId(chatId);
+            sprintSelectionMessage.setMessageId(sentMessage.getMessageId());
+            sprintSelectionMessage.setText(message.toString());
+            sprintSelectionMessage.enableHtml(true);
+
+            execute(sprintSelectionMessage);
         } catch (Exception e) {
             logger.error(chatId, "Error starting task assignment to sprint", e);
             MessageHandler.sendErrorMessage(chatId, "Failed to start task assignment process. Please try again.", this);
@@ -410,24 +506,114 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 execute(updateMessage);
             }
 
-            // Show final message
-            StringBuilder kpiText = new StringBuilder();
-            kpiText.append("<b>KPI Dashboard</b>\n\n");
-            kpiText.append(
-                    "The KPI dashboard is best viewed in the web interface where charts and detailed metrics are available.\n\n");
-            kpiText.append("<b>Basic Statistics:</b>\n");
-
             // Get active sprint if any
             List<Sprint> activeSprintList = botService.findAllSprints().stream()
                     .filter(sprint -> "ACTIVE".equals(sprint.getStatus()))
                     .toList();
 
-            if (!activeSprintList.isEmpty()) {
-                Sprint activeSprint = activeSprintList.get(0);
-                kpiText.append("• Active Sprint: ").append(activeSprint.getName()).append("\n");
-                kpiText.append("• Sprint End Date: ").append(formatDate(activeSprint.getEndDate())).append("\n\n");
+            // Build appropriate KPI summary based on user role
+            StringBuilder kpiText = new StringBuilder();
+            kpiText.append("<b>KPI Dashboard</b>\n\n");
+
+            if (state.getUser().isManager()) {
+                // Manager view - show team statistics
+                kpiText.append("Team Performance Dashboard\n\n");
+
+                // Get active sprint data
+                if (!activeSprintList.isEmpty()) {
+                    Sprint activeSprint = activeSprintList.get(0);
+                    kpiText.append("• Active Sprint: ").append(activeSprint.getName()).append("\n");
+                    kpiText.append("• Sprint End Date: ").append(formatDate(activeSprint.getEndDate())).append("\n\n");
+
+                    // Get tasks for this sprint
+                    List<ToDoItem> sprintTasks = botService.findTasksBySprintId(activeSprint.getId());
+
+                    if (!sprintTasks.isEmpty()) {
+                        // Calculate completion statistics
+                        long completedTasks = sprintTasks.stream().filter(ToDoItem::isDone).count();
+                        double completionRate = (double) completedTasks / sprintTasks.size() * 100;
+
+                        kpiText.append("<b>Sprint Statistics:</b>\n");
+                        kpiText.append("• Total Tasks: ").append(sprintTasks.size()).append("\n");
+                        kpiText.append("• Completed Tasks: ").append(completedTasks).append("\n");
+                        kpiText.append("• Completion Rate: ").append(String.format("%.1f", completionRate))
+                                .append("%\n\n");
+
+                        // Get team members if user has a team
+                        if (state.getUser().getTeam() != null) {
+                            List<User> teamMembers = botService.findUsersByTeamId(state.getUser().getTeam().getId());
+
+                            kpiText.append("<b>Team Member Performance:</b>\n");
+
+                            // Calculate tasks per team member
+                            for (User member : teamMembers) {
+                                long memberTasks = sprintTasks.stream()
+                                        .filter(task -> member.getId().equals(task.getAssigneeId()))
+                                        .count();
+
+                                long memberCompletedTasks = sprintTasks.stream()
+                                        .filter(task -> member.getId().equals(task.getAssigneeId()) && task.isDone())
+                                        .count();
+
+                                if (memberTasks > 0) {
+                                    double memberCompletionRate = (double) memberCompletedTasks / memberTasks * 100;
+                                    kpiText.append("• ").append(member.getFullName()).append(": ")
+                                            .append(memberCompletedTasks).append("/").append(memberTasks)
+                                            .append(" (").append(String.format("%.1f", memberCompletionRate))
+                                            .append("%)\n");
+                                }
+                            }
+                        }
+                    } else {
+                        kpiText.append("No tasks assigned to the current sprint.\n");
+                    }
+                } else {
+                    kpiText.append("• No active sprint\n\n");
+                    kpiText.append("Create a sprint to start tracking team performance metrics.\n");
+                }
             } else {
-                kpiText.append("• No active sprint\n\n");
+                // Developer/Employee view - show personal statistics
+                kpiText.append("Personal Performance Dashboard\n\n");
+
+                // Get all tasks assigned to this user
+                List<ToDoItem> userTasks = botService.findByAssigneeId(state.getUser().getId());
+
+                if (!userTasks.isEmpty()) {
+                    long completedTasks = userTasks.stream().filter(ToDoItem::isDone).count();
+                    double completionRate = (double) completedTasks / userTasks.size() * 100;
+
+                    kpiText.append("<b>Your Statistics:</b>\n");
+                    kpiText.append("• Total Tasks: ").append(userTasks.size()).append("\n");
+                    kpiText.append("• Completed Tasks: ").append(completedTasks).append("\n");
+                    kpiText.append("• Completion Rate: ").append(String.format("%.1f", completionRate)).append("%\n\n");
+
+                    // Add active sprint info if any
+                    if (!activeSprintList.isEmpty()) {
+                        Sprint activeSprint = activeSprintList.get(0);
+                        kpiText.append("<b>Active Sprint:</b> ").append(activeSprint.getName()).append("\n");
+                        kpiText.append("• Sprint End Date: ").append(formatDate(activeSprint.getEndDate()))
+                                .append("\n\n");
+
+                        // Get user's tasks in this sprint
+                        List<ToDoItem> userSprintTasks = botService.findBySprintIdAndAssigneeId(
+                                activeSprint.getId(), state.getUser().getId());
+
+                        if (!userSprintTasks.isEmpty()) {
+                            long sprintCompletedTasks = userSprintTasks.stream().filter(ToDoItem::isDone).count();
+                            double sprintCompletionRate = (double) sprintCompletedTasks / userSprintTasks.size() * 100;
+
+                            kpiText.append("<b>Your Sprint Tasks:</b>\n");
+                            kpiText.append("• Sprint Tasks: ").append(userSprintTasks.size()).append("\n");
+                            kpiText.append("• Completed: ").append(sprintCompletedTasks).append("\n");
+                            kpiText.append("• Sprint Completion Rate: ")
+                                    .append(String.format("%.1f", sprintCompletionRate)).append("%\n");
+                        } else {
+                            kpiText.append("You have no tasks assigned in the current sprint.\n");
+                        }
+                    }
+                } else {
+                    kpiText.append("You currently have no tasks assigned to you.\n");
+                }
             }
 
             EditMessageText kpiMessage = new EditMessageText();
@@ -616,46 +802,83 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
         switch (messageText) {
             case "/start":
             case "🏠 Main Menu":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 MessageHandler.showMainScreen(chatId, state, this);
                 break;
 
             case "/sprint":
             case "🏃‍♂️ Sprint Management":
+                // Reset other modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
                 sprintHandler.enterSprintMode(chatId, state);
                 break;
 
             case "/todolist":
             case "📝 List All Tasks":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 MessageHandler.showTaskList(chatId, botService.getAllToDoItems(state.getUser().getId()), state, this);
                 break;
 
             case "/additem":
             case "📝 Create New Task":
+                // Reset other modes
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 taskCreationHandler.startTaskCreation(chatId, state);
                 break;
 
             case "/help":
             case "❓ Help":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 MessageHandler.showHelpInformation(chatId, this);
                 break;
 
             case "🔄 My Active Tasks":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 showActiveTasksForUser(chatId, state);
                 break;
 
             case "✅ Mark Task Complete":
+                // Reset other modes
+                state.resetTaskCreation();
+                state.setSprintMode(false);
                 taskCompletionHandler.startTaskCompletion(chatId, state);
                 break;
 
             case "❌ Hide Keyboard":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 MessageHandler.hideKeyboard(chatId, this);
                 break;
 
             case "👥 Team Management":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 showTeamManagement(chatId, state);
                 break;
 
             case "📊 KPI Dashboard":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 showKpiDashboard(chatId, state);
                 break;
 
@@ -714,11 +937,11 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 return;
             }
 
-            // Create StringBuilder for message content
-            StringBuilder messageText = new StringBuilder();
-            messageText.append("<b>Team: ").append(state.getUser().getTeam().getName()).append("</b>\n\n");
-            
             // Display team information
+            StringBuilder messageText = new StringBuilder();
+            messageText.append("<b>Team Management</b>\n\n");
+            messageText.append("<b>Team:</b> ").append(state.getUser().getTeam().getName()).append("\n");
+
             if (state.getUser().getTeam().getDescription() != null) {
                 messageText.append("<b>Description:</b> ").append(state.getUser().getTeam().getDescription())
                         .append("\n");
@@ -811,9 +1034,16 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             // Create the KPI dashboard message
             StringBuilder kpiText = new StringBuilder();
             kpiText.append("<b>📊 KPI Dashboard</b>\n\n");
-            kpiText.append("The KPI dashboard provides insights into your team's performance and productivity.\n\n");
-            kpiText.append(
-                    "Detailed charts and metrics are available in the web interface, but you can view basic information here.");
+
+            if (state.getUser().isManager()) {
+                kpiText.append(
+                        "The KPI dashboard provides insights into your team's performance and productivity.\n\n");
+                kpiText.append("Click below to view your team's performance metrics.");
+            } else {
+                kpiText.append(
+                        "The KPI dashboard provides insights into your personal performance and productivity.\n\n");
+                kpiText.append("Click below to view your personal performance metrics.");
+            }
 
             // Create inline keyboard with KPI options
             InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
