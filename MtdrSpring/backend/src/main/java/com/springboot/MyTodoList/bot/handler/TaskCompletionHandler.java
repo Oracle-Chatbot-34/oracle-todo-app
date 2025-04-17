@@ -10,7 +10,9 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
@@ -129,7 +131,7 @@ public class TaskCompletionHandler {
     }
 
     /**
-     * Process task completion stages
+     * Enhanced process for completing a task with comments and actual hours
      */
     public void processTaskCompletion(long chatId, String messageText, UserBotState state) {
         logger.info(chatId, "Processing task completion, stage: {}", state.getTaskCompletionStage());
@@ -137,15 +139,27 @@ public class TaskCompletionHandler {
         try {
             String stage = state.getTaskCompletionStage();
 
+            if (messageText.equals("Cancel")) {
+                state.resetTaskCompletion();
+                MessageHandler.showMainScreen(chatId, state, bot);
+                return;
+            }
+
             switch (stage) {
                 case "SELECT_TASK":
                     processTaskSelection(chatId, messageText, state);
                     break;
                 case "ACTUAL_HOURS":
-                    processActualHours(chatId, messageText, state);
+                    if (!processActualHours(chatId, messageText, state)) {
+                        // If processing failed, don't move to next stage
+                        return;
+                    }
+                    // Move to comments stage
+                    state.setTaskCompletionStage("COMMENTS");
+                    askForComments(chatId, state);
                     break;
                 case "COMMENTS":
-                    processComments(chatId, messageText, state);
+                    completeTaskWithAnimation(chatId, messageText, state);
                     break;
                 default:
                     logger.warn(chatId, "Unknown task completion stage: {}", stage);
@@ -157,75 +171,201 @@ public class TaskCompletionHandler {
             logger.error(chatId, "Error in task completion process", e);
             MessageHandler.sendErrorMessage(chatId,
                     "There was an error in the task completion process. Please try again.", bot);
-
-            // Reset task completion state
             state.resetTaskCompletion();
         }
     }
 
     /**
-     * Process task selection
+     * Complete the task with an animated process
      */
-    private void processTaskSelection(long chatId, String messageText, UserBotState state) {
-        if (messageText.equals("Cancel")) {
-            logger.info(chatId, "User cancelled task completion");
+    private void completeTaskWithAnimation(long chatId, String messageText, UserBotState state) {
+        // Store comments and prepare to complete task
+        String comments = messageText.equals("skip") ? "" : messageText;
+        logger.debug(chatId, "Processing comments: '{}'", comments);
+
+        try {
+            // Show loading animation
+            Message loadingMessage = MessageHandler.sendAnimatedLoadingMessage(chatId, "Completing task...", bot);
+
+            if (loadingMessage == null) {
+                MessageHandler.sendErrorMessage(chatId, "Failed to start task completion. Please try again.", bot);
+                state.resetTaskCompletion();
+                return;
+            }
+
+            int messageId = loadingMessage.getMessageId();
+
+            // Animation steps
+            for (int i = 1; i <= 3; i++) {
+                MessageHandler.updateLoadingAnimation(chatId, messageId, "Completing task...", i, bot);
+            }
+
+            // Complete the task
+            logger.debug(chatId, "Completing task ID {} with actual hours {} and comments",
+                    state.getTempTaskId(), state.getTempActualHours());
+            ToDoItem task = botService.completeTask(state.getTempTaskId(), state.getTempActualHours(), comments);
+            logger.info(chatId, "Task ID {} successfully completed", task.getID());
+
+            // Final animation frame
+            MessageHandler.updateLoadingAnimation(chatId, messageId, "Completing task...", 4, bot);
+            Thread.sleep(400); // Brief pause for user to notice completion
+
+            // Construct detailed success message
+            StringBuilder successMessage = new StringBuilder();
+            successMessage.append("✅ <b>Task Completed Successfully!</b>\n\n");
+            successMessage.append("<b>Task ID:</b> ").append(task.getID()).append("\n");
+            successMessage.append("<b>Title:</b> ").append(task.getTitle()).append("\n");
+            successMessage.append("<b>Status:</b> ").append(task.getStatus()).append("\n");
+            successMessage.append("<b>Actual Hours:</b> ").append(task.getActualHours()).append("\n");
+
+            if (!comments.isEmpty()) {
+                successMessage.append("<b>Comments:</b> ").append(comments).append("\n");
+            }
+
+            successMessage.append("\nWhat would you like to do next?");
+
+            // Create keyboard with next action options
+            ReplyKeyboardMarkup keyboardMarkup = KeyboardFactory.createAfterTaskCompletionKeyboard();
+
+            // Reset state
             state.resetTaskCompletion();
             logger.debug(chatId, "Reset task completion state");
-            MessageHandler.showDeveloperTaskMenu(chatId, state, bot);
-            return;
+
+            // Update the message with success content
+            EditMessageText finalMessage = new EditMessageText();
+            finalMessage.setChatId(chatId);
+            finalMessage.setMessageId(messageId);
+            finalMessage.setText(successMessage.toString());
+            finalMessage.enableHtml(true);
+            bot.execute(finalMessage);
+
+            // Send keyboard in a new message (can't add ReplyKeyboardMarkup to
+            // EditMessageText)
+            SendMessage keyboardMessage = new SendMessage();
+            keyboardMessage.setChatId(chatId);
+            keyboardMessage.setText("Select an option:");
+            keyboardMessage.setReplyMarkup(keyboardMarkup);
+            bot.execute(keyboardMessage);
+
+            logger.info(chatId, "Task completion success message sent");
+        } catch (Exception e) {
+            logger.error(chatId, "Error completing task", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to complete the task. Please try again later.", bot);
+            state.resetTaskCompletion();
         }
+    }
 
-        // Extract task ID from message
-        int taskId;
-        if (messageText.startsWith("ID: ")) {
-            // Parse from "ID: X - Title"
-            String idPart = messageText.substring(4, messageText.indexOf(" - "));
-            try {
-                taskId = Integer.parseInt(idPart);
-                logger.debug(chatId, "Extracted task ID {} from selection", taskId);
-            } catch (NumberFormatException e) {
-                logger.warn(chatId, "Invalid task ID format: '{}'", idPart);
-                MessageHandler.sendErrorMessage(chatId, "Invalid task ID format. Please select a valid task.", bot);
-                return;
-            }
-        } else {
-            // Try to parse as a direct ID
-            try {
-                taskId = Integer.parseInt(messageText);
-                logger.debug(chatId, "Parsed task ID {} directly from input", taskId);
-            } catch (NumberFormatException e) {
-                logger.warn(chatId, "Invalid task ID format: '{}'", messageText);
-                MessageHandler.sendErrorMessage(chatId, "Please enter a valid task ID or select from the list.", bot);
-                return;
-            }
-        }
-
-        // Check if task exists and belongs to user
-        logger.debug(chatId, "Fetching task with ID {} for validation", taskId);
-        Optional<ToDoItem> taskOpt = botService.getToDoItemById(taskId);
-        if (taskOpt.isEmpty()) {
-            logger.warn(chatId, "Task not found with ID {}", taskId);
-            MessageHandler.sendErrorMessage(chatId, "Task not found. Please enter a valid task ID.", bot);
-            return;
-        }
-
-        ToDoItem task = taskOpt.get();
-        if (!task.getAssigneeId().equals(state.getUser().getId())) {
-            logger.warn(chatId, "Task {} is not assigned to user {}", taskId, state.getUser().getId());
-            MessageHandler.sendErrorMessage(chatId, "This task is not assigned to you. Please enter a valid task ID.",
-                    bot);
-            return;
-        }
-
-        // Store task ID and move to actual hours stage
-        state.setTempTaskId(taskId);
-        state.setTaskCompletionStage("ACTUAL_HOURS");
-        logger.debug(chatId, "Updated stage to ACTUAL_HOURS, stored task ID: {}", taskId);
-
+    /**
+     * Ask for optional comments about task completion
+     */
+    private void askForComments(long chatId, UserBotState state) {
         try {
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
-            message.setText("Please enter the actual hours spent on this task <b>" + task.getTitle() + "</b>:");
+            message.setText("Please enter any comments or notes about the completed task (or type 'skip' to skip):");
+
+            // Create a keyboard with Skip button for easier UX
+            ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+            keyboardMarkup.setResizeKeyboard(true);
+            List<KeyboardRow> keyboard = new ArrayList<>();
+
+            KeyboardRow row = new KeyboardRow();
+            row.add("skip");
+            keyboard.add(row);
+
+            keyboardMarkup.setKeyboard(keyboard);
+            message.setReplyMarkup(keyboardMarkup);
+
+            bot.execute(message);
+            logger.info(chatId, "Comments prompt sent");
+        } catch (Exception e) {
+            logger.error(chatId, "Error sending comments prompt", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to request comments. Please try again.", bot);
+        }
+    }
+
+    /**
+     * Process task selection with better feedback
+     */
+    private void processTaskSelection(long chatId, String messageText, UserBotState state) {
+        try {
+            // Extract task ID from message
+            int taskId;
+
+            if (messageText.startsWith("ID: ")) {
+                // Parse from "ID: X - Title"
+                String idPart = messageText.substring(4, messageText.indexOf(" - "));
+                taskId = Integer.parseInt(idPart);
+                logger.debug(chatId, "Extracted task ID {} from selection", taskId);
+            } else {
+                // Try to parse as a direct ID
+                try {
+                    taskId = Integer.parseInt(messageText);
+                    logger.debug(chatId, "Parsed task ID {} directly from input", taskId);
+                } catch (NumberFormatException e) {
+                    logger.warn(chatId, "Invalid task ID format: '{}'", messageText);
+                    MessageHandler.sendErrorMessage(chatId, "Please enter a valid task ID or select from the list.",
+                            bot);
+                    return;
+                }
+            }
+
+            // Check if task exists and belongs to user
+            logger.debug(chatId, "Fetching task with ID {} for validation", taskId);
+            Optional<ToDoItem> taskOpt = botService.getToDoItemById(taskId);
+            if (taskOpt.isEmpty()) {
+                logger.warn(chatId, "Task not found with ID {}", taskId);
+                MessageHandler.sendErrorMessage(chatId, "Task not found. Please enter a valid task ID.", bot);
+                return;
+            }
+
+            ToDoItem task = taskOpt.get();
+
+            // Check if task is already completed
+            if (task.isDone()) {
+                logger.warn(chatId, "Task {} is already marked as completed", taskId);
+                MessageHandler.sendErrorMessage(chatId, "This task is already marked as completed.", bot);
+                return;
+            }
+
+            if (!task.getAssigneeId().equals(state.getUser().getId())) {
+                logger.warn(chatId, "Task {} is not assigned to user {}", taskId, state.getUser().getId());
+                MessageHandler.sendErrorMessage(chatId,
+                        "This task is not assigned to you. Please enter a valid task ID.",
+                        bot);
+                return;
+            }
+
+            // Store task ID and move to actual hours stage
+            state.setTempTaskId(taskId);
+            state.setTaskCompletionStage("ACTUAL_HOURS");
+            logger.debug(chatId, "Updated stage to ACTUAL_HOURS, stored task ID: {}", taskId);
+
+            // Show task details and ask for actual hours with a single message
+            SendMessage message = new SendMessage();
+            message.setChatId(chatId);
+
+            StringBuilder detailsText = new StringBuilder();
+            detailsText.append("<b>Task Details:</b>\n\n");
+            detailsText.append("<b>ID:</b> ").append(task.getID()).append("\n");
+            detailsText.append("<b>Title:</b> ").append(task.getTitle()).append("\n");
+            detailsText.append("<b>Description:</b> ").append(task.getDescription()).append("\n");
+
+            if (task.getEstimatedHours() != null) {
+                detailsText.append("<b>Estimated Hours:</b> ").append(task.getEstimatedHours()).append("\n");
+            }
+
+            if (task.getStatus() != null) {
+                detailsText.append("<b>Status:</b> ").append(task.getStatus()).append("\n");
+            }
+
+            if (task.getPriority() != null) {
+                detailsText.append("<b>Priority:</b> ").append(task.getPriority()).append("\n");
+            }
+
+            detailsText.append("\nPlease enter the actual hours spent on this task:");
+
+            message.setText(detailsText.toString());
             message.enableHtml(true);
 
             // Hide keyboard
@@ -234,16 +374,16 @@ public class TaskCompletionHandler {
 
             bot.execute(message);
             logger.info(chatId, "Actual hours prompt sent");
-        } catch (TelegramApiException e) {
-            logger.error(chatId, "Error sending actual hours prompt", e);
-            throw new RuntimeException("Failed to send message", e);
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing task selection", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to process task selection. Please try again.", bot);
         }
     }
 
     /**
-     * Process actual hours
+     * Process actual hours with validation
      */
-    private void processActualHours(long chatId, String messageText, UserBotState state) {
+    private boolean processActualHours(long chatId, String messageText, UserBotState state) {
         try {
             logger.debug(chatId, "Parsing actual hours from input: '{}'", messageText);
             double actualHours = Double.parseDouble(messageText);
@@ -255,19 +395,13 @@ public class TaskCompletionHandler {
                 message.setChatId(chatId);
                 message.setText("Actual hours must be greater than 0. Please enter a valid number:");
                 bot.execute(message);
-                return;
+                return false;
             }
 
-            // Store actual hours and ask for comments
+            // Store actual hours
             state.setTempActualHours(actualHours);
-            state.setTaskCompletionStage("COMMENTS");
-            logger.debug(chatId, "Updated stage to COMMENTS, stored actual hours: {}", actualHours);
-
-            SendMessage message = new SendMessage();
-            message.setChatId(chatId);
-            message.setText("Please enter any comments or notes about the completed task (or type 'skip' to skip):");
-            bot.execute(message);
-            logger.info(chatId, "Comments prompt sent");
+            logger.debug(chatId, "Stored actual hours: {}", actualHours);
+            return true;
         } catch (NumberFormatException e) {
             logger.warn(chatId, "Invalid actual hours format entered: '{}'", messageText);
             try {
@@ -278,9 +412,10 @@ public class TaskCompletionHandler {
             } catch (TelegramApiException ex) {
                 logger.error(chatId, "Error sending format error message", ex);
             }
+            return false;
         } catch (TelegramApiException e) {
-            logger.error(chatId, "Error sending comments prompt", e);
-            throw new RuntimeException("Failed to send message", e);
+            logger.error(chatId, "Error in actual hours processing", e);
+            return false;
         }
     }
 
