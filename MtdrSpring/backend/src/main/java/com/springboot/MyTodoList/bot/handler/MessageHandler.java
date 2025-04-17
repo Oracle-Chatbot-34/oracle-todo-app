@@ -579,4 +579,62 @@ public class MessageHandler {
             sendMessage(chatId, "✅ " + message, bot);
         }
     }
+
+    /**
+     * Show error message with animation
+     */
+    public static void sendAnimatedMessage(long chatId, Integer messageId, String text, TelegramLongPollingBot bot,
+            boolean animate) {
+        try {
+            if (messageId == null) {
+                // Send new message
+                SendMessage message = new SendMessage();
+                message.setChatId(chatId);
+                message.setText(text);
+                message.enableHtml(true);
+                bot.execute(message);
+                return;
+            }
+
+            if (animate) {
+                // Show loading animation first
+                EditMessageText loadingMessage = new EditMessageText();
+                loadingMessage.setChatId(chatId);
+                loadingMessage.setMessageId(messageId);
+                loadingMessage.setText("Loading...\n⬜⬜⬜");
+                loadingMessage.enableHtml(true);
+                bot.execute(loadingMessage);
+
+                // Animation frames
+                String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+                for (String frame : frames) {
+                    Thread.sleep(300);
+                    EditMessageText updateMessage = new EditMessageText();
+                    updateMessage.setChatId(chatId);
+                    updateMessage.setMessageId(messageId);
+                    updateMessage.setText("Loading...\n" + frame);
+                    updateMessage.enableHtml(true);
+                    bot.execute(updateMessage);
+                }
+            }
+
+            // Send final message
+            EditMessageText finalMessage = new EditMessageText();
+            finalMessage.setChatId(chatId);
+            finalMessage.setMessageId(messageId);
+            finalMessage.setText(text);
+            finalMessage.enableHtml(true);
+            bot.execute(finalMessage);
+        } catch (Exception e) {
+            logger.error(chatId, "Error sending animated message", e);
+            try {
+                SendMessage errorMsg = new SendMessage();
+                errorMsg.setChatId(chatId);
+                errorMsg.setText("An error occurred. Please try again.");
+                bot.execute(errorMsg);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Failed to send error message", ex);
+            }
+        }
+    }
 }
