@@ -15,7 +15,7 @@ import java.util.List;
 public class KeyboardFactory {
 
     /**
-     * Create the main menu keyboard
+     * Create the main menu keyboard based on user role
      */
     public static ReplyKeyboardMarkup createMainMenuKeyboard(User user) {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
@@ -40,6 +40,11 @@ public class KeyboardFactory {
         if (user.isManager()) {
             row = new KeyboardRow();
             row.add("👥 Team Management");
+            row.add("📊 KPI Dashboard");
+            keyboard.add(row);
+        } else if (user.isDeveloper()) {
+            // For developers, show KPI dashboard too
+            row = new KeyboardRow();
             row.add("📊 KPI Dashboard");
             keyboard.add(row);
         }
@@ -154,7 +159,7 @@ public class KeyboardFactory {
             for (ToDoItem task : tasks) {
                 if (!task.isDone()) {
                     activeTasks.add(task);
-                    if (activeTasks.size() >= 5) { // Limit to 5 tasks for keyboard
+                    if (activeTasks.size() >= 3) { // Limit to 3 tasks for keyboard
                         break;
                     }
                 }
@@ -365,7 +370,7 @@ public class KeyboardFactory {
 
         KeyboardRow row3 = new KeyboardRow();
         row3.add("📊 KPI Dashboard");
-        row3.add("📋 View All Tasks");
+        row3.add("📋 List All Tasks");
         keyboard.add(row3);
 
         KeyboardRow row4 = new KeyboardRow();
@@ -391,6 +396,7 @@ public class KeyboardFactory {
 
         KeyboardRow row2 = new KeyboardRow();
         row2.add("✅ Mark Task Complete");
+        row2.add("📋 List All Tasks");
         keyboard.add(row2);
 
         KeyboardRow row3 = new KeyboardRow();
