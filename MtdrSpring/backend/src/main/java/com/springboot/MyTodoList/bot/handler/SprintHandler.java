@@ -364,22 +364,35 @@ public class SprintHandler {
     }
 
     /**
-     * View active sprint - modified to look for any active sprint, not just by team
+     * Enhanced method to view active sprint with better UX
      */
     private void viewActiveSprint(long chatId, UserBotState state, Integer messageId) {
         logger.info(chatId, "Viewing active sprint for user: {}", state.getUser().getFullName());
         try {
-            // Show animation
+            // Start with animation 
             EditMessageText loadingMessage = new EditMessageText();
             loadingMessage.setChatId(chatId);
             loadingMessage.setMessageId(messageId);
-            loadingMessage.setText("Loading active sprint...\n\n" + LOADING_FRAMES[0]);
+            loadingMessage.setText("Loading active sprint...\n\n⬜⬜⬜");
             loadingMessage.enableHtml(true);
-
             bot.execute(loadingMessage);
 
-            // Show animation
-            showAnimatedLoading(chatId, messageId, "Loading active sprint");
+            // Animation steps with descriptive text
+            String[] loadingSteps = {
+                "Loading active sprint...\nFetching sprint data",
+                "Loading active sprint...\nGathering task information",
+                "Loading active sprint...\nCalculating statistics"
+            };
+            
+            for (int i = 0; i < loadingSteps.length; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText(loadingSteps[i] + "\n\n" + LOADING_FRAMES[i+1]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
 
             // Get all sprints and find active ones
             List<Sprint> allSprints = botService.findAllSprints();
@@ -441,6 +454,15 @@ public class SprintHandler {
             List<ToDoItem> sprintTasks = botService.findTasksBySprintId(activeSprint.getId());
             logger.debug(chatId, "Found {} tasks in active sprint", sprintTasks.size());
 
+            // Final animation frame
+            EditMessageText finalLoading = new EditMessageText();
+            finalLoading.setChatId(chatId);
+            finalLoading.setMessageId(messageId);
+            finalLoading.setText("Loading active sprint...\n\n✅");
+            finalLoading.enableHtml(true);
+            bot.execute(finalLoading);
+            Thread.sleep(300); // Brief pause before showing content
+
             // Build sprint board view
             EditMessageText editMessage = new EditMessageText();
             editMessage.setChatId(chatId);
@@ -475,6 +497,9 @@ public class SprintHandler {
             } else {
                 messageBuilder.append("<b>Status:</b> Overdue by ").append(Math.abs(daysRemaining)).append(" days\n\n");
             }
+
+            // Add visual progress bar
+            addProgressBarToSprint(messageBuilder, sprintTasks);
 
             // Task statistics
             if (sprintTasks.isEmpty()) {
@@ -613,6 +638,196 @@ public class SprintHandler {
             } catch (TelegramApiException ex) {
                 logger.error(chatId, "Error sending error message", ex);
             }
+        }
+    }
+
+    /**
+     * Add visual progress bar to sprint status message
+     */
+    private void addProgressBarToSprint(StringBuilder messageBuilder, List<ToDoItem> sprintTasks) {
+        if (sprintTasks.isEmpty()) {
+            messageBuilder.append("Progress: [          ] 0%\n\n");
+            return;
+        }
+
+        int completedTasks = (int) sprintTasks.stream()
+            .filter(task -> "DONE".equals(task.getStatus()) || task.isDone())
+            .count();
+        
+        float completionPercentage = (float) completedTasks / sprintTasks.size() * 100;
+        int filledBlocks = Math.round(completionPercentage / 10);
+        
+        messageBuilder.append("Progress: [");
+        for (int i = 0; i < 10; i++) {
+            messageBuilder.append(i < filledBlocks ? "■" : "□");
+        }
+        messageBuilder.append("] ").append(String.format("%.1f", completionPercentage)).append("%\n\n");
+    }
+
+    /**
+     * Enhanced sprint creation flow with better UX and animations
+     */
+    private void startSprintCreation(long chatId, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Starting sprint creation for user: {}", state.getUser().getFullName());
+        try {
+            // Verify user is a manager
+            if (!state.getUser().isManager()) {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("⚠️ Only managers can create sprints.");
+                errorMessage.enableHtml(true);
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+                return;
+            }
+            
+            // Show animation
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Preparing sprint creation...\n\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            bot.execute(loadingMessage);
+
+            // Animation steps
+            String[] loadingSteps = {
+                "Preparing sprint creation...\nChecking permissions",
+                "Preparing sprint creation...\nLoading sprint data",
+                "Preparing sprint creation...\nSetting up creation form"
+            };
+            
+            for (int i = 0; i < loadingSteps.length; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText(loadingSteps[i] + "\n\n" + LOADING_FRAMES[i+1]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+            
+            // Set the state for sprint creation
+            state.setSprintMode(true);
+            state.setSprintCreationMode(true);
+            state.setSprintCreationStage("NAME");
+            state.setSprintModeStage("CREATE_NAME");
+            
+            // Update message with start of sprint creation form
+            EditMessageText createForm = new EditMessageText();
+            createForm.setChatId(chatId);
+            createForm.setMessageId(messageId);
+            createForm.enableHtml(true);
+            createForm.setText("<b>Create New Sprint</b>\n\n" +
+                             "Let's set up a new sprint for your team. Please provide the following information:\n\n" +
+                             "<b>Step 1/4:</b> Sprint Name\n\n" +
+                             "Please send me the name for this sprint (e.g., 'Sprint 10' or 'July Release').");
+            
+            // Add cancel button
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            List<InlineKeyboardButton> row = new ArrayList<>();
+            InlineKeyboardButton cancelButton = new InlineKeyboardButton();
+            cancelButton.setText("❌ Cancel");
+            cancelButton.setCallbackData("sprint_back_to_menu");
+            row.add(cancelButton);
+            rows.add(row);
+            markup.setKeyboard(rows);
+            createForm.setReplyMarkup(markup);
+            
+            bot.execute(createForm);
+            logger.info(chatId, "Sprint creation form sent successfully");
+        } catch (Exception e) {
+            logger.error(chatId, "Error starting sprint creation", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("❌ There was an error starting sprint creation: " + e.getMessage());
+                errorMessage.enableHtml(true);
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Error sending error message", ex);
+            }
+        }
+    }
+
+    /**
+     * Process sprint creation input with better flow
+     */
+    public void processSprintCreation(long chatId, String messageText, UserBotState state) {
+        logger.info(chatId, "Processing sprint creation input: '{}', stage: {}", 
+                    messageText, state.getSprintCreationStage());
+        
+        try {
+            String stage = state.getSprintCreationStage();
+            
+            if ("Cancel".equals(messageText)) {
+                state.resetSprintCreation();
+                MessageHandler.sendMessage(chatId, "Sprint creation cancelled.", bot);
+                enterSprintMode(chatId, state);
+                return;
+            }
+            
+            switch (stage) {
+                case "NAME":
+                    processSprintName(chatId, messageText, state);
+                    break;
+                    
+                case "DESCRIPTION":
+                    processSprintDescription(chatId, messageText, state);
+                    break;
+                    
+                case "START_DATE":
+                    processSprintStartDate(chatId, messageText, state);
+                    break;
+                    
+                case "END_DATE":
+                    processSprintEndDate(chatId, messageText, state);
+                    break;
+                    
+                case "CONFIRMATION":
+                    processSprintConfirmation(chatId, messageText, state);
+                    break;
+                    
+                default:
+                    logger.warn(chatId, "Unknown sprint creation stage: {}", stage);
+                    MessageHandler.sendErrorMessage(chatId, 
+                            "An error occurred in the sprint creation process. Please try again.", bot);
+                    state.resetSprintCreation();
+                    enterSprintMode(chatId, state);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing sprint creation input", e);
+            MessageHandler.sendErrorMessage(chatId, 
+                    "There was an error processing your input. Please try again.", bot);
+            state.resetSprintCreation();
+            enterSprintMode(chatId, state);
         }
     }
 
@@ -1025,10 +1240,10 @@ public class SprintHandler {
     }
 
     /**
-     * Start sprint creation
+     * Process sprint confirmation input
      */
-    private void startSprintCreation(long chatId, UserBotState state, Integer messageId) {
-        logger.debug(chatId, "Starting sprint creation");
+    private void processSprintConfirmation(long chatId, String messageText, UserBotState state) {
+        logger.debug(chatId, "Processing sprint confirmation: '{}'", messageText);
         // Implementation would be added here
     }
 
@@ -1087,14 +1302,6 @@ public class SprintHandler {
      */
     public void processAssignTaskToSprint(long chatId, String messageText, UserBotState state) {
         logger.debug(chatId, "Processing assign task to sprint");
-        // Implementation would be added here
-    }
-
-    /**
-     * Process sprint creation mode
-     */
-    public void processSprintCreation(long chatId, String messageText, UserBotState state) {
-        logger.debug(chatId, "Processing sprint creation");
         // Implementation would be added here
     }
 
