@@ -8,6 +8,8 @@ import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -25,6 +27,9 @@ public class TaskCreationHandler {
     private final BotService botService;
     private final TelegramLongPollingBot bot;
 
+    // Animation frames for loading indicators
+    private static final String[] LOADING_FRAMES = { "⬜⬜⬜", "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+
     public TaskCreationHandler(BotService botService, TelegramLongPollingBot bot) {
         this.botService = botService;
         this.bot = bot;
@@ -36,6 +41,25 @@ public class TaskCreationHandler {
     public void startTaskCreation(long chatId, UserBotState state) {
         logger.info(chatId, "Starting task creation flow for user: {}", state.getUser().getFullName());
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Preparing task creation...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Preparing task creation...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             // Set state to task creation mode
             state.setNewTaskMode(true);
             state.setTaskCreationStage("TITLE");
@@ -51,7 +75,7 @@ public class TaskCreationHandler {
 
             bot.execute(message);
             logger.info(chatId, "Task creation prompt sent successfully");
-        } catch (TelegramApiException e) {
+        } catch (Exception e) {
             logger.error(chatId, "Error starting task creation", e);
             MessageHandler.sendErrorMessage(chatId, "There was a problem starting task creation. Please try again.",
                     bot);
@@ -147,6 +171,25 @@ public class TaskCreationHandler {
     private void processSimpleTaskCreation(long chatId, String messageText, UserBotState state) {
         logger.info(chatId, "Processing simple task creation: '{}'", messageText);
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Creating task...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Creating task...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             ToDoItem newItem = new ToDoItem();
             newItem.setDescription(messageText);
             newItem.setTitle(messageText.length() > 50 ? messageText.substring(0, 50) : messageText);
@@ -172,9 +215,19 @@ public class TaskCreationHandler {
             logger.debug(chatId, "Reset task creation state");
 
             // Confirm to the user
-            MessageHandler.sendMessage(chatId, "✅ New item added successfully!", bot);
+            EditMessageText successMessage = new EditMessageText();
+            successMessage.setChatId(chatId);
+            successMessage.setMessageId(sentMessage.getMessageId());
+            successMessage.setText("✅ New item added successfully!" +
+                    "\n\nID: " + addedItem.getID() +
+                    "\nTitle: " + addedItem.getTitle());
+            successMessage.enableHtml(true);
 
-            // Return to main menu
+            bot.execute(successMessage);
+            logger.info(chatId, "Task creation success message sent");
+
+            // Return to main menu after a short delay
+            Thread.sleep(1500);
             MessageHandler.showMainScreen(chatId, state, bot);
         } catch (Exception e) {
             logger.error(chatId, "Error adding simple task", e);
@@ -278,6 +331,25 @@ public class TaskCreationHandler {
         logger.debug(chatId, "Updated stage to ASSIGNEE");
 
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading team members...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading team members...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             // Get team members for selection
             List<User> teamMembers = botService.findUsersByTeamId(state.getUser().getTeam().getId());
             logger.debug(chatId, "Found {} team members", teamMembers.size());
@@ -433,14 +505,22 @@ public class TaskCreationHandler {
                 // Create keyboard with options
                 ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
                 keyboardMarkup.setResizeKeyboard(true);
-                // Add keyboard options here
+                List<KeyboardRow> keyboard = new ArrayList<>();
+
+                KeyboardRow row1 = new KeyboardRow();
+                row1.add("📝 Create New Task");
+                row1.add("🔄 My Active Tasks");
+                keyboard.add(row1);
+
+                KeyboardRow row2 = new KeyboardRow();
+                row2.add("🏠 Main Menu");
+                keyboard.add(row2);
+
+                keyboardMarkup.setKeyboard(keyboard);
                 message.setReplyMarkup(keyboardMarkup);
 
                 bot.execute(message);
                 logger.info(chatId, "Task creation cancellation message sent");
-
-                // Return to main screen
-                MessageHandler.showMainScreen(chatId, state, bot);
             } catch (TelegramApiException e) {
                 logger.error(chatId, "Error sending cancellation message", e);
             }
@@ -452,6 +532,25 @@ public class TaskCreationHandler {
      */
     private void createTask(long chatId, UserBotState state) {
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Creating task...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Creating task...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             // Create the task
             ToDoItem task = new ToDoItem();
             task.setTitle(state.getTempTaskTitle());
@@ -482,9 +581,26 @@ public class TaskCreationHandler {
             state.resetTaskCreation();
             logger.debug(chatId, "Reset task creation state");
 
+            // Show success message with task details
+            EditMessageText successMessage = new EditMessageText();
+            successMessage.setChatId(chatId);
+            successMessage.setMessageId(sentMessage.getMessageId());
+            successMessage.setText("✅ Task created successfully!" +
+                    "\n\nID: " + savedTask.getID() +
+                    "\nTitle: " + savedTask.getTitle() +
+                    "\nPriority: " + savedTask.getPriority() +
+                    "\nEstimated Hours: " + savedTask.getEstimatedHours());
+            successMessage.enableHtml(true);
+
+            bot.execute(successMessage);
+            logger.info(chatId, "Task creation success message sent");
+
+            // Show updated task list after a short delay
+            Thread.sleep(1500);
+
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
-            message.setText("✅ Task created successfully with ID: " + savedTask.getID());
+            message.setText("What would you like to do next?");
 
             // Create a properly initialized keyboard
             ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
@@ -499,7 +615,7 @@ public class TaskCreationHandler {
 
             KeyboardRow row2 = new KeyboardRow();
             row2.add("📝 List All Tasks");
-            row2.add("📊 Sprint Board");
+            row2.add("🏃‍♂️ Sprint Management");
             keyboard.add(row2);
 
             KeyboardRow row3 = new KeyboardRow();
@@ -511,10 +627,7 @@ public class TaskCreationHandler {
             message.setReplyMarkup(keyboardMarkup);
 
             bot.execute(message);
-            logger.info(chatId, "Task creation success message sent");
-
-            // No need to call showMainScreen here since we're already showing a keyboard
-            // The user can navigate from there
+            logger.info(chatId, "Post-task creation options presented");
         } catch (Exception e) {
             logger.error(chatId, "Error creating task", e);
 
