@@ -33,11 +33,20 @@ public class AuthenticationHandler {
             Optional<User> userByTelegramId = botService.findUserByTelegramId(chatId);
             logger.debug(chatId, "User lookup by Telegram ID: present={}", userByTelegramId.isPresent());
 
-            if (userByTelegramId.isPresent()) {
-                // User already registered with this Telegram ID
+            // Always look up by employeeId first (this is the key fix - prioritize the
+            // current employeeId)
+            Optional<User> userByEmployeeId = botService.findUserByEmployeeId(employeeId);
+            logger.debug(chatId, "User lookup by employee ID: present={}", userByEmployeeId.isPresent());
+
+            if (userByEmployeeId.isPresent()) {
+                // User found by employee ID - prioritize this over existing Telegram ID
+                handleNewAuthentication(chatId, employeeId, state);
+            } else if (userByTelegramId.isPresent()) {
+                // User already registered with this Telegram ID and no match on employeeId
                 handleExistingUser(chatId, userByTelegramId.get(), state);
             } else {
-                // Try to find user by employee ID
+                // Try to find user by employee ID (should already be covered but keep as
+                // fallback)
                 handleNewAuthentication(chatId, employeeId, state);
             }
         } catch (Exception e) {
