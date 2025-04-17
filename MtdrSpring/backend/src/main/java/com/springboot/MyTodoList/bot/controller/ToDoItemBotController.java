@@ -17,16 +17,13 @@ import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -717,7 +714,11 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 return;
             }
 
-            // Display team information (continued)
+            // Create StringBuilder for message content
+            StringBuilder messageText = new StringBuilder();
+            messageText.append("<b>Team: ").append(state.getUser().getTeam().getName()).append("</b>\n\n");
+            
+            // Display team information
             if (state.getUser().getTeam().getDescription() != null) {
                 messageText.append("<b>Description:</b> ").append(state.getUser().getTeam().getDescription())
                         .append("\n");
