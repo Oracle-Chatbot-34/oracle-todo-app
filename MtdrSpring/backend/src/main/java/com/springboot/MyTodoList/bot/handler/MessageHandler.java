@@ -7,9 +7,12 @@ import com.springboot.MyTodoList.model.bot.UserBotState;
 import com.springboot.MyTodoList.util.BotMessages;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -22,8 +25,11 @@ import java.util.List;
 public class MessageHandler {
     private static final BotLogger logger = new BotLogger(MessageHandler.class);
 
+    // Animation frames for loading indicators
+    private static final String[] LOADING_FRAMES = { "⬜⬜⬜", "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+
     /**
-     * Shows the main menu screen to the user
+     * Shows the main menu screen to the user with proper role-based options
      */
     public static void showMainScreen(long chatId, UserBotState state, TelegramLongPollingBot bot) {
         logger.info(chatId, "Showing main screen to user: {}", state.getUser().getFullName());
@@ -42,7 +48,7 @@ public class MessageHandler {
             // Create keyboard with options based on user role
             ReplyKeyboardMarkup keyboardMarkup = KeyboardFactory.createMainMenuKeyboard(state.getUser());
             message.setReplyMarkup(keyboardMarkup);
-            logger.debug(chatId, "Main screen keyboard created");
+            logger.debug(chatId, "Main screen keyboard created based on role: {}", state.getUser().getRole());
 
             bot.execute(message);
             logger.info(chatId, "Main screen successfully shown");
@@ -166,8 +172,27 @@ public class MessageHandler {
      * Show the developer task menu
      */
     public static void showDeveloperTaskMenu(long chatId, UserBotState state, TelegramLongPollingBot bot) {
-        logger.info(chatId, "Showing developer task menu for user: {}", state.getUser().getFullName());
+        logger.info(chatId, "Showing task menu for user: {}", state.getUser().getFullName());
         try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading task menu...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = bot.execute(loadingMessage);
+
+            // Animation frames
+            for (int i = 1; i < LOADING_FRAMES.length; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading task menu...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
             message.enableHtml(true);
@@ -175,7 +200,7 @@ public class MessageHandler {
             String welcomeMessage = "<b>Task Management for " + state.getUser().getFullName() + "</b>\n\n" +
                     "Select an option:";
             message.setText(welcomeMessage);
-            logger.debug(chatId, "Welcome message for developer task menu: {}", welcomeMessage);
+            logger.debug(chatId, "Welcome message for task menu: {}", welcomeMessage);
 
             // Create keyboard with task management options based on role
             if (state.getUser().isManager()) {
@@ -191,7 +216,7 @@ public class MessageHandler {
 
             bot.execute(message);
             logger.info(chatId, "Task menu successfully shown");
-        } catch (TelegramApiException e) {
+        } catch (Exception e) {
             logger.error(chatId, "Error showing task menu", e);
             sendErrorMessage(chatId, "There was a problem displaying the task menu. Please try again.", bot);
         }
@@ -317,6 +342,71 @@ public class MessageHandler {
     }
 
     /**
+     * Send animated message with loading indicator
+     */
+    public static void sendAnimatedMessage(long chatId, Integer messageId, String finalText,
+            TelegramLongPollingBot bot, boolean includeBackButton) {
+        logger.info(chatId, "Sending animated message");
+        try {
+            if (messageId == null) {
+                // If no message ID is provided, send a new message
+                SendMessage initialMessage = new SendMessage();
+                initialMessage.setChatId(chatId);
+                initialMessage.setText("Loading...\n⬜⬜⬜");
+                initialMessage.enableHtml(true);
+
+                Message sentMessage = bot.execute(initialMessage);
+                messageId = sentMessage.getMessageId();
+            }
+
+            // Show animation
+            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText("Loading...\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+
+                bot.execute(updateMessage);
+                Thread.sleep(300);
+            }
+
+            // Final message
+            EditMessageText finalMessage = new EditMessageText();
+            finalMessage.setChatId(chatId);
+            finalMessage.setMessageId(messageId);
+            finalMessage.setText(finalText);
+            finalMessage.enableHtml(true);
+
+            // Add back button if requested
+            if (includeBackButton) {
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back");
+                backButton.setCallbackData("task_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+
+                markup.setKeyboard(rows);
+                finalMessage.setReplyMarkup(markup);
+            }
+
+            bot.execute(finalMessage);
+            logger.info(chatId, "Animated message sent successfully");
+        } catch (Exception e) {
+            logger.error(chatId, "Failed to send animated message", e);
+            try {
+                sendErrorMessage(chatId, "An error occurred while processing your request.", bot);
+            } catch (Exception ex) {
+                logger.error(chatId, "Failed to send error message after animation failure", ex);
+            }
+        }
+    }
+
+    /**
      * Show active tasks list with proper keyboard
      */
     public static void showActiveTasksList(long chatId, List<ToDoItem> tasks, UserBotState state,
@@ -418,23 +508,21 @@ public class MessageHandler {
         logger.info(chatId, "Showing success message: {}", message);
         try {
             // Show animation frames
-            String[] frames = { "⬜⬜⬜", "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
-
             SendMessage initialMessage = new SendMessage();
             initialMessage.setChatId(chatId);
-            initialMessage.setText("Processing...\n\n" + frames[0]);
+            initialMessage.setText("Processing...\n\n" + LOADING_FRAMES[0]);
             initialMessage.enableHtml(true);
 
-            org.telegram.telegrambots.meta.api.objects.Message sentMessage = bot.execute(initialMessage);
+            Message sentMessage = bot.execute(initialMessage);
             int messageId = sentMessage.getMessageId();
 
             // Create animation
-            for (int i = 1; i < frames.length; i++) {
+            for (int i = 1; i < LOADING_FRAMES.length; i++) {
                 try {
-                    org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText editMessage = new org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText();
+                    EditMessageText editMessage = new EditMessageText();
                     editMessage.setChatId(chatId);
                     editMessage.setMessageId(messageId);
-                    editMessage.setText("Processing...\n\n" + frames[i]);
+                    editMessage.setText("Processing...\n\n" + LOADING_FRAMES[i]);
                     editMessage.enableHtml(true);
 
                     bot.execute(editMessage);
@@ -446,7 +534,7 @@ public class MessageHandler {
             }
 
             // Show final success message
-            org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText finalMessage = new org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText();
+            EditMessageText finalMessage = new EditMessageText();
             finalMessage.setChatId(chatId);
             finalMessage.setMessageId(messageId);
             finalMessage.setText("✅ " + message);
