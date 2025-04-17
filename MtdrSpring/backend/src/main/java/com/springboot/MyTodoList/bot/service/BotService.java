@@ -343,4 +343,34 @@ public class BotService {
             throw new RuntimeException("Failed to fetch active todo items", e);
         }
     }
+
+    /**
+     * Find tasks by assignee ID
+     */
+    public List<ToDoItem> findByAssigneeId(Long assigneeId) {
+        logger.info("Finding tasks for assignee ID: {}", assigneeId);
+        try {
+            List<ToDoItem> tasks = toDoItemService.findByAssigneeId(assigneeId);
+            logger.info("Found {} tasks for assignee", tasks.size());
+            return tasks;
+        } catch (Exception e) {
+            logger.error("Error finding tasks for assignee ID: {}", assigneeId, e);
+            throw new RuntimeException("Failed to find tasks for assignee", e);
+        }
+    }
+
+    /**
+     * Find tasks by sprint ID and assignee ID
+     */
+    public List<ToDoItem> findBySprintIdAndAssigneeId(Long sprintId, Long assigneeId) {
+        logger.info("Finding tasks for sprint ID: {} and assignee ID: {}", sprintId, assigneeId);
+        try {
+            List<ToDoItem> tasks = toDoItemService.findBySprintIdAndAssigneeId(sprintId, assigneeId);
+            logger.info("Found {} tasks for sprint and assignee", tasks.size());
+            return tasks;
+        } catch (Exception e) {
+            logger.error("Error finding tasks for sprint ID: {} and assignee ID: {}", sprintId, assigneeId, e);
+            throw new RuntimeException("Failed to find tasks for sprint and assignee", e);
+        }
+    }
 }
