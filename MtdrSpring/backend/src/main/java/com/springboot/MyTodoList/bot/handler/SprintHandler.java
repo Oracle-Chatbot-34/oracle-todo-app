@@ -1159,6 +1159,831 @@ public class SprintHandler {
         }
     }
 
+    /**
+     * View my tasks in active sprint with enhanced UI
+     */
+    private void viewMySprintTasks(long chatId, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Viewing my tasks in active sprint for user: {}", state.getUser().getFullName());
+        try {
+            // Show animation
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Loading your sprint tasks...\n\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            bot.execute(loadingMessage);
+
+            // Animation steps
+            for (int i = 1; i <= 3; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText("Loading your sprint tasks...\n\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+            
+            // Find active sprint
+            OffsetDateTime now = OffsetDateTime.now();
+            List<Sprint> allSprints = botService.findAllSprints();
+            List<Sprint> activeSprints = allSprints.stream()
+                    .filter(sprint -> sprint.getEndDate() != null && sprint.getEndDate().isAfter(now))
+                    .sorted(Comparator.comparing(Sprint::getEndDate))
+                    .collect(Collectors.toList());
+            
+            if (activeSprints.isEmpty()) {
+                EditMessageText noSprintsMessage = new EditMessageText();
+                noSprintsMessage.setChatId(chatId);
+                noSprintsMessage.setMessageId(messageId);
+                noSprintsMessage.enableHtml(true);
+                noSprintsMessage.setText("ℹ️ <b>No Active Sprint</b>\n\n" +
+                                     "There are no active sprints to view tasks from.");
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                noSprintsMessage.setReplyMarkup(markup);
+                
+                bot.execute(noSprintsMessage);
+                return;
+            }
+            
+            // Get the first active sprint
+            Sprint activeSprint = activeSprints.get(0);
+            
+            // Get user's tasks in this sprint
+            List<ToDoItem> myTasks = botService.findBySprintIdAndAssigneeId(activeSprint.getId(), state.getUser().getId());
+            
+            if (myTasks.isEmpty()) {
+                EditMessageText noTasksMessage = new EditMessageText();
+                noTasksMessage.setChatId(chatId);
+                noTasksMessage.setMessageId(messageId);
+                noTasksMessage.enableHtml(true);
+                noTasksMessage.setText("ℹ️ <b>No Tasks Found</b>\n\n" +
+                                   "You don't have any tasks assigned to you in the active sprint:\n" +
+                                   "<b>" + activeSprint.getName() + "</b>");
+                
+                // Add inline keyboard
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                
+                List<InlineKeyboardButton> row1 = new ArrayList<>();
+                InlineKeyboardButton addButton = new InlineKeyboardButton();
+                addButton.setText("➕ Add Tasks to Sprint");
+                addButton.setCallbackData("sprint_add_tasks");
+                row1.add(addButton);
+                rows.add(row1);
+                
+                List<InlineKeyboardButton> row2 = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row2.add(backButton);
+                rows.add(row2);
+                
+                markup.setKeyboard(rows);
+                noTasksMessage.setReplyMarkup(markup);
+                
+                bot.execute(noTasksMessage);
+                return;
+            }
+            
+            // Show the list of user's tasks in this sprint
+            StringBuilder messageBuilder = new StringBuilder();
+            messageBuilder.append("📋 <b>Your Tasks in Sprint: ").append(activeSprint.getName()).append("</b>\n\n");
+            
+            // Group tasks by status
+            Map<String, List<ToDoItem>> tasksByStatus = new HashMap<>();
+            
+            for (ToDoItem task : myTasks) {
+                String status = task.getStatus() != null ? task.getStatus() : "BACKLOG";
+                tasksByStatus.computeIfAbsent(status, k -> new ArrayList<>()).add(task);
+            }
+            
+            // Show progress summary
+            int totalTasks = myTasks.size();
+            int completedTasks = (int) myTasks.stream()
+                    .filter(task -> "DONE".equals(task.getStatus()) || task.isDone())
+                    .count();
+            
+            double completionRate = (double) completedTasks / totalTasks * 100;
+            
+            messageBuilder.append("<b>Your Progress:</b> ").append(completedTasks).append("/").append(totalTasks)
+                    .append(" tasks (").append(String.format("%.1f", completionRate)).append("%)\n\n");
+            
+            // Add progress bar
+            messageBuilder.append("Progress: [");
+            int filledBlocks = (int) Math.round(completionRate / 10);
+            for (int i = 0; i < 10; i++) {
+                messageBuilder.append(i < filledBlocks ? "■" : "□");
+            }
+            messageBuilder.append("]\n\n");
+            
+            // Display tasks by status in order: BACKLOG, IN_PROGRESS, BLOCKED, DONE
+            for (TaskStatus status : TaskStatus.values()) {
+                String statusName = status.name();
+                List<ToDoItem> tasks = tasksByStatus.get(statusName);
+                
+                if (tasks != null && !tasks.isEmpty()) {
+                    messageBuilder.append("<b>").append(status.getDisplayName()).append(" (")
+                            .append(tasks.size()).append(")</b>\n");
+                    
+                    for (ToDoItem task : tasks) {
+                        messageBuilder.append("• <code>ID ").append(task.getID()).append("</code>: ")
+                                .append(task.getTitle());
+                        
+                        if (task.getPriority() != null) {
+                            messageBuilder.append(" [").append(task.getPriority()).append("]");
+                        }
+                        
+                        messageBuilder.append("\n");
+                        
+                        if (task.getEstimatedHours() != null) {
+                            messageBuilder.append("  Est: ").append(task.getEstimatedHours()).append("h");
+                            
+                            if (task.getActualHours() != null) {
+                                messageBuilder.append(" | Act: ").append(task.getActualHours()).append("h");
+                            }
+                            
+                            messageBuilder.append("\n");
+                        }
+                        
+                        messageBuilder.append("\n");
+                    }
+                }
+            }
+            
+            EditMessageText tasksMessage = new EditMessageText();
+            tasksMessage.setChatId(chatId);
+            tasksMessage.setMessageId(messageId);
+            tasksMessage.setText(messageBuilder.toString());
+            tasksMessage.enableHtml(true);
+            
+            // Add inline keyboard for actions
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton completeButton = new InlineKeyboardButton();
+            completeButton.setText("✅ Complete Task");
+            completeButton.setCallbackData("task_completion");
+            row1.add(completeButton);
+            
+            InlineKeyboardButton addButton = new InlineKeyboardButton();
+            addButton.setText("➕ Add Tasks");
+            addButton.setCallbackData("sprint_add_tasks");
+            row1.add(addButton);
+            rows.add(row1);
+            
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton sprintButton = new InlineKeyboardButton();
+            sprintButton.setText("📊 View Sprint Board");
+            sprintButton.setCallbackData("sprint_view_active");
+            row2.add(sprintButton);
+            rows.add(row2);
+            
+            List<InlineKeyboardButton> row3 = new ArrayList<>();
+            InlineKeyboardButton backButton = new InlineKeyboardButton();
+            backButton.setText("🔙 Back to Sprint Menu");
+            backButton.setCallbackData("sprint_back_to_menu");
+            row3.add(backButton);
+            rows.add(row3);
+            
+            markup.setKeyboard(rows);
+            tasksMessage.setReplyMarkup(markup);
+            
+            bot.execute(tasksMessage);
+            logger.info(chatId, "My sprint tasks view sent successfully");
+        } catch (Exception e) {
+            logger.error(chatId, "Error viewing my sprint tasks", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("❌ There was an error loading your sprint tasks: " + e.getMessage());
+                errorMessage.enableHtml(true);
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Error sending error message", ex);
+            }
+        }
+    }
+
+    /**
+     * Exit sprint mode
+     */
+    private void exitSprintMode(long chatId, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Exiting sprint mode for user: {}", state.getUser().getFullName());
+        try {
+            // Show animation
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Exiting sprint mode...\n\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            bot.execute(loadingMessage);
+
+            // Animation steps
+            for (int i = 1; i <= 3; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText("Exiting sprint mode...\n\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+            
+            // Reset the sprint mode state
+            state.setSprintMode(false);
+            state.setSprintModeStage(null);
+            
+            // Update the message with exit confirmation
+            EditMessageText exitMessage = new EditMessageText();
+            exitMessage.setChatId(chatId);
+            exitMessage.setMessageId(messageId);
+            exitMessage.enableHtml(true);
+            exitMessage.setText("✅ <b>Sprint Mode Exited</b>\n\n" +
+                             "You have successfully exited the Sprint Management mode.\n\n" +
+                             "What would you like to do next?");
+            
+            // Add inline keyboard with main options
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton tasksButton = new InlineKeyboardButton();
+            tasksButton.setText("📋 Task Management");
+            tasksButton.setCallbackData("main_tasks");
+            row1.add(tasksButton);
+            
+            InlineKeyboardButton helpButton = new InlineKeyboardButton();
+            helpButton.setText("❓ Help");
+            helpButton.setCallbackData("main_help");
+            row1.add(helpButton);
+            rows.add(row1);
+            
+            markup.setKeyboard(rows);
+            exitMessage.setReplyMarkup(markup);
+            
+            bot.execute(exitMessage);
+            logger.info(chatId, "Sprint mode exited successfully");
+            
+            // Remove any active message ID tracking
+            activeMessageIds.remove(chatId);
+            
+        } catch (Exception e) {
+            logger.error(chatId, "Error exiting sprint mode", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("❌ There was an error exiting sprint mode: " + e.getMessage());
+                errorMessage.enableHtml(true);
+                
+                // Force reset the state
+                state.setSprintMode(false);
+                state.setSprintModeStage(null);
+                
+                // Add button to go to main menu
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton mainButton = new InlineKeyboardButton();
+                mainButton.setText("🏠 Main Menu");
+                mainButton.setCallbackData("main_menu");
+                row.add(mainButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Error sending error message", ex);
+            }
+        }
+    }
+
+    /**
+     * Process sprint creation confirmation
+     */
+    private void processSprintCreationConfirmation(long chatId, String callbackData, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Processing sprint creation confirmation: {}", callbackData);
+        try {
+            // Extract sprint details from state
+            String sprintName = state.getTempSprintName();
+            String description = state.getTempSprintDescription();
+            String startDateStr = state.getTempSprintStartDate();
+            String endDateStr = state.getTempSprintEndDate();
+            
+            if (sprintName == null || startDateStr == null || endDateStr == null) {
+                throw new IllegalStateException("Sprint details are incomplete. Please start the creation process again.");
+            }
+            
+            // Show animation
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Creating sprint...\n\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            bot.execute(loadingMessage);
+
+            // Animation steps with specific descriptions
+            String[] stepTexts = {
+                "Creating sprint...\nValidating sprint details",
+                "Creating sprint...\nPreparing sprint data",
+                "Creating sprint...\nSaving to database"
+            };
+            
+            for (int i = 0; i < stepTexts.length; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText(stepTexts[i] + "\n\n" + LOADING_FRAMES[i+1]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+            
+            // Create the sprint
+            Sprint sprint = new Sprint();
+            sprint.setName(sprintName);
+            sprint.setDescription(description != null ? description : "Sprint created on " + LocalDate.now());
+            
+            // Parse dates
+            LocalDate startDate = LocalDate.parse(startDateStr);
+            LocalDate endDate = LocalDate.parse(endDateStr);
+            
+            // Set dates with time components
+            sprint.setStartDate(startDate.atStartOfDay().atOffset(java.time.ZoneOffset.UTC));
+            sprint.setEndDate(endDate.atTime(23, 59, 59).atOffset(java.time.ZoneOffset.UTC));
+            
+            // Set status to active
+            sprint.setStatus("ACTIVE");
+            
+            // Associate with team if user has one
+            if (state.getUser().getTeam() != null) {
+                sprint.setTeam(state.getUser().getTeam());
+            }
+            
+            // Save the sprint
+            Sprint savedSprint = botService.createSprint(sprint);
+            logger.info(chatId, "Sprint created successfully with ID: {}", savedSprint.getId());
+            
+            // Reset sprint creation state
+            state.resetSprintCreation();
+            
+            // Final animation step
+            Thread.sleep(300);
+            EditMessageText finalAnimation = new EditMessageText();
+            finalAnimation.setChatId(chatId);
+            finalAnimation.setMessageId(messageId);
+            finalAnimation.setText("Creating sprint...\n\n✅");
+            finalAnimation.enableHtml(true);
+            bot.execute(finalAnimation);
+            Thread.sleep(500); // Brief pause
+            
+            // Show success message
+            StringBuilder successText = new StringBuilder();
+            successText.append("✅ <b>Sprint Created Successfully!</b>\n\n");
+            successText.append("<b>ID:</b> ").append(savedSprint.getId()).append("\n");
+            successText.append("<b>Name:</b> ").append(savedSprint.getName()).append("\n");
+            successText.append("<b>Period:</b> ")
+                    .append(savedSprint.getStartDate().toLocalDate()).append(" to ")
+                    .append(savedSprint.getEndDate().toLocalDate()).append("\n");
+            
+            if (savedSprint.getTeam() != null) {
+                successText.append("<b>Team:</b> ").append(savedSprint.getTeam().getName()).append("\n");
+            }
+            
+            successText.append("\nWhat would you like to do next?");
+            
+            EditMessageText successMessage = new EditMessageText();
+            successMessage.setChatId(chatId);
+            successMessage.setMessageId(messageId);
+            successMessage.setText(successText.toString());
+            successMessage.enableHtml(true);
+            
+            // Add inline keyboard with options
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton viewButton = new InlineKeyboardButton();
+            viewButton.setText("📊 View Sprint");
+            viewButton.setCallbackData("sprint_view_active");
+            row1.add(viewButton);
+            
+            InlineKeyboardButton addTasksButton = new InlineKeyboardButton();
+            addTasksButton.setText("➕ Add Tasks");
+            addTasksButton.setCallbackData("sprint_add_tasks");
+            row1.add(addTasksButton);
+            rows.add(row1);
+            
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton backButton = new InlineKeyboardButton();
+            backButton.setText("🔙 Back to Menu");
+            backButton.setCallbackData("sprint_back_to_menu");
+            row2.add(backButton);
+            rows.add(row2);
+            
+            markup.setKeyboard(rows);
+            successMessage.setReplyMarkup(markup);
+            
+            bot.execute(successMessage);
+            logger.info(chatId, "Sprint creation success message sent");
+            
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing sprint creation confirmation", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("❌ There was an error creating the sprint: " + e.getMessage());
+                errorMessage.enableHtml(true);
+                
+                // Reset the sprint creation state
+                state.resetSprintCreation();
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Error sending error message", ex);
+            }
+        }
+    }
+
+    /**
+     * Process sprint ending confirmation
+     */
+    private void processSprintEndingConfirmation(long chatId, String callbackData, UserBotState state, Integer messageId) {
+        try {
+            // Extract sprint ID from callback data
+            Long sprintId = Long.parseLong(callbackData.substring("sprint_end_confirm_".length()));
+            logger.info(chatId, "Processing sprint ending confirmation for sprint ID: {}", sprintId);
+            
+            // Show animation for ending the sprint
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Ending sprint...\n\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            bot.execute(loadingMessage);
+
+            // Animation steps with specific step descriptions
+            String[] stepTexts = {
+                "Ending sprint...\nPreparing to end sprint",
+                "Ending sprint...\nUpdating sprint status",
+                "Ending sprint...\nProcessing associated tasks"
+            };
+            
+            for (int i = 0; i < stepTexts.length; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText(stepTexts[i] + "\n\n" + LOADING_FRAMES[i+1]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+            
+            // Complete the sprint
+            Sprint completedSprint = botService.completeSprint(sprintId);
+            logger.info(chatId, "Sprint ID {} successfully completed", completedSprint.getId());
+            
+            // Reset end sprint mode
+            state.setEndSprintMode(false);
+            state.setTempSprintId(null);
+            
+            // Final animation step
+            Thread.sleep(300);
+            EditMessageText finalAnimation = new EditMessageText();
+            finalAnimation.setChatId(chatId);
+            finalAnimation.setMessageId(messageId);
+            finalAnimation.setText("Ending sprint...\n\n" + LOADING_FRAMES[4]);
+            finalAnimation.enableHtml(true);
+            bot.execute(finalAnimation);
+            Thread.sleep(500); // Brief pause
+            
+            // Get tasks in the sprint for summary
+            List<ToDoItem> sprintTasks = botService.findTasksBySprintId(sprintId);
+            int totalTasks = sprintTasks.size();
+            int completedTasks = (int) sprintTasks.stream()
+                    .filter(task -> "DONE".equals(task.getStatus()) || task.isDone())
+                    .count();
+            
+            double completionRate = totalTasks > 0 ? (double) completedTasks / totalTasks * 100 : 0;
+            
+            // Show success message
+            StringBuilder successText = new StringBuilder();
+            successText.append("✅ <b>Sprint Ended Successfully!</b>\n\n");
+            successText.append("<b>Name:</b> ").append(completedSprint.getName()).append("\n");
+            successText.append("<b>ID:</b> ").append(completedSprint.getId()).append("\n");
+            successText.append("<b>Period:</b> ")
+                    .append(completedSprint.getStartDate().toLocalDate())
+                    .append(" to ")
+                    .append(completedSprint.getEndDate().toLocalDate())
+                    .append("\n");
+            
+            if (completedSprint.getTeam() != null) {
+                successText.append("<b>Team:</b> ").append(completedSprint.getTeam().getName()).append("\n");
+            }
+            
+            successText.append("\n<b>Final Sprint Status:</b>\n");
+            successText.append("• Tasks: ").append(totalTasks).append(" total\n");
+            successText.append("• Completed: ").append(completedTasks)
+                    .append(" (").append(String.format("%.1f", completionRate)).append("%)\n");
+            
+            if (totalTasks > 0 && completedTasks < totalTasks) {
+                successText.append("• Incomplete: ").append(totalTasks - completedTasks).append("\n");
+                successText.append("\n⚠️ <b>Note:</b> There were incomplete tasks in this sprint.\n");
+            } else if (totalTasks > 0) {
+                successText.append("\n🎉 <b>Great job!</b> All tasks in the sprint were completed.\n");
+            }
+            
+            EditMessageText successMessage = new EditMessageText();
+            successMessage.setChatId(chatId);
+            successMessage.setMessageId(messageId);
+            successMessage.setText(successText.toString());
+            successMessage.enableHtml(true);
+            
+            // Add inline keyboard for next steps
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton createButton = new InlineKeyboardButton();
+            createButton.setText("🆕 Create New Sprint");
+            createButton.setCallbackData("sprint_create");
+            row1.add(createButton);
+            
+            InlineKeyboardButton historyButton = new InlineKeyboardButton();
+            historyButton.setText("📜 View Sprint History");
+            historyButton.setCallbackData("sprint_view_history");
+            row1.add(historyButton);
+            rows.add(row1);
+            
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton backButton = new InlineKeyboardButton();
+            backButton.setText("🔙 Back to Sprint Menu");
+            backButton.setCallbackData("sprint_back_to_menu");
+            row2.add(backButton);
+            rows.add(row2);
+            
+            markup.setKeyboard(rows);
+            successMessage.setReplyMarkup(markup);
+            
+            bot.execute(successMessage);
+            logger.info(chatId, "Sprint ending success message sent");
+        } catch (Exception e) {
+            logger.error(chatId, "Error ending sprint", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("❌ There was an error ending the sprint: " + e.getMessage());
+                errorMessage.enableHtml(true);
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Error sending error message", ex);
+            }
+            
+            // Reset the state
+            state.setEndSprintMode(false);
+            state.setTempSprintId(null);
+        }
+    }
+
+    /**
+     * Start end active sprint flow with animation and better UX
+     */
+    private void startEndActiveSprint(long chatId, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Starting end active sprint process for user: {}", state.getUser().getFullName());
+        
+        try {
+            // Verify user is a manager
+            if (!state.getUser().isManager()) {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("⚠️ Only managers can end sprints.");
+                errorMessage.enableHtml(true);
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+                return;
+            }
+            
+            // Show animation for loading
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Checking active sprints...\n\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            bot.execute(loadingMessage);
+
+            // Animation steps
+            for (int i = 1; i <= 3; i++) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText("Checking active sprints...\n\n" + LOADING_FRAMES[i]);
+                updateMessage.enableHtml(true);
+                bot.execute(updateMessage);
+            }
+            
+            // Find active sprints
+            OffsetDateTime now = OffsetDateTime.now();
+            List<Sprint> allSprints = botService.findAllSprints();
+            List<Sprint> activeSprints = allSprints.stream()
+                    .filter(sprint -> sprint.getEndDate() != null && sprint.getEndDate().isAfter(now))
+                    .sorted(Comparator.comparing(Sprint::getEndDate))
+                    .collect(Collectors.toList());
+            
+            if (activeSprints.isEmpty()) {
+                EditMessageText noSprintsMessage = new EditMessageText();
+                noSprintsMessage.setChatId(chatId);
+                noSprintsMessage.setMessageId(messageId);
+                noSprintsMessage.enableHtml(true);
+                noSprintsMessage.setText("ℹ️ <b>No Active Sprints</b>\n\n" +
+                                     "There are no active sprints to end.");
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                noSprintsMessage.setReplyMarkup(markup);
+                
+                bot.execute(noSprintsMessage);
+                return;
+            }
+            
+            // Get the first active sprint (ending soonest)
+            Sprint activeSprint = activeSprints.get(0);
+            
+            // Get tasks in the sprint
+            List<ToDoItem> sprintTasks = botService.findTasksBySprintId(activeSprint.getId());
+            
+            // Calculate statistics for the sprint
+            int totalTasks = sprintTasks.size();
+            int completedTasks = (int) sprintTasks.stream()
+                    .filter(task -> "DONE".equals(task.getStatus()) || task.isDone())
+                    .count();
+            
+            double completionRate = totalTasks > 0 ? (double) completedTasks / totalTasks * 100 : 0;
+            
+            // Set up state for ending the sprint
+            state.setEndSprintMode(true);
+            state.setTempSprintId(activeSprint.getId());
+            
+            // Update the message with the end sprint confirmation
+            StringBuilder confirmMessage = new StringBuilder();
+            confirmMessage.append("🏁 <b>End Active Sprint</b>\n\n");
+            confirmMessage.append("You are about to end the following sprint:\n\n");
+            confirmMessage.append("<b>Name:</b> ").append(activeSprint.getName()).append("\n");
+            confirmMessage.append("<b>ID:</b> ").append(activeSprint.getId()).append("\n");
+            confirmMessage.append("<b>Period:</b> ")
+                    .append(activeSprint.getStartDate().toLocalDate())
+                    .append(" to ")
+                    .append(activeSprint.getEndDate().toLocalDate())
+                    .append("\n");
+            
+            if (activeSprint.getTeam() != null) {
+                confirmMessage.append("<b>Team:</b> ").append(activeSprint.getTeam().getName()).append("\n");
+            }
+            
+            confirmMessage.append("\n<b>Sprint Status:</b>\n");
+            confirmMessage.append("• Tasks: ").append(totalTasks).append(" total\n");
+            confirmMessage.append("• Completed: ").append(completedTasks)
+                    .append(" (").append(String.format("%.1f", completionRate)).append("%)\n");
+            confirmMessage.append("• Incomplete: ").append(totalTasks - completedTasks).append("\n\n");
+            
+            if (totalTasks > 0 && completedTasks < totalTasks) {
+                confirmMessage.append("⚠️ <b>Warning:</b> There are incomplete tasks in this sprint.\n\n");
+            }
+            
+            confirmMessage.append("Are you sure you want to end this sprint?");
+            
+            EditMessageText confirmEndMessage = new EditMessageText();
+            confirmEndMessage.setChatId(chatId);
+            confirmEndMessage.setMessageId(messageId);
+            confirmEndMessage.setText(confirmMessage.toString());
+            confirmEndMessage.enableHtml(true);
+            
+            // Add inline keyboard for confirmation
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton confirmButton = new InlineKeyboardButton();
+            confirmButton.setText("✅ Yes, End Sprint");
+            confirmButton.setCallbackData("sprint_end_confirm_" + activeSprint.getId());
+            row1.add(confirmButton);
+            rows.add(row1);
+            
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton cancelButton = new InlineKeyboardButton();
+            cancelButton.setText("❌ No, Cancel");
+            cancelButton.setCallbackData("sprint_back_to_menu");
+            row2.add(cancelButton);
+            rows.add(row2);
+            
+            markup.setKeyboard(rows);
+            confirmEndMessage.setReplyMarkup(markup);
+            
+            bot.execute(confirmEndMessage);
+            logger.info(chatId, "End sprint confirmation message sent for sprint ID: {}", activeSprint.getId());
+        } catch (Exception e) {
+            logger.error(chatId, "Error starting end active sprint process", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("❌ There was an error checking active sprints: " + e.getMessage());
+                errorMessage.enableHtml(true);
+                
+                // Add back button
+                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+                List<InlineKeyboardButton> row = new ArrayList<>();
+                InlineKeyboardButton backButton = new InlineKeyboardButton();
+                backButton.setText("🔙 Back to Sprint Menu");
+                backButton.setCallbackData("sprint_back_to_menu");
+                row.add(backButton);
+                rows.add(row);
+                markup.setKeyboard(rows);
+                errorMessage.setReplyMarkup(markup);
+                
+                bot.execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Error sending error message", ex);
+            }
+        }
+    }
+
     /*
      * Additional methods remain the same but would need animation added as shown
      * above
@@ -1252,48 +2077,6 @@ public class SprintHandler {
      */
     private void configureActiveSprint(long chatId, UserBotState state, Integer messageId) {
         logger.debug(chatId, "Configuring active sprint");
-        // Implementation would be added here
-    }
-
-    /**
-     * Start end active sprint
-     */
-    private void startEndActiveSprint(long chatId, UserBotState state, Integer messageId) {
-        logger.debug(chatId, "Starting end active sprint process");
-        // Implementation would be added here
-    }
-
-    /**
-     * View my tasks in active sprint
-     */
-    private void viewMySprintTasks(long chatId, UserBotState state, Integer messageId) {
-        logger.debug(chatId, "Viewing my tasks in active sprint");
-        // Implementation would be added here
-    }
-
-    /**
-     * Exit sprint mode
-     */
-    private void exitSprintMode(long chatId, UserBotState state, Integer messageId) {
-        logger.debug(chatId, "Exiting sprint mode");
-        // Implementation would be added here
-    }
-
-    /**
-     * Process sprint creation confirmation
-     */
-    private void processSprintCreationConfirmation(long chatId, String callbackData, UserBotState state,
-            Integer messageId) {
-        logger.debug(chatId, "Processing sprint creation confirmation");
-        // Implementation would be added here
-    }
-
-    /**
-     * Process sprint ending confirmation
-     */
-    private void processSprintEndingConfirmation(long chatId, String callbackData, UserBotState state,
-            Integer messageId) {
-        logger.debug(chatId, "Processing sprint ending confirmation");
         // Implementation would be added here
     }
 
