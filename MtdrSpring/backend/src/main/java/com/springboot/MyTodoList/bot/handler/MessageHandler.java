@@ -12,7 +12,6 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardRemove;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -29,67 +28,80 @@ public class MessageHandler {
     private static final String[] LOADING_FRAMES = { "⬜⬜⬜", "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
 
     /**
-     * Send animated message with loading indicator
+     * Enhanced animated message handler with loading indicator and step tracking
      */
-    public static void sendAnimatedMessage(long chatId, Integer messageId, String finalText,
-            TelegramLongPollingBot bot, boolean includeBackButton) {
-        logger.info(chatId, "Sending animated message");
+    public static Message sendAnimatedLoadingMessage(long chatId, String initialText, TelegramLongPollingBot bot) {
         try {
-            if (messageId == null) {
-                // If no message ID is provided, send a new message
-                SendMessage initialMessage = new SendMessage();
-                initialMessage.setChatId(chatId);
-                initialMessage.setText("Loading...\n⬜⬜⬜");
-                initialMessage.enableHtml(true);
+            // Initial loading message
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText(initialText + "\n\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
 
-                Message sentMessage = bot.execute(initialMessage);
-                messageId = sentMessage.getMessageId();
+            return bot.execute(loadingMessage);
+        } catch (TelegramApiException e) {
+            logger.error(chatId, "Error sending animated loading message", e);
+            return null;
+        }
+    }
+
+    /**
+     * Update loading animation with new frames
+     */
+    public static void updateLoadingAnimation(long chatId, int messageId, String text, int step,
+            TelegramLongPollingBot bot) {
+        try {
+            String animationFrame;
+            switch (step) {
+                case 1:
+                    animationFrame = "⬛⬜⬜";
+                    break;
+                case 2:
+                    animationFrame = "⬛⬛⬜";
+                    break;
+                case 3:
+                    animationFrame = "⬛⬛⬛";
+                    break;
+                case 4:
+                    animationFrame = "✅";
+                    break;
+                default:
+                    animationFrame = "⬜⬜⬜";
             }
 
-            // Show animation
-            for (int i = 1; i < LOADING_FRAMES.length - 1; i++) {
-                EditMessageText updateMessage = new EditMessageText();
-                updateMessage.setChatId(chatId);
-                updateMessage.setMessageId(messageId);
-                updateMessage.setText("Loading...\n" + LOADING_FRAMES[i]);
-                updateMessage.enableHtml(true);
+            EditMessageText updateMessage = new EditMessageText();
+            updateMessage.setChatId(chatId);
+            updateMessage.setMessageId(messageId);
+            updateMessage.setText(text + "\n\n" + animationFrame);
+            updateMessage.enableHtml(true);
 
-                bot.execute(updateMessage);
-                Thread.sleep(300);
-            }
+            bot.execute(updateMessage);
+            Thread.sleep(300); // Short pause for animation effect
+        } catch (Exception e) {
+            logger.warn(chatId, "Animation update error (non-critical): {}", e.getMessage());
+            // Non-critical error, we don't throw here
+        }
+    }
 
-            // Final message
+    /**
+     * Update message with final content and optional keyboard
+     */
+    public static void updateMessageWithContent(long chatId, int messageId, String finalText,
+            InlineKeyboardMarkup keyboard, TelegramLongPollingBot bot) {
+        try {
             EditMessageText finalMessage = new EditMessageText();
             finalMessage.setChatId(chatId);
             finalMessage.setMessageId(messageId);
             finalMessage.setText(finalText);
             finalMessage.enableHtml(true);
 
-            // Add back button if requested
-            if (includeBackButton) {
-                InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
-                List<List<InlineKeyboardButton>> rows = new ArrayList<>();
-                List<InlineKeyboardButton> row = new ArrayList<>();
-
-                InlineKeyboardButton backButton = new InlineKeyboardButton();
-                backButton.setText("🔙 Back");
-                backButton.setCallbackData("task_back_to_menu");
-                row.add(backButton);
-                rows.add(row);
-
-                markup.setKeyboard(rows);
-                finalMessage.setReplyMarkup(markup);
+            if (keyboard != null) {
+                finalMessage.setReplyMarkup(keyboard);
             }
 
             bot.execute(finalMessage);
-            logger.info(chatId, "Animated message sent successfully");
-        } catch (Exception e) {
-            logger.error(chatId, "Failed to send animated message", e);
-            try {
-                sendErrorMessage(chatId, "An error occurred while processing your request.", bot);
-            } catch (Exception ex) {
-                logger.error(chatId, "Failed to send error message after animation failure", ex);
-            }
+        } catch (TelegramApiException e) {
+            logger.error(chatId, "Error updating message with final content", e);
         }
     }
 
