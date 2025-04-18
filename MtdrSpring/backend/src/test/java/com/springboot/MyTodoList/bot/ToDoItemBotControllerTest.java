@@ -80,8 +80,8 @@ public class ToDoItemBotControllerTest {
         botController = Mockito
                 .spy(new ToDoItemBotController(botToken, botName, toDoItemService, userService, sprintService));
 
-        // Mock the execute method
-        doReturn(mock(Message.class)).when(botController).execute(any(SendMessage.class));
+        // Use lenient mocking for all stubs that might not be used in every test
+        lenient().doReturn(mock(Message.class)).when(botController).execute(any(SendMessage.class));
 
         // Create test user
         testUser = new User();
@@ -136,9 +136,9 @@ public class ToDoItemBotControllerTest {
         sprintHandlerField.setAccessible(true);
         sprintHandlerField.set(botController, sprintHandler);
 
-        // Setup mock behavior
-        when(userService.findByTelegramId(CHAT_ID)).thenReturn(Optional.of(testUser));
-        when(botService.findUserByTelegramId(CHAT_ID)).thenReturn(Optional.of(testUser));
+        // Setup mock behavior with lenient to avoid unnecessary stubbing exceptions
+        lenient().when(userService.findByTelegramId(CHAT_ID)).thenReturn(Optional.of(testUser));
+        lenient().when(botService.findUserByTelegramId(CHAT_ID)).thenReturn(Optional.of(testUser));
     }
 
     @Test
@@ -175,13 +175,6 @@ public class ToDoItemBotControllerTest {
         List<ToDoItem> sprintTasks = new ArrayList<>();
         sprintTasks.add(testTask);
 
-        // Mock sprint handler behavior for sprint mode callbacks
-        doNothing().when(sprintHandler).processSprintModeCallback(
-                eq(CHAT_ID),
-                eq("sprint_view_tasks"),
-                any(UserBotState.class),
-                anyInt());
-
         // Create a callback query update for viewing sprint tasks
         Update callbackUpdate = createCallbackQueryUpdate(CHAT_ID, "sprint_view_tasks");
 
@@ -191,7 +184,7 @@ public class ToDoItemBotControllerTest {
         // Process the callback
         botController.onUpdateReceived(callbackUpdate);
 
-        // Verify sprint handler was called
+        // Verify sprint handler was called with the correct parameters
         verify(sprintHandler, times(1)).processSprintModeCallback(
                 eq(CHAT_ID),
                 eq("sprint_view_tasks"),
@@ -205,13 +198,6 @@ public class ToDoItemBotControllerTest {
         List<ToDoItem> userSprintTasks = new ArrayList<>();
         userSprintTasks.add(testTask);
 
-        // Mock sprint handler behavior for user's sprint tasks
-        doNothing().when(sprintHandler).processSprintModeCallback(
-                eq(CHAT_ID),
-                eq("sprint_view_my_tasks"),
-                any(UserBotState.class),
-                anyInt());
-
         // Create callback for viewing user's sprint tasks
         Update callbackUpdate = createCallbackQueryUpdate(CHAT_ID, "sprint_view_my_tasks");
 
@@ -221,7 +207,7 @@ public class ToDoItemBotControllerTest {
         // Process the callback
         botController.onUpdateReceived(callbackUpdate);
 
-        // Verify sprint handler was called
+        // Verify sprint handler was called with the correct parameters
         verify(sprintHandler, times(1)).processSprintModeCallback(
                 eq(CHAT_ID),
                 eq("sprint_view_my_tasks"),
