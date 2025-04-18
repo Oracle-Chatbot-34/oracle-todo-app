@@ -5,6 +5,8 @@
 
 # Set target URL (default to localhost if not provided)
 TARGET_URL=${1:-"http://localhost:8080"}
+CONTAINER_NAME="sniper_container"
+
 echo "Starting Sn1per scan against $TARGET_URL"
 
 # Check if Docker is installed
@@ -13,21 +15,28 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Pull the BlackArch Docker image
-echo "Pulling BlackArch Docker image..."
-docker pull docker.io/blackarchlinux/blackarch:latest
+# Create or start the container
+if ! docker container inspect $CONTAINER_NAME &> /dev/null; then
+    echo "Creating persistent Sn1per container..."
+    docker run -it --name $CONTAINER_NAME docker.io/blackarchlinux/blackarch:latest bash -c "
+        echo 'Upgrading system...'
+        pacman -Syu --noconfirm
+        
+        echo 'Installing sn1per...'
+        pacman -Sy sn1per --noconfirm
+    "
+fi
 
-# Run Sn1per
-echo "Running Sn1per scan..."
-docker run -it --rm docker.io/blackarchlinux/blackarch:latest bash -c "
-    echo 'Upgrading system...'
-    pacman -Syu --noconfirm
-    
-    echo 'Installing sn1per...'
-    pacman -Sy sn1per --noconfirm
-    
-    echo 'Running sn1per scan against $TARGET_URL...'
-    sn1per -t $TARGET_URL
-"
+# Run Sn1per in the container
+echo "Running Sn1per scan against $TARGET_URL..."
+docker start $CONTAINER_NAME
+docker exec -it $CONTAINER_NAME bash -c "sn1per -t $TARGET_URL"
 
-echo "Sn1per scan complete."
+# Extract and display results summary
+echo
+echo "Sn1per scan complete. Extracting results summary..."
+docker exec $CONTAINER_NAME bash -c "ls -la /usr/share/sniper/loot/ | grep localhost"
+docker exec $CONTAINER_NAME bash -c "cat /usr/share/sniper/loot/workspace/localhost/findings.txt 2>/dev/null || echo 'No findings summary available'"
+
+echo
+echo "Security scan completed. Check the detailed reports for more information."

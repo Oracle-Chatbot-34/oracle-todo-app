@@ -22,7 +22,7 @@ docker pull ghcr.io/zaproxy/zaproxy:stable
 
 # Run the ZAP scan
 echo "Running ZAP scan..."
-docker run -v "$(pwd)":/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap.sh -cmd -quickurl $TARGET_URL -quickout /zap/wrk/$OUTPUT_FILE
+docker run -v "$(pwd)":/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap.sh -cmd -quickurl $TARGET_URL -quickout /zap/wrk/$OUTPUT_FILE -quickprogress
 
 # Check if scan was successful
 if [ $? -eq 0 ]; then
