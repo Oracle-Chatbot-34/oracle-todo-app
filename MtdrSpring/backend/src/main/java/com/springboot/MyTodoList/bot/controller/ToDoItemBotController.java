@@ -783,7 +783,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     /**
-     * Handle standard commands from authenticated users
+     * Improved command handling with better flow and feedback
      */
     private void handleCommands(long chatId, String messageText, UserBotState state) {
         logger.info(chatId, "Processing command: '{}'", messageText);
@@ -794,7 +794,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             return;
         }
 
-        // Handle standard commands and button presses
+        // Handle standard commands and button presses with clearer feedback
         switch (messageText) {
             case "/start":
             case "🏠 Main Menu":
@@ -802,7 +802,22 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 state.resetTaskCreation();
                 state.resetTaskCompletion();
                 state.setSprintMode(false);
-                MessageHandler.showMainScreen(chatId, state, this);
+
+                // Show loading animation
+                Message loadingMessage = MessageHandler.sendAnimatedLoadingMessage(chatId, "Loading main menu...", this);
+                if (loadingMessage != null) {
+                    // Animation steps
+                    for (int i = 1; i <= 3; i++) {
+                        MessageHandler.updateLoadingAnimation(chatId, loadingMessage.getMessageId(),
+                                "Loading main menu...", i, this);
+                    }
+
+                    // Show main menu in a new message after animation completes
+                    MessageHandler.showMainScreen(chatId, state, this);
+                } else {
+                    // Fallback if animation fails
+                    MessageHandler.showMainScreen(chatId, state, this);
+                }
                 break;
 
             case "/sprint":
@@ -815,6 +830,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
             case "/todolist":
             case "📝 List All Tasks":
+            case "📝 My Tasks":
                 // Reset all modes
                 state.resetTaskCreation();
                 state.resetTaskCompletion();
@@ -824,6 +840,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
             case "/additem":
             case "📝 Create New Task":
+            case "📝 Create Task":
                 // Reset other modes
                 state.resetTaskCompletion();
                 state.setSprintMode(false);
@@ -836,7 +853,69 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 state.resetTaskCreation();
                 state.resetTaskCompletion();
                 state.setSprintMode(false);
-                MessageHandler.showHelpInformation(chatId, this);
+
+                // Show help information with animation
+                Message helpLoadingMessage = MessageHandler.sendAnimatedLoadingMessage(chatId, "Loading help...", this);
+                if (helpLoadingMessage != null) {
+                    // Animation steps
+                    for (int i = 1; i <= 3; i++) {
+                        MessageHandler.updateLoadingAnimation(chatId, helpLoadingMessage.getMessageId(),
+                                "Loading help...", i, this);
+                    }
+
+                    // Update message with help information
+                    StringBuilder helpText = new StringBuilder();
+                    helpText.append("📋 <b>DashMaster Bot Commands</b>\n\n");
+                    helpText.append("• <code>/start</code> - Show the main menu\n");
+                    helpText.append("• <code>/todolist</code> - View your task list\n");
+                    helpText.append("• <code>/additem</code> - Add a new task\n");
+                    helpText.append("• <code>/sprint</code> - Access sprint management\n");
+                    helpText.append("• <code>/hide</code> - Hide the keyboard\n");
+                    helpText.append("• <code>/help</code> - Show this help message\n\n");
+                    helpText.append("<b>Task Management:</b>\n");
+                    helpText.append("• To mark a task as done: <code>[ID]-DONE</code>\n");
+                    helpText.append("• To undo a task: <code>[ID]-UNDO</code>\n");
+                    helpText.append("• To delete a task: <code>[ID]-DELETE</code>\n\n");
+                    helpText.append("You can use the buttons on the keyboard for easier navigation.\n\n");
+                    helpText.append("<b>Sprints:</b>\n");
+                    helpText.append("• Create and manage sprints from the Sprint Management menu\n");
+                    helpText.append("• Add tasks to sprints to organize your work\n");
+                    helpText.append("• View sprint progress and tasks assigned to the sprint\n\n");
+                    helpText.append("<b>KPI Dashboard:</b>\n");
+                    helpText.append("• View your performance metrics and task completion statistics\n");
+
+                    // Update the message with help content
+                    EditMessageText helpMessage = new EditMessageText();
+                    helpMessage.setChatId(chatId);
+                    helpMessage.setMessageId(helpLoadingMessage.getMessageId());
+                    helpMessage.setText(helpText.toString());
+                    helpMessage.enableHtml(true);
+
+                    // Add inline keyboard for actions
+                    InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                    List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+                    List<InlineKeyboardButton> row = new ArrayList<>();
+                    InlineKeyboardButton mainMenuButton = new InlineKeyboardButton();
+                    mainMenuButton.setText("🔙 Back to Main Menu");
+                    mainMenuButton.setCallbackData("main_menu");
+                    row.add(mainMenuButton);
+                    rows.add(row);
+
+                    markup.setKeyboard(rows);
+                    helpMessage.setReplyMarkup(markup);
+
+                    try {
+                        execute(helpMessage);
+                    } catch (TelegramApiException e) {
+                        logger.error(chatId, "Error sending help message", e);
+                        MessageHandler.sendErrorMessage(chatId,
+                                "Failed to load help information. Please try again later.", this);
+                    }
+                } else {
+                    // Fallback if animation fails
+                    MessageHandler.showHelpInformation(chatId, this);
+                }
                 break;
 
             case "🔄 My Active Tasks":
@@ -848,6 +927,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 break;
 
             case "✅ Mark Task Complete":
+            case "✅ Complete Task":
                 // Reset other modes
                 state.resetTaskCreation();
                 state.setSprintMode(false);
