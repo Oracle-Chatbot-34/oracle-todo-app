@@ -1,10 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  FileText,
-  RefreshCcw,
-  ChevronDown,
-  ChevronRight,
-} from 'lucide-react';
+import { FileText, RefreshCcw, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import MemberSelection from '@/components/MemberSelection';
 import reportService, {
@@ -50,6 +45,7 @@ export default function Reports() {
 
     loadUsers();
     fetchSprintReport();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchSprintReport = async () => {
@@ -105,44 +101,44 @@ export default function Reports() {
   };
 
   return (
-    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
-      <div className="flex flex-col justify-between p-4 lg:p-10 gap-y-4 bg-whitie w-full h-full rounded-lg shadow-xl">
-        <div className="flex items-center gap-8">
-          <div className="flex flex-row items-center gap-3">
-            <FileText className="w-8 h-8" />
-            <p className="text-[24px] font-semibold">Sprint Tasks Report</p>
+    <div className="bg-background w-full h-full overflow-y-auto flex flex-col">
+      <div className="p-6 lg:px-10 py-8 flex-grow">
+        <div className="bg-whitie w-full h-full rounded-lg shadow-xl p-6 flex flex-col">
+          <div className="flex items-center gap-8 mb-4">
+            <div className="flex flex-row items-center gap-3">
+              <FileText className="w-8 h-8" />
+              <p className="text-[24px] font-semibold">Sprint Tasks Report</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                className={`px-6 py-3 rounded-xl font-bold ${
+                  !isIndividual
+                    ? 'bg-greenie text-white'
+                    : 'bg-gray-300 text-black hover:bg-gray-400'
+                }`}
+                onClick={() => handleModeChange(false)}
+              >
+                Team Report
+              </button>
+              <button
+                className={`px-6 py-3 rounded-xl font-bold ${
+                  isIndividual
+                    ? 'bg-greenie text-white'
+                    : 'bg-gray-300 text-black hover:bg-gray-400'
+                }`}
+                onClick={() => handleModeChange(true)}
+              >
+                Individual Report
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              className={`px-6 py-3 rounded-xl font-bold ${
-                !isIndividual
-                  ? 'bg-greenie text-white'
-                  : 'bg-gray-300 text-black hover:bg-gray-400'
-              }`}
-              onClick={() => handleModeChange(false)}
-            >
-              Team Report
-            </button>
-            <button
-              className={`px-6 py-3 rounded-xl font-bold ${
-                isIndividual
-                  ? 'bg-greenie text-white'
-                  : 'bg-gray-300 text-black hover:bg-gray-400'
-              }`}
-              onClick={() => handleModeChange(true)}
-            >
-              Individual Report
-            </button>
-          </div>
-        </div>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
 
-        <div className="flex flex-col h-full w-full">
           <div className="flex items-center gap-4 mb-4">
             {isIndividual && (
               <div className="w-64">
@@ -171,107 +167,111 @@ export default function Reports() {
             </Button>
           </div>
 
-          {loading ? (
-            <div className="flex justify-center items-center h-64">
-              <LoadingSpinner />
-            </div>
-          ) : sprintReport ? (
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="mb-8">
-                <h2 className="text-2xl font-bold mb-2">
-                  {sprintReport.sprintName} Tasks Report
-                </h2>
-                <div className="flex gap-4 text-sm text-gray-600">
-                  <p>
-                    Start Date:{' '}
-                    {new Date(
-                      sprintReport.startDate || ''
-                    ).toLocaleDateString()}
-                  </p>
-                  <p>
-                    End Date:{' '}
-                    {new Date(sprintReport.endDate || '').toLocaleDateString()}
-                  </p>
-                </div>
+          <div className="flex-grow overflow-y-auto">
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <LoadingSpinner />
               </div>
-
-              <div className="mb-8">
-                <h3 className="text-xl font-semibold mb-4">Team Overview</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-sm text-blue-800">Total Tasks</p>
-                    <p className="text-3xl font-bold">
-                      {sprintReport.teamStats.totalTasks}
+            ) : sprintReport ? (
+              <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="mb-8">
+                  <h2 className="text-2xl font-bold mb-2">
+                    {sprintReport.sprintName} Tasks Report
+                  </h2>
+                  <div className="flex gap-4 text-sm text-gray-600">
+                    <p>
+                      Start Date:{' '}
+                      {new Date(
+                        sprintReport.startDate || ''
+                      ).toLocaleDateString()}
                     </p>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <p className="text-sm text-green-800">Completion Rate</p>
-                    <p className="text-3xl font-bold">
-                      {sprintReport.teamStats.completionRate.toFixed(0)}%
-                    </p>
-                  </div>
-                  <div className="bg-purple-50 p-4 rounded-lg">
-                    <p className="text-sm text-purple-800">Time Efficiency</p>
-                    <p className="text-3xl font-bold">
-                      {sprintReport.teamStats.timeEfficiency.toFixed(0)}%
-                    </p>
-                  </div>
-                  <div className="bg-amber-50 p-4 rounded-lg">
-                    <p className="text-sm text-amber-800">On-Time Rate</p>
-                    <p className="text-3xl font-bold">
-                      {sprintReport.teamStats.onTimeRate.toFixed(0)}%
+                    <p>
+                      End Date:{' '}
+                      {new Date(
+                        sprintReport.endDate || ''
+                      ).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-semibold mb-2">AI Analysis</h4>
-                  <p className="text-blue-800">{sprintReport.teamInsights}</p>
+                <div className="mb-8">
+                  <h3 className="text-xl font-semibold mb-4">Team Overview</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <p className="text-sm text-blue-800">Total Tasks</p>
+                      <p className="text-3xl font-bold">
+                        {sprintReport.teamStats.totalTasks}
+                      </p>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <p className="text-sm text-green-800">Completion Rate</p>
+                      <p className="text-3xl font-bold">
+                        {sprintReport.teamStats.completionRate.toFixed(0)}%
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                      <p className="text-sm text-purple-800">Time Efficiency</p>
+                      <p className="text-3xl font-bold">
+                        {sprintReport.teamStats.timeEfficiency.toFixed(0)}%
+                      </p>
+                    </div>
+                    <div className="bg-amber-50 p-4 rounded-lg">
+                      <p className="text-sm text-amber-800">On-Time Rate</p>
+                      <p className="text-3xl font-bold">
+                        {sprintReport.teamStats.onTimeRate.toFixed(0)}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <h4 className="font-semibold mb-2">AI Analysis</h4>
+                    <p className="text-blue-800">{sprintReport.teamInsights}</p>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <h3 className="text-xl font-semibold mb-4">
-                  Developer Contributions
-                </h3>
+                <div>
+                  <h3 className="text-xl font-semibold mb-4">
+                    Developer Contributions
+                  </h3>
 
-                {isIndividual && selectedMember ? (
-                  // Individual report
-                  <DeveloperSection
-                    developer={
-                      sprintReport.developerGroups.find(
-                        (d) => d.userId === selectedMember.id
-                      ) || sprintReport.developerGroups[0]
-                    }
-                    isExpanded={true}
-                    toggleExpand={() => {}}
-                  />
-                ) : (
-                  // Team report
-                  <div className="space-y-6">
-                    {sprintReport.developerGroups.map((developer) => (
+                  <div className="space-y-6 pb-6">
+                    {isIndividual && selectedMember ? (
+                      // Individual report
                       <DeveloperSection
-                        key={developer.userId}
-                        developer={developer}
-                        isExpanded={expandedDevelopers.includes(
-                          developer.userId
-                        )}
-                        toggleExpand={() =>
-                          toggleDeveloperExpand(developer.userId)
+                        developer={
+                          sprintReport.developerGroups.find(
+                            (d) => d.userId === selectedMember.id
+                          ) || sprintReport.developerGroups[0]
                         }
+                        isExpanded={true}
+                        toggleExpand={() => {}}
                       />
-                    ))}
+                    ) : (
+                      // Team report
+                      sprintReport.developerGroups.map((developer) => (
+                        <DeveloperSection
+                          key={developer.userId}
+                          developer={developer}
+                          isExpanded={expandedDevelopers.includes(
+                            developer.userId
+                          )}
+                          toggleExpand={() =>
+                            toggleDeveloperExpand(developer.userId)
+                          }
+                        />
+                      ))
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex justify-center items-center h-64 bg-gray-100 rounded-lg">
-              <p className="text-lg text-gray-500">
-                Select options and generate a report
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="flex justify-center items-center h-64 bg-gray-100 rounded-lg">
+                <p className="text-lg text-gray-500">
+                  Select options and generate a report
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
