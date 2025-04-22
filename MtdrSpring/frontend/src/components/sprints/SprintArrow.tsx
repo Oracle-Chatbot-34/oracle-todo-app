@@ -1,57 +1,33 @@
-import { useState, useEffect } from 'react';
-import { Task } from '@/services/tasksService';
-import taskService from '@/services/tasksService';
 import { Sprint } from '@/services/sprintService';
-import { motion } from 'framer-motion';
-
 import { dummyTasks } from './tasksdummy';
 
 type SprintArrowProps = {
-  sprint: Sprint;
-  isExpanded: boolean;
-  onToggle: () => void;
+  sprint: Sprint,
+  setIsExpanded: (value: boolean) => void,
+  setExpandedId: (value: number) => void
+  
 };
 
-export default function SprintArrow({
-  sprint,
-  isExpanded,
-  onToggle,
-}: SprintArrowProps) {
-  const [tasksInSprint, setTasksInSprint] = useState<Task[]>([]);
+export default function SprintArrow({ sprint, setIsExpanded, setExpandedId }: SprintArrowProps) {
+  function handleOnClick() {
+    setIsExpanded(true)
 
-  /*
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const tasks = await taskService.getAllTasks();
-        setTasksInSprint(tasks);
-      } catch (error) {
-        console.error('Failed to fetch tasks:', error);
-      }
-    };
-
-    fetchTasks();
-  }, []);
-  
-  */
-  useEffect(() => {
-    const fetchTasks = async () => {
-      setTasksInSprint(dummyTasks);
-    };
-
-    fetchTasks();
-  }, []);
+    if (sprint.id !== undefined) {
+      setExpandedId(sprint.id);
+    }
+  }
 
   return (
     <div>
       Sprint Name: {sprint.name}
-      <br/>
+      <br />
       Sprint ID: {sprint.id}
-      <br/>
+      <br />
       Sprint Start: {sprint.startDate}
-      <br/>
+      <br />
       Sprint End: {sprint.endDate}
 
+      <button className="bg-greenie p-2 rounded-xl text-white" onClick={handleOnClick}>Expand this sprint</button>
     </div>
   );
 }

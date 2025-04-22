@@ -11,19 +11,23 @@ import TeamMemberCard from '@/components/teams/TeamMemberCard';
 import TeamSprints from '@/components/teams/TeamSprints';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
+import { dummyTeams } from '@/components/teams/teamdummy';
+
 export default function Groups() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedTeam, setSelectedTeam] = useState(0);
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<User[]>([]);
   const [selectedTeamSprints, setSelectedTeamSprints] = useState<Sprint[]>([]);
 
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchTeams = async () => {
-      const teamsData = await teamService.getAllTeams();
-      setTeams(teamsData);
+      //const teamsData = await teamService.getAllTeams();
+      setTeams(dummyTeams);
     };
     fetchTeams();
   }, []);
@@ -43,12 +47,38 @@ export default function Groups() {
           </div>
         )}
 
+        {isPopupOpen && (
+          <div className="fixed inset-0 flex items-center justify-center w-full bg-black/70 z-20">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
+              <p className="text-gray-700">
+                Are you sure you want to remove this person from the team? You
+                can read them again if you change your mind.
+              </p>
+              <div className="flex flex-row justify-between">
+                <button
+                  className="mt-4 px-4 py-2 bg-redie text-white rounded hover:bg-red-700"
+                  onClick={() => setIsPopupOpen(false)}
+                >
+                  Remove
+                </button>
+                <button
+                  className="mt-4 px-4 py-2 bg-black/50 text-white rounded hover:bg-black/40"
+                  onClick={() => setIsPopupOpen(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex lg:flex-row gap-x-3 w-full h-full p-6">
           <div className="bg-whitiish2 w-2/8 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
             <p className="text-[#424043] text-[1.35rem] lg:text-3xl">Groups</p>
             <div className="overflow-y-auto max-h-[600px] flex flex-col gap-5">
               {teams.map((team) => (
                 <TeamCard
+                  key={team.id}
                   teamId={team.id ?? 0}
                   groupName={team.name}
                   selectedTeam={selectedTeam}
@@ -74,6 +104,7 @@ export default function Groups() {
                   {selectedTeamMembers.map((member) => (
                     <TeamMemberCard
                       key={member.id}
+                      id={member.id ?? 0}
                       name={member.fullName}
                       role={member.role}
                     />
@@ -81,9 +112,12 @@ export default function Groups() {
                 </div>
 
                 {selectedTeam !== 0 ? (
-                  <div className="bg-greenie rounded-lg flex flex-row justify-center items-center h-12 w-110 shadow-lg">
-                    <p className="text-white text-2xl">Add a member</p>
-                  </div>
+                  <button
+                    className="bg-greenie rounded-lg flex flex-row justify-center items-center h-12 w-110 shadow-lg"
+                    onClick={() => setIsPopupOpen(true)}
+                  >
+                    <span className="text-white text-2xl">Add a member</span>
+                  </button>
                 ) : (
                   <div className="flex flex-col items-center gap-4">
                     <Info color="#DFDFE4" className="h-40 w-40" />
@@ -109,7 +143,8 @@ export default function Groups() {
                     <TeamSprints
                       key={sprint.id}
                       name={sprint.name}
-                      status={sprint.status}
+                      status={sprint.status || ''}
+                      team={sprint.teamId}
                     />
                   ))}
                 </div>
@@ -118,7 +153,7 @@ export default function Groups() {
                   <p>
                     This view is read only, if you wish to edit sprints, go to:{' '}
                     <Link to="/sprints">
-                      <p className="underline">Sprint Management</p>
+                      <span className="underline">Sprint Management</span>
                     </Link>
                   </p>
                 ) : (
