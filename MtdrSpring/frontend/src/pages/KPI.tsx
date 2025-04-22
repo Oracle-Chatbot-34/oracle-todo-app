@@ -123,7 +123,7 @@ export default function KPI() {
 
   return (
     <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
-      <div className="flex flex-col justify-center items-center p-4 lg:p-10 gap-y-4 bg-whitie w-full h-full rounded-lg shadow-xl ">
+      <div className="flex flex-col justify-center p-4 lg:p-10 gap-y-4 bg-whitie w-full h-full rounded-lg shadow-xl ">
         {/* Title */}
         <div className="flex flex-row items-center gap-[10px]">
           <ChartPie className="w-8 h-8" />

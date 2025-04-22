@@ -1,10 +1,12 @@
-import { Routes, Route, useLocation} from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Reports from './pages/Reports';
 import Tasks from './pages/Tasks';
 import KPI from './pages/KPI';
+import Groups from './pages/Groups';
+import Sprints from './pages/Sprints';
 import NotFound from './pages/NotFound';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
@@ -60,11 +62,32 @@ const App = () => {
               }
             />
 
-            <Route path="*" element={
-              <ProtectedRoute>
-                <NotFound />
-              </ProtectedRoute>
-            } />
+            <Route
+              path="/sprints"
+              element={
+                <ProtectedRoute>
+                  <Sprints />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/groups"
+              element={
+                <ProtectedRoute>
+                  <Groups />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="*"
+              element={
+                <ProtectedRoute>
+                  <NotFound />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </div>
       </AuthProvider>
