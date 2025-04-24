@@ -1,0 +1,140 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dashmaster-secrets
+stringData:
+  # Replace with your actual Telegram Bot Token and Database Password
+  TELEGRAM_BOT_TOKEN: "7818362029:AAHjytZcyWk66nNzI3-KIDBbSuonVAymORA"
+  DB_PASSWORD: "Spring-boot103"
+type: Opaque
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashmaster-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashmaster-backend
+  template:
+    metadata:
+      labels:
+        app: dashmaster-backend
+    spec:
+      containers:
+      - name: dashmaster-backend
+        # --- Docker Hub Image Path ---
+        # Replace <your-dockerhub-username> with your Docker Hub username
+        image: docker.io/<your-dockerhub-username>/dashmaster-backend:v1
+        ports:
+        - containerPort: 8080
+        env:
+        - name: TELEGRAM_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dashmaster-secrets
+              key: TELEGRAM_BOT_TOKEN
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dashmaster-secrets
+              key: DB_PASSWORD
+        - name: spring.datasource.url
+          # Ensure this points to your OCI Database endpoint accessible from OKE
+          # If using an Autonomous Database with a Wallet, you might need to
+          # configure the Wallet securely in the pod, which is more complex.
+          # This URL format suggests a direct connection which might require
+          # VCN peering or a Service Gateway depending on your setup.
+          value: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=src/main/resources/Wallet_javadev"
+        - name: spring.datasource.username
+          value: "JAVADEV103"
+        - name: spring.datasource.driver-class-name
+          value: "oracle.jdbc.OracleDriver"
+      # imagePullSecrets are NOT needed for public Docker Hub images
+      # If you were using a private registry, you would add them here
+      # spec:
+      #   imagePullSecrets:
+      #   - name: your-registry-secret-name
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashmaster-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dashmaster-frontend
+  template:
+    metadata:
+      labels:
+        app: dashmaster-frontend
+    spec:
+      containers:
+      - name: dashmaster-frontend
+        # --- Docker Hub Image Path ---
+        # Replace <your-dockerhub-username> with your Docker Hub username
+        image: docker.io/<your-dockerhub-username>/dashmaster-frontend:v1
+        ports:
+        - containerPort: 3000
+        env:
+        # This assumes the frontend in the browser will access the API
+        # via the /api path provided by the Ingress.
+        - name: VITE_API_BASE_URL
+          value: "/api"
+      # imagePullSecrets are NOT needed for public Docker Hub images
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashmaster-backend-service
+spec:
+  selector:
+    app: dashmaster-backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP # Use ClusterIP for internal communication
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashmaster-frontend-service
+spec:
+  selector:
+    app: dashmaster-frontend
+  ports:
+  - port: 3000
+    targetPort: 3000
+  type: ClusterIP # Use ClusterIP as the Ingress exposes it
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dashmaster-ingress
+  annotations:
+    # This annotation tells OCI's load balancer to handle this Ingress
+    kubernetes.io/ingress.class: "nginx"
+    # These rewrite rules are for the NGINX ingress controller
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: dashmaster-backend-service
+            port:
+              number: 8080
+      - path: /(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: dashmaster-frontend-service
+            port:
+              number: 3000
