@@ -27,7 +27,7 @@ spec:
       - name: dashmaster-backend
         # --- Docker Hub Image Path ---
         # Replace <your-dockerhub-username> with your Docker Hub username
-        image: docker.io/<your-dockerhub-username>/dashmaster-backend:v1
+        image: docker.io/danielbarreras/dashmaster-backend:v1
         ports:
         - containerPort: 8080
         env:
@@ -76,7 +76,7 @@ spec:
       - name: dashmaster-frontend
         # --- Docker Hub Image Path ---
         # Replace <your-dockerhub-username> with your Docker Hub username
-        image: docker.io/<your-dockerhub-username>/dashmaster-frontend:v1
+        image: docker.io/danielbarreras/dashmaster-frontend:v1
         ports:
         - containerPort: 3000
         env:
