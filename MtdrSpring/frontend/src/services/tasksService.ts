@@ -1,26 +1,26 @@
 import api from './api';
 
 export interface Task {
-  ID?: number;
+  id: number;
   title: string;
-  description?: string;
-  dueDate?: string;
-  assigneeId?: number;
-  teamId?: number;
-  status?: string;
-  estimatedHours?: number;
-  actualHours?: number;
-  sprintId?: number;
-  priority?: string;
-  done?: boolean;
-  creation_ts?: string;
-  completedAt?: string;
+  description: string;
+  dueDate: string;
+  assigneeId: number;
+  teamId: number;
+  status: string;
+  estimatedHours: number;
+  actualHours: number;
+  sprintId: number;
+  priority: string;
+  done: boolean;
+  creation_ts: string;
+  completedAt: string;
 }
 
 const taskService = {
   getAllTasks: async (): Promise<Task[]> => {
     try {
-      const response = await api.get(`/todolist`);
+      const response = await api.get(`/api/todolist`);
       return response.data;
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -30,7 +30,7 @@ const taskService = {
 
   getTaskById: async (id: number): Promise<Task | null> => {
     try {
-      const response = await api.get(`/todolist/${id}`);
+      const response = await api.get(`/api/todolist/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching task with ID ${id}:`, error);
@@ -40,7 +40,7 @@ const taskService = {
 
   createTask: async (task: Task): Promise<number> => {
     try {
-      const response = await api.post(`/todolist`, task);
+      const response = await api.post(`/api/todolist`, task);
       const locationHeader = response.headers.location;
       return locationHeader ? parseInt(locationHeader) : 0;
     } catch (error) {
@@ -51,7 +51,7 @@ const taskService = {
 
   createTaskWithEstimation: async (task: Task): Promise<number> => {
     try {
-      const response = await api.post(`/tasks`, task);
+      const response = await api.post(`/api/tasks`, task);
       const locationHeader = response.headers.location;
       return locationHeader ? parseInt(locationHeader) : 0;
     } catch (error) {
@@ -62,7 +62,7 @@ const taskService = {
 
   updateTask: async (id: number, task: Task): Promise<Task | null> => {
     try {
-      const response = await api.put(`/todolist/${id}`, task);
+      const response = await api.put(`/api/todolist/${id}`, task);
       return response.data;
     } catch (error) {
       console.error(`Error updating task with ID ${id}:`, error);
@@ -72,7 +72,7 @@ const taskService = {
 
   deleteTask: async (id: number): Promise<boolean> => {
     try {
-      const response = await api.delete(`/todolist/${id}`);
+      const response = await api.delete(`/api/todolist/${id}`);
       return response.data;
     } catch (error) {
       console.error(`Error deleting task with ID ${id}:`, error);
@@ -86,7 +86,7 @@ const taskService = {
   ): Promise<Task | null> => {
     try {
       const response = await api.post(
-        `/tasks/${taskId}/assign-to-sprint/${sprintId}`
+        `/api/tasks/${taskId}/assign-to-sprint/${sprintId}`
       );
       return response.data;
     } catch (error) {
@@ -101,7 +101,7 @@ const taskService = {
   startTask: async (taskId: number, userId: number): Promise<Task | null> => {
     try {
       const response = await api.post(
-        `/tasks/${taskId}/start?userId=${userId}`
+        `/api/tasks/${taskId}/start?userId=${userId}`
       );
       return response.data;
     } catch (error) {
@@ -116,7 +116,7 @@ const taskService = {
     comments?: string
   ): Promise<Task | null> => {
     try {
-      let url = `/tasks/${taskId}/complete?actualHours=${actualHours}`;
+      let url = `/api/tasks/${taskId}/complete?actualHours=${actualHours}`;
       if (comments) {
         url += `&comments=${encodeURIComponent(comments)}`;
       }
@@ -130,7 +130,12 @@ const taskService = {
 
   getSprintTasks: async (sprintId: number): Promise<Task[]> => {
     try {
-      const response = await api.get(`/sprints/${sprintId}/tasks`);
+      // Add a cache-busting parameter to prevent browser caching
+      const timestamp = new Date().getTime();
+      const response = await api.get(
+        `/api/sprints/${sprintId}/tasks?_=${timestamp}`
+      );
+      console.log('Tasks in this sprint in service:', response);
       return response.data;
     } catch (error) {
       console.error(`Error fetching tasks for sprint ${sprintId}:`, error);
@@ -140,7 +145,7 @@ const taskService = {
 
   getUserActiveTasks: async (userId: number): Promise<Task[]> => {
     try {
-      const response = await api.get(`/users/${userId}/active-tasks`);
+      const response = await api.get(`/api/users/${userId}/active-tasks`);
       return response.data;
     } catch (error) {
       console.error(`Error fetching active tasks for user ${userId}:`, error);
