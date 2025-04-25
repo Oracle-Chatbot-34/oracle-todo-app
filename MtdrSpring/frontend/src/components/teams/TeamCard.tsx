@@ -6,9 +6,6 @@ import { Sprint } from '@/services/sprintService';
 import teamService from '@/services/teamService';
 import sprintService from '@/services/sprintService';
 
-import { dummyUsers } from './teamdummy';
-import { dummySprints } from '../sprints/sprintdummy';
-
 type TeamCardProps = {
   teamId: number;
   selectedTeam: number;
@@ -26,22 +23,29 @@ export default function TeamCard({
   setIsLoading,
   setSelectedTeam,
   setSelectedTeamMembers,
-  setSelectedTeamSprints
+  setSelectedTeamSprints,
 }: TeamCardProps) {
   const handleClick = async () => {
     setSelectedTeam(teamId);
     // Fetch users from that team
     setIsLoading(true);
 
-    //const selectedTeamMembers = await teamService.getTeamMembers(teamId);
-    setSelectedTeamMembers(dummyUsers);
+    try {
+      // Fetch team members
+      const selectedTeamMembers = await teamService.getTeamMembers(teamId);
+      setSelectedTeamMembers(selectedTeamMembers);
 
-    // Fetch sprints from that team
-    //const selectedTeamSprints = await sprintService.getTeamSprints(teamId);
-    setSelectedTeamSprints(dummySprints);
-    
-    setIsLoading(false);
+      // Fetch sprints from that team
+      const selectedTeamSprints = await sprintService.getTeamSprints(teamId);
+      setSelectedTeamSprints(selectedTeamSprints);
+    } catch (err) {
+      console.error('Error fetching team data:', err);
+      // You might want to handle this error more gracefully in the UI
+    } finally {
+      setIsLoading(false);
+    }
   };
+
   return (
     <button
       key={teamId}

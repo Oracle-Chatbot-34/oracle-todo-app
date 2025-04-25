@@ -10,8 +10,7 @@ import TeamCard from '@/components/teams/TeamCard';
 import TeamMemberCard from '@/components/teams/TeamMemberCard';
 import TeamSprints from '@/components/teams/TeamSprints';
 import LoadingSpinner from '@/components/LoadingSpinner';
-
-import { dummyTeams } from '@/components/teams/teamdummy';
+import AddMemberModal from '@/components/teams/AddMemberModal';
 
 export default function Groups() {
   const [teams, setTeams] = useState<Team[]>([]);
@@ -19,18 +18,44 @@ export default function Groups() {
   const [selectedTeamMembers, setSelectedTeamMembers] = useState<User[]>([]);
   const [selectedTeamSprints, setSelectedTeamSprints] = useState<Sprint[]>([]);
 
-  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchTeams = async () => {
-      //const teamsData = await teamService.getAllTeams();
-      setTeams(dummyTeams);
+      try {
+        setIsLoading(true);
+        const teamsData = await teamService.getAllTeams();
+        setTeams(teamsData);
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+        setError('Failed to load teams. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchTeams();
   }, []);
+
+  const refreshTeamMembers = async () => {
+    if (selectedTeam === 0) return;
+
+    try {
+      setIsLoading(true);
+      const members = await teamService.getTeamMembers(selectedTeam);
+      setSelectedTeamMembers(members);
+    } catch (err) {
+      console.error(
+        `Error refreshing team members for team ${selectedTeam}:`,
+        err
+      );
+      setError('Failed to refresh team members. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
@@ -47,48 +72,27 @@ export default function Groups() {
           </div>
         )}
 
-        {isPopupOpen && (
-          <div className="fixed inset-0 flex items-center justify-center w-full bg-black/70 z-20">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md">
-              <p className="text-gray-700">
-                Are you sure you want to remove this person from the team? You
-                can read them again if you change your mind.
-              </p>
-              <div className="flex flex-row justify-between">
-                <button
-                  className="mt-4 px-4 py-2 bg-redie text-white rounded hover:bg-red-700"
-                  onClick={() => setIsPopupOpen(false)}
-                >
-                  Remove
-                </button>
-                <button
-                  className="mt-4 px-4 py-2 bg-black/50 text-white rounded hover:bg-black/40"
-                  onClick={() => setIsPopupOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="flex lg:flex-row gap-x-3 w-full h-full p-6">
           <div className="bg-whitiish2 w-2/8 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
             <p className="text-[#424043] text-[1.35rem] lg:text-3xl">Groups</p>
-            <div className="overflow-y-auto max-h-[600px] flex flex-col gap-5">
-              {teams.map((team) => (
-                <TeamCard
-                  key={team.id}
-                  teamId={team.id ?? 0}
-                  groupName={team.name}
-                  selectedTeam={selectedTeam}
-                  setIsLoading={setIsLoading}
-                  setSelectedTeam={setSelectedTeam}
-                  setSelectedTeamMembers={setSelectedTeamMembers}
-                  setSelectedTeamSprints={setSelectedTeamSprints}
-                />
-              ))}
-            </div>
+            {isLoading && teams.length === 0 ? (
+              <LoadingSpinner />
+            ) : (
+              <div className="overflow-y-auto max-h-[600px] flex flex-col gap-5">
+                {teams.map((team) => (
+                  <TeamCard
+                    key={team.id}
+                    teamId={team.id ?? 0}
+                    groupName={team.name}
+                    selectedTeam={selectedTeam}
+                    setIsLoading={setIsLoading}
+                    setSelectedTeam={setSelectedTeam}
+                    setSelectedTeamMembers={setSelectedTeamMembers}
+                    setSelectedTeamSprints={setSelectedTeamSprints}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="bg-whitiish2 w-4/8 h-full rounded-2xl shadow-xl p-5 gap-5 flex flex-col">
@@ -96,7 +100,7 @@ export default function Groups() {
               Group participants
             </p>
 
-            {isLoading ? (
+            {isLoading && selectedTeam !== 0 ? (
               <LoadingSpinner />
             ) : (
               <div className="flex flex-col gap-6">
@@ -107,6 +111,8 @@ export default function Groups() {
                       id={member.id ?? 0}
                       name={member.fullName}
                       role={member.role}
+                      teamId={selectedTeam}
+                      onMemberRemoved={refreshTeamMembers}
                     />
                   ))}
                 </div>
@@ -114,7 +120,7 @@ export default function Groups() {
                 {selectedTeam !== 0 ? (
                   <button
                     className="bg-greenie rounded-lg flex flex-row justify-center items-center h-12 w-110 shadow-lg"
-                    onClick={() => setIsPopupOpen(true)}
+                    onClick={() => setShowAddMemberModal(true)}
                   >
                     <span className="text-white text-2xl">Add a member</span>
                   </button>
@@ -134,7 +140,7 @@ export default function Groups() {
               Team sprints
             </p>
 
-            {isLoading ? (
+            {isLoading && selectedTeam !== 0 ? (
               <LoadingSpinner />
             ) : (
               <div className="flex flex-col gap-6">
@@ -169,6 +175,16 @@ export default function Groups() {
           </div>
         </div>
       </div>
+
+      {/* Add Member Modal */}
+      {selectedTeam !== 0 && (
+        <AddMemberModal
+          isOpen={showAddMemberModal}
+          teamId={selectedTeam}
+          onClose={() => setShowAddMemberModal(false)}
+          onMemberAdded={refreshTeamMembers}
+        />
+      )}
     </div>
   );
 }
