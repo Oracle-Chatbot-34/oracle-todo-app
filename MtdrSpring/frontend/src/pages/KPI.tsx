@@ -294,6 +294,7 @@ export default function KPI() {
                 <LoadingSpinner size={8} />
               ) : kpiData ? (
                 <RealHours
+                  selectedMemberId={selectedMember?.id || 0}
                   percentage={kpiData.hoursUtilizationPercent || 0}
                   workedHours={kpiData.workedHours || 0}
                   plannedHours={kpiData.plannedHours || 0}
@@ -313,7 +314,7 @@ export default function KPI() {
               {loading ? (
                 <LoadingSpinner size={8} />
               ) : kpiData ? (
-                <AvgHours average={kpiData.averageTasksPerEmployee || 0} />
+                <AvgHours selectedMemberId={selectedMember?.id || 0} average={kpiData.averageTasksPerEmployee || 0} />
               ) : (
                 <div className="h-40 flex items-center justify-center">
                   <p>No data available</p>

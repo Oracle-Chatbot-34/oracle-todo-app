@@ -147,6 +147,15 @@ const taskService = {
       return [];
     }
   },
+
+  /**
+   * 
+   * Pls uwu
+   */
+  getUserCountOfTasks: async (userId: number): Promise<number> => {
+    const response = await api.get(`/users/${userId}/active-tasks/count`);
+    return response.data;
+  },
 };
 
 export default taskService;
