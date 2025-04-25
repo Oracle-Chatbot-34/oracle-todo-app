@@ -1,14 +1,34 @@
-interface RealHoursProps {
+import { useState, useEffect } from "react";
+import userService from "@/services/userService";
+
+type RealHoursProps = {
+  selectedMemberId: number;
   percentage: number;
   workedHours: number;
   plannedHours: number;
 }
 
 export default function RealHours({
+  selectedMemberId,
   percentage,
   workedHours,
   plannedHours,
 }: RealHoursProps) {
+  const [userHours, setUserHours] = useState([0,0]);
+  useEffect(() => {
+    const fetchUserTasks = async () => {
+      if (selectedMemberId != 0) {
+        try {
+          const taskResponse = await userService.getUserPlannedAndRealHours(
+            // Tuple
+            selectedMemberId
+          );
+          setUserHours(taskResponse);
+        } catch (err) {}
+      }
+    };
+    fetchUserTasks();
+  }, [selectedMemberId != 0 && userHours[1] != 0]);
   return (
     <div className="flex flex-row justify-center p-5">
       {/* Water Fill Effect */}
@@ -24,10 +44,16 @@ export default function RealHours({
 
       {/* Hours Data */}
       <div className="relative flex items-center justify-between">
-        <div className="absolute top-12 left-4 text-2xl font-bold">{workedHours}</div>
+        <div className="absolute top-12 left-4 text-2xl font-bold">
+          {workedHours}
+        </div>
         <div className="w-30 border-b-4 border-black transform rotate-135"></div>
-        <div className="absolute bottom-12 right-2 text-2xl font-bold">{plannedHours}</div>
-        <p className="absolute bottom-0 left-10 text-center font-semibold">Hours</p>
+        <div className="absolute bottom-12 right-2 text-2xl font-bold">
+          {plannedHours}
+        </div>
+        <p className="absolute bottom-0 left-10 text-center font-semibold">
+          Hours
+        </p>
       </div>
     </div>
   );

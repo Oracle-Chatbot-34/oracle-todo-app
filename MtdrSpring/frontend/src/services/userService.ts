@@ -42,6 +42,16 @@ const userService = {
     const response = await api.get(`${config.apiEndpoint}/users/roles/${role}`);
     return response.data;
   },
+  /**
+   * 
+   * Please uwu 
+   * 
+   */
+  getUserPlannedAndRealHours: async(id: number): Promise<number[]> => {
+    const response = await api.get(`${config.apiEndpoint}/users/hours/${id}`);
+    return response.data;
+
+  }
 };
 
 export default userService;
