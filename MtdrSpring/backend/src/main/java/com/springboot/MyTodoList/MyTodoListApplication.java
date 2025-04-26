@@ -1,5 +1,7 @@
 package com.springboot.MyTodoList;
 
+import java.util.Arrays;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +45,8 @@ public class MyTodoListApplication implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
+        boolean skipBot = Arrays.asList(args).contains("--skip-bot");
+        
         // Verify Telegram bot configuration
         if (telegramBotToken == null || telegramBotToken.isEmpty()) {
             logger.error("Telegram bot token is not set. Please set the TELEGRAM_BOT_TOKEN environment variable.");
@@ -50,18 +54,23 @@ public class MyTodoListApplication implements CommandLineRunner {
                     "Telegram bot token is required. Please set the TELEGRAM_BOT_TOKEN environment variable.");
         }
 
-        try {
-            TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
-            telegramBotsApi.registerBot(new ToDoItemBotController(
-                    telegramBotToken,
-                    botName,
-                    toDoItemService,
-                    userService,
-                    sprintService));
-            logger.info(BotMessages.BOT_REGISTERED_STARTED.getMessage());
-        } catch (TelegramApiException e) {
-            logger.error("Failed to start Telegram bot", e);
-            logger.warn("Application will continue without Telegram bot functionality.");
+        if (skipBot == true) {
+            logger.warn("Skipping Telegram bot registration as per configuration.");
+            return;
+        } else {
+            try {
+                TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
+                telegramBotsApi.registerBot(new ToDoItemBotController(
+                        telegramBotToken,
+                        botName,
+                        toDoItemService,
+                        userService,
+                        sprintService));
+                logger.info(BotMessages.BOT_REGISTERED_STARTED.getMessage());
+            } catch (TelegramApiException e) {
+                logger.error("Failed to start Telegram bot", e);
+                logger.warn("Application will continue without Telegram bot functionality.");
+            }
         }
     }
 }

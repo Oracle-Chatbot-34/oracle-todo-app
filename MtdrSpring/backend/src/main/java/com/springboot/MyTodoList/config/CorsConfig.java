@@ -20,6 +20,7 @@ public class CorsConfig {
         config.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",
                 "http://localhost:5173",
+                "https://localhost:5173",
                 "https://objectstorage.us-phoenix-1.oraclecloud.com",
                 "https://petstore.swagger.io"));
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "OPTIONS", "DELETE", "PATCH"));
