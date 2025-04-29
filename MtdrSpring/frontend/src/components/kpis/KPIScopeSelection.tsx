@@ -1,16 +1,5 @@
 import { useEffect } from 'react';
-
-type MemberEntry = {
-  member: string;
-  hours: number;
-  tasksCompleted: number;
-}
-
-type SprintData = {
-  id: number;
-  name: string;
-  entries: MemberEntry[];
-}
+import { SprintData } from '@/services/kpiGraphQLService';
 
 type Props = {
   sprints: SprintData[];
@@ -32,12 +21,13 @@ export default function KPIScopeSelection({
     if (endSprint && endSprint.id! < startSprint.id!) {
       setEndSprint(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startSprint]);
 
   return (
     <div className="w-full flex gap-4 items-center text-2xl justify-between">
       <div className="flex flex-row items-center gap-3 w-1/2">
-        <label className=" font-semibold">Start Sprint: </label>
+        <label className="font-semibold">Start Sprint: </label>
         <select
           className="border px-2 py-1 rounded-lg w-1/2"
           value={startSprint?.id || ''}
@@ -57,7 +47,7 @@ export default function KPIScopeSelection({
       </div>
 
       <div className="flex flex-row items-center gap-3 w-1/2">
-        <label className=" font-semibold">End Sprint: (optional)</label>
+        <label className="font-semibold">End Sprint: (optional)</label>
         <select
           className="border px-2 py-1 rounded-lg w-1/2"
           value={endSprint?.id || ''}

@@ -11,54 +11,16 @@ import HoursByTeam from '@/components/kpis/HoursByTeam';
 import HoursBySprints from '@/components/kpis/HoursBySprint';
 import CountLegend from '@/components/kpis/CountLegend';
 import TaskInformationBySprint from '@/components/kpis/TaskInformationBySprint';
-import LineComponent from '@/components/kpis/LineComponent';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-type MemberEntry = {
-  member: string;
-  hours: number;
-  tasksCompleted: number;
-};
+// Services
+import sprintService from '@/services/sprintService';
+import kpiGraphQLService, { 
+  KpiResult, 
+  SprintData,
+  SprintDataForPie
+} from '@/services/kpiGraphQLService';
 
-type SprintDataForPie = {
-  id: number;
-  name: string;
-  count: number;
-};
-
-type SprintData = {
-  id: number;
-  name: string;
-  entries: MemberEntry[];
-  totalHours?: number;
-  totalTasks?: number;
-};
-/*
-  Example sprint data structure:
-  [
-    {
-      id: 1,
-      name: "Sprint 1",
-      entries: [
-        { member: "Member 1", hours: 10, tasksCompleted: 2 },
-        { member: "Member 2", hours: 20, tasksCompleted: 3 },
-        { member: "Member 3", hours: 15, tasksCompleted: 1 },
-      ],
-    },
-    {
-      id: 2,
-      name: "Sprint 2",
-      entries: [
-        // Notice how member 4 is here but not in Sprint 1 so it varies from sprint to sprint
-        { member: "Member 1", hours: 12, tasksCompleted: 4 },
-        { member: "Member 2", hours: 18, tasksCompleted: 2 },
-        { member: "Member 4", hours: 22, tasksCompleted: 5 },
-      ],
-    },
-    // Add more sprints as needed
-  ]
-
-*/
 
 export default function KPI() {
   const { isAuthenticated } = useAuth();
@@ -80,76 +42,111 @@ export default function KPI() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Load users and teams on component mount
+  // Load sprints on component mount
   useEffect(() => {
     if (!isAuthenticated) return;
-    // Fetch all sprints
+    
     const fetchAllSprints = async () => {
-      // Simulate fetching sprints
-      const sprints: SprintData[] = Array.from({ length: 6 }, (_, i) => {
-        const memberCount = Math.floor(Math.random() * 3) + 3; // 3 to 5 members
-        const entries = Array.from({ length: memberCount }, (_, j) => ({
-          member: `Member ${j + 1}`,
-          hours: Math.floor(Math.random() * 40) + 10, // 10–50 hours
-          tasksCompleted: Math.floor(Math.random() * 8) + 1, // 1–8 tasks
-        }));
-
-        // Calculate total hours and tasks for this sprint
-        const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
-        const totalTasks = entries.reduce(
-          (sum, e) => sum + e.tasksCompleted,
-          0
-        );
-
-        return {
-          id: i + 1,
-          name: `Sprint ${i + 1}`,
-          entries,
-          totalHours, // Add this field if your type allows
-          totalTasks, // Add this field if your type allows
-        };
-      });
-
-      setSprints(sprints);
-      setStartSprint(sprints[0]);
+      try {
+        setLoading(true);
+        // Get all sprints from backend
+        const sprintsResponse = await sprintService.getAllSprints();
+        
+        if (sprintsResponse.length > 0) {
+          // Convert to our SprintData format (just to get the list initially)
+          const convertedSprints: SprintData[] = sprintsResponse.map(sprint => ({
+            id: sprint.id || 0,
+            name: sprint.name,
+            entries: [],  // Will be populated by KPI data
+            totalHours: 0,
+            totalTasks: 0
+          }));
+          
+          setSprints(convertedSprints);
+          setStartSprint(convertedSprints[0]);
+          
+          // Once we have the sprints, fetch KPI data for the first sprint
+          if (convertedSprints.length > 0 && convertedSprints[0].id) {
+            await fetchKpiData(convertedSprints[0].id);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching sprints:", err);
+        setError("Failed to load sprints. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
     };
+    
     fetchAllSprints();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
+  // Function to fetch KPI data
+  const fetchKpiData = async (startSprintId: number, endSprintId?: number) => {
+    try {
+      setLoading(true);
+      
+      const response = await kpiGraphQLService.getKpiData(startSprintId, endSprintId);
+      const kpiResult: KpiResult = response.data.getKpiData;
+      
+      // Update sprints with the full data from the KPI service
+      if (kpiResult.sprintData && kpiResult.sprintData.length > 0) {
+        setSprints(prevSprints => {
+          // Update the existing sprints with the full data
+          const updatedSprints = [...prevSprints];
+          kpiResult.sprintData.forEach(sprintData => {
+            const index = updatedSprints.findIndex(s => s.id === sprintData.id);
+            if (index !== -1) {
+              updatedSprints[index] = sprintData;
+            } else {
+              updatedSprints.push(sprintData);
+            }
+          });
+          return updatedSprints;
+        });
+      
+        // Set filtered data
+        setFilteredSprints(kpiResult.sprintData);
+        setFilteredSprintHours(kpiResult.sprintHours);
+        setFilteredSprintTasks(kpiResult.sprintTasks);
+        setSprintsForTasks(kpiResult.sprintsForTasks);
+        
+        // Update current sprint selection if needed
+        if (!startSprint || startSprint.id !== startSprintId) {
+          const selectedSprint = kpiResult.sprintData.find(s => s.id === startSprintId);
+          if (selectedSprint) {
+            setStartSprint(selectedSprint);
+          }
+        }
+        
+        if (endSprintId) {
+          const selectedEndSprint = kpiResult.sprintData.find(s => s.id === endSprintId);
+          if (selectedEndSprint) {
+            setEndSprint(selectedEndSprint);
+          }
+        } else {
+          setEndSprint(null);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching KPI data:", err);
+      setError("Failed to load KPI data. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // When start or end sprint selection changes
   useEffect(() => {
     if (!startSprint) return;
-
+    
     const startId = startSprint.id;
-    const endId = endSprint?.id || startId;
-
-    const span = sprints.filter((s) => s.id >= startId && s.id <= endId);
-    setFilteredSprints(span);
-  }, [startSprint, endSprint, sprints]);
-
-  useEffect(() => {
-    if (filteredSprints.length === 0) return;
-    // Sprint data for Task Information
-    const sprintsForTasks = filteredSprints.map((sprint) => ({
-      sprintId: sprint.id,
-      sprintName: sprint.name,
-    }));
-
-    // Calculate total hours and tasks for each sprint
-    const sprintHours = filteredSprints.map((sprint) => ({
-      id: sprint.id,
-      name: sprint.name,
-      count: sprint.totalHours || 0,
-    }));
-    const sprintTasks = filteredSprints.map((sprint) => ({
-      id: sprint.id,
-      name: sprint.name,
-      count: sprint.totalTasks || 0,
-    }));
-
-    setSprintsForTasks(sprintsForTasks);
-    setFilteredSprintHours(sprintHours);
-    setFilteredSprintTasks(sprintTasks);
-  }, [filteredSprints]);
+    const endId = endSprint?.id;
+    
+    fetchKpiData(startId, endId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startSprint?.id, endSprint?.id]);
 
   return (
     <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
@@ -167,67 +164,77 @@ export default function KPI() {
           )}
         </div>
 
-        <div className="flex flex-row items-center justify-center gap-4 w-full h-1/13 bg-white rounded-xl shadow-lg pl-7">
-          <div className="text-2xl font-semibold w-1/4">Select a scope:</div>
-          <div className="w-3/4">
-            <KPIScopeSelection
-              sprints={sprints}
-              startSprint={startSprint!}
-              endSprint={endSprint}
-              setStartSprint={setStartSprint}
-              setEndSprint={setEndSprint}
-            />
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <LoadingSpinner />
           </div>
-        </div>
-
-        <div className="flex flex-row w-full h-11/13 gap-4">
-          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <HoursByTeam
-              sprintData={filteredSprints}
-              definition={dictionaryKPI[1].definition}
-              example={dictionaryKPI[1].example}
-            />
-            <div className="flex flex-row w-full items-center justify-center gap-4">
-              {filteredSprintHours.length > 1 ? (
-                <HoursBySprints
-                  isHours={true}
-                  chartData={filteredSprintHours}
-                  definition={dictionaryKPI[3].definition}
-                  example={dictionaryKPI[3].example}
-                />
-              ) : (
-                <CountLegend isHours={true} count={startSprint?.totalHours!} />
-              )}
+        ) : (
+          <>
+            <div className="flex flex-row items-center justify-center gap-4 w-full h-1/13 bg-white rounded-xl shadow-lg pl-7">
+              <div className="text-2xl font-semibold w-1/4">Select a scope:</div>
+              <div className="w-3/4">
+                {startSprint && (
+                  <KPIScopeSelection
+                    sprints={sprints}
+                    startSprint={startSprint}
+                    endSprint={endSprint}
+                    setStartSprint={setStartSprint}
+                    setEndSprint={setEndSprint}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <CompletedTasksBySprint
-              sprintData={filteredSprints}
-              definition={dictionaryKPI[2].definition}
-              example={dictionaryKPI[2].example}
-            />
-            <div className="flex flex-row w-full items-center justify-center gap-4">
-              {filteredSprintTasks.length > 1 ? (
-                <HoursBySprints
-                  isHours={false}
-                  chartData={filteredSprintTasks}
-                  definition={dictionaryKPI[4].definition}
-                  example={dictionaryKPI[4].example}
-                />
-              ) : (
-                <CountLegend isHours={false} count={startSprint?.totalTasks!} />
-              )}
-            </div>
-          </div>
 
-          <div className="flex flex-row w-1/3 h-full items-center justify-center">
-            <TaskInformationBySprint
-              sprints={sprintsForTasks}
-              definition={dictionaryKPI[5].definition}
-              example={dictionaryKPI[5].example}
-            />
-          </div>
-        </div>
+            <div className="flex flex-row w-full h-11/13 gap-4">
+              <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
+                <HoursByTeam
+                  sprintData={filteredSprints}
+                  definition={dictionaryKPI[1].definition}
+                  example={dictionaryKPI[1].example}
+                />
+                <div className="flex flex-row w-full items-center justify-center gap-4">
+                  {filteredSprintHours.length > 1 ? (
+                    <HoursBySprints
+                      isHours={true}
+                      chartData={filteredSprintHours}
+                      definition={dictionaryKPI[3].definition}
+                      example={dictionaryKPI[3].example}
+                    />
+                  ) : (
+                    <CountLegend isHours={true} count={startSprint?.totalHours || 0} />
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
+                <CompletedTasksBySprint
+                  sprintData={filteredSprints}
+                  definition={dictionaryKPI[2].definition}
+                  example={dictionaryKPI[2].example}
+                />
+                <div className="flex flex-row w-full items-center justify-center gap-4">
+                  {filteredSprintTasks.length > 1 ? (
+                    <HoursBySprints
+                      isHours={false}
+                      chartData={filteredSprintTasks}
+                      definition={dictionaryKPI[4].definition}
+                      example={dictionaryKPI[4].example}
+                    />
+                  ) : (
+                    <CountLegend isHours={false} count={startSprint?.totalTasks || 0} />
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-row w-1/3 h-full items-center justify-center">
+                <TaskInformationBySprint
+                  sprints={sprintsForTasks}
+                  definition={dictionaryKPI[5].definition}
+                  example={dictionaryKPI[5].example}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
