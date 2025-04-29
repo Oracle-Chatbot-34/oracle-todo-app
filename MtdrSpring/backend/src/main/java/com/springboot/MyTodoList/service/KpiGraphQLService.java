@@ -144,7 +144,7 @@ public class KpiGraphQLService {
             Map<Long, MemberStats> memberStatsMap = new HashMap<>();
 
             for (ToDoItem task : sprintTasks) {
-                Long assigneeId = task.getAssignee() != null ? task.getAssignee().getId() : null;
+                Long assigneeId = task.getAssigneeId();
                 if (assigneeId == null)
                     continue;
 
