@@ -11,8 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -20,352 +18,247 @@ import java.util.stream.Collectors;
 public class KpiGraphQLService {
 
     @Autowired
-    private ToDoItemRepository todoItemRepository;
+    private SprintRepository sprintRepository;
+
+    @Autowired
+    private ToDoItemRepository toDoItemRepository;
 
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private SprintRepository sprintRepository;
-
-    @Autowired
-    private InsightService insightService;
-
-    // Simplified method that only requires sprint IDs
     public KpiResult generateKpiResult(Long startSprintId, Long endSprintId) {
-        // Get sprint range
+        // Get start sprint (required)
         Sprint startSprint = sprintRepository.findById(startSprintId)
                 .orElseThrow(() -> new IllegalArgumentException("Start sprint not found"));
 
-        Sprint endSprint = endSprintId != null
-                ? sprintRepository.findById(endSprintId)
-                        .orElseThrow(() -> new IllegalArgumentException("End sprint not found"))
-                : startSprint;
+        // Get end sprint (optional)
+        Sprint endSprint = null;
+        if (endSprintId != null) {
+            endSprint = sprintRepository.findById(endSprintId)
+                    .orElseThrow(() -> new IllegalArgumentException("End sprint not found"));
+        }
 
-        // Calculate date range based on sprints
-        OffsetDateTime startDate = startSprint.getStartDate();
-        OffsetDateTime endDate = endSprint.getEndDate() != null
-                ? endSprint.getEndDate()
-                : OffsetDateTime.now();
+        // Get all sprints in the range (including start and end)
+        List<Sprint> sprintsInRange = getSprintsInRange(startSprint, endSprint);
 
-        // Get all sprints in range
-        List<Sprint> sprintsInRange = sprintRepository.findAll().stream()
-                .filter(sprint -> {
-                    Long sprintId = sprint.getId();
-                    return sprintId >= startSprintId && (endSprintId == null || sprintId <= endSprintId);
-                })
-                .collect(Collectors.toList());
+        // Collect all ToDoItems for these sprints
+        List<ToDoItem> allTasks = new ArrayList<>();
+        for (Sprint sprint : sprintsInRange) {
+            List<ToDoItem> tasksForSprint = toDoItemRepository.findBySprintId(sprint.getId());
+            allTasks.addAll(tasksForSprint);
+        }
 
-        // Get all users - always analyze all users
-        List<User> users = userRepository.findAll();
+        // Create the KPI result
+        KpiResult result = new KpiResult();
 
-        // Calculate basic KPI data - passing null for userId and teamId since we're analyzing all users
-        KpiData kpiData = calculateKpiData(users, startDate, endDate, null, null);
+        // 1. Set the core KPI data
+        result.setData(calculateKpiData(sprintsInRange, allTasks));
 
-        // Generate chart data
-        ChartData chartData = generateChartData(users, sprintsInRange);
+        // 2. Generate sprint data with member entries
+        result.setSprintData(generateSprintData(sprintsInRange));
 
-        // Combine everything into a result - without insights
-        return new KpiResult(kpiData, chartData);
+        // 3. Generate sprint hours for pie chart
+        result.setSprintHours(generateSprintHours(sprintsInRange));
+
+        // 4. Generate sprint tasks for pie chart
+        result.setSprintTasks(generateSprintTasks(sprintsInRange));
+
+        // 5. Generate sprint references for task information
+        result.setSprintsForTasks(generateSprintsForTasks(sprintsInRange));
+
+        return result;
     }
 
-    private KpiData calculateKpiData(List<User> users, OffsetDateTime startDate, OffsetDateTime endDate,
-            Long userId, Long teamId) {
-        // Create new KPI data object
+    private List<Sprint> getSprintsInRange(Sprint startSprint, Sprint endSprint) {
+        if (endSprint == null) {
+            // If no end sprint is provided, just return the start sprint
+            return Collections.singletonList(startSprint);
+        }
+
+        // Ensure startSprint.id <= endSprint.id
+        if (startSprint.getId() > endSprint.getId()) {
+            throw new IllegalArgumentException("Start sprint ID must be less than or equal to end sprint ID");
+        }
+
+        // Get all sprints with IDs between startSprint.id and endSprint.id (inclusive)
+        return sprintRepository.findByIdBetweenOrderById(startSprint.getId(), endSprint.getId());
+    }
+
+    private KpiData calculateKpiData(List<Sprint> sprints, List<ToDoItem> tasks) {
         KpiData kpiData = new KpiData();
 
-        // Get all tasks for these users in date range
-        List<ToDoItem> allTasks = new ArrayList<>();
-        for (User user : users) {
-            List<ToDoItem> userTasks = todoItemRepository.findByAssigneeId(user.getId()).stream()
-                    .filter(task -> {
-                        OffsetDateTime taskDate = task.getCreationTs();
-                        return taskDate != null &&
-                                (taskDate.isEqual(startDate) || taskDate.isAfter(startDate)) &&
-                                (taskDate.isEqual(endDate) || taskDate.isBefore(endDate));
-                    })
-                    .collect(Collectors.toList());
-            allTasks.addAll(userTasks);
-        }
+        // Basic statistics calculation
+        int totalTasks = tasks.size();
+        int completedTasks = (int) tasks.stream().filter(task -> "DONE".equals(task.getStatus())).count();
+        int inProgressTasks = (int) tasks.stream().filter(task -> "IN_PROGRESS".equals(task.getStatus())).count();
 
-        if (allTasks.isEmpty()) {
-            // Return empty data if no tasks found
-            kpiData.setTaskCompletionRate(0.0);
-            kpiData.setOnTimeCompletionRate(0.0);
-            kpiData.setOverdueTasksRate(0.0);
-            kpiData.setInProgressRate(0.0);
-            kpiData.setWorkedHours(0.0);
-            kpiData.setPlannedHours(0.0);
-            kpiData.setHoursUtilizationPercent(0.0);
-            kpiData.setTasksCompletedPerWeek(0.0);
-            kpiData.setAverageTasksPerEmployee(0.0);
-            kpiData.setStartDate(startDate);
-            kpiData.setEndDate(endDate);
-            kpiData.setUserId(userId);
-            kpiData.setTeamId(teamId);
-            return kpiData;
-        }
-
-        // Task completion rate
-        long completedTasks = allTasks.stream()
-                .filter(ToDoItem::isDone)
-                .count();
-        double taskCompletionRate = calculatePercentage(completedTasks, allTasks.size());
-        kpiData.setTaskCompletionRate(taskCompletionRate);
-
-        // Calculate task completion trend (weekly)
-        Map<String, List<ToDoItem>> tasksByWeek = allTasks.stream()
-                .collect(Collectors.groupingBy(task -> {
-                    // Format as "YYYY-WW" (year and week number)
-                    return task.getCreationTs().format(DateTimeFormatter.ofPattern("YYYY-w"));
-                }));
-
-        List<Double> weeklyTrends = new ArrayList<>();
-        List<String> weekLabels = new ArrayList<>();
-
-        // Sort weeks chronologically and calculate completion rate for each
-        tasksByWeek.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .forEach(entry -> {
-                    long weeklyCompleted = entry.getValue().stream()
-                            .filter(ToDoItem::isDone)
-                            .count();
-
-                    double weeklyRate = calculatePercentage(weeklyCompleted, entry.getValue().size());
-                    weeklyTrends.add(weeklyRate);
-
-                    weekLabels.add(entry.getKey());
-                });
-
-        kpiData.setTaskCompletionTrend(weeklyTrends);
-        kpiData.setTrendLabels(weekLabels);
-
-        // Time completion rates
-        long onTimeCompletions = 0;
-        long overdueTasks = 0;
-        long inProgressTasks = allTasks.stream()
-                .filter(task -> !task.isDone() && "IN_PROGRESS".equals(task.getStatus()))
-                .count();
-
-        for (ToDoItem task : allTasks) {
-            if (task.isDone() && task.getDueDate() != null && task.getCompletedAt() != null) {
-                if (task.getCompletedAt().isBefore(task.getDueDate()) ||
-                        task.getCompletedAt().isEqual(task.getDueDate())) {
-                    onTimeCompletions++;
-                } else {
-                    overdueTasks++;
-                }
-            }
-        }
-
-        // Only calculate rates if there are completed tasks
-        if (completedTasks > 0) {
-            kpiData.setOnTimeCompletionRate(calculatePercentage(onTimeCompletions, completedTasks));
-            kpiData.setOverdueTasksRate(calculatePercentage(overdueTasks, completedTasks));
-        } else {
-            kpiData.setOnTimeCompletionRate(0.0);
-            kpiData.setOverdueTasksRate(0.0);
-        }
-
-        // In-progress rate from total tasks
-        kpiData.setInProgressRate(calculatePercentage(inProgressTasks, allTasks.size()));
-
-        // Hours calculations
-        double totalEstimatedHours = allTasks.stream()
+        double totalEstimatedHours = tasks.stream()
                 .filter(task -> task.getEstimatedHours() != null)
                 .mapToDouble(ToDoItem::getEstimatedHours)
                 .sum();
 
-        double totalActualHours = allTasks.stream()
+        double totalActualHours = tasks.stream()
                 .filter(task -> task.getActualHours() != null)
                 .mapToDouble(ToDoItem::getActualHours)
                 .sum();
 
-        kpiData.setPlannedHours(totalEstimatedHours);
+        // Calculate rates
+        double taskCompletionRate = totalTasks > 0 ? (double) completedTasks / totalTasks * 100 : 0;
+        double inProgressRate = totalTasks > 0 ? (double) inProgressTasks / totalTasks * 100 : 0;
+        double hoursUtilizationPercent = totalEstimatedHours > 0 ? totalActualHours / totalEstimatedHours * 100 : 0;
+
+        // Get dates
+        OffsetDateTime startDate = sprints.get(0).getStartDate();
+        OffsetDateTime endDate = sprints.get(sprints.size() - 1).getEndDate();
+
+        // Set the calculated data
+        kpiData.setTaskCompletionRate(taskCompletionRate);
+        kpiData.setInProgressRate(inProgressRate);
         kpiData.setWorkedHours(totalActualHours);
-
-        // Calculate hours utilization percentage
-        if (totalEstimatedHours > 0) {
-            kpiData.setHoursUtilizationPercent((totalActualHours / totalEstimatedHours) * 100);
-        } else {
-            kpiData.setHoursUtilizationPercent(0.0);
-        }
-
-        // Calculate tasks completed per week
-        long weeks = 1 + ChronoUnit.WEEKS.between(startDate, endDate);
-        if (weeks < 1)
-            weeks = 1;
-
-        kpiData.setTasksCompletedPerWeek((double) completedTasks / weeks);
-
-        // Calculate average tasks per employee
-        if (users.size() > 0) {
-            kpiData.setAverageTasksPerEmployee((double) allTasks.size() / users.size());
-        } else {
-            kpiData.setAverageTasksPerEmployee(0.0);
-        }
-
-        // Resource utilization (simulated - would need real OCI metrics)
-        kpiData.setOciResourcesUtilization(85.0); // Sample value
-
-        // Set remaining metadata
+        kpiData.setPlannedHours(totalEstimatedHours);
+        kpiData.setHoursUtilizationPercent(hoursUtilizationPercent);
         kpiData.setStartDate(startDate);
         kpiData.setEndDate(endDate);
-        kpiData.setUserId(userId);
-        kpiData.setTeamId(teamId);
+
+        // Set team and user IDs (if available from context)
+        // For demo purposes, we'll set null or get from the first sprint if available
+        if (!sprints.isEmpty() && sprints.get(0).getTeam() != null) {
+            kpiData.setTeamId(sprints.get(0).getTeam().getId());
+        }
 
         return kpiData;
     }
 
-    private ChartData generateChartData(List<User> users, List<Sprint> sprints) {
-        ChartData chartData = new ChartData();
+    private List<SprintData> generateSprintData(List<Sprint> sprints) {
+        List<SprintData> result = new ArrayList<>();
 
-        // Sort sprints by ID
-        sprints.sort(Comparator.comparing(Sprint::getId));
+        for (Sprint sprint : sprints) {
+            SprintData sprintData = new SprintData();
+            sprintData.setId(sprint.getId().intValue());
+            sprintData.setName(sprint.getName());
 
-        // Initialize data structures for charts
-        List<DeveloperMetric> hoursByDeveloper = new ArrayList<>();
-        List<DeveloperMetric> tasksByDeveloper = new ArrayList<>();
-        List<SprintMetric> hoursBySprint = new ArrayList<>();
-        List<SprintMetric> tasksBySprint = new ArrayList<>();
-        List<SprintTaskInfo> taskInformation = new ArrayList<>();
+            // Get tasks for this sprint
+            List<ToDoItem> sprintTasks = toDoItemRepository.findBySprintId(sprint.getId());
 
-        // Sprint names for reference in developer metrics
-        List<String> sprintNames = sprints.stream()
-                .map(Sprint::getName)
-                .collect(Collectors.toList());
+            // Group tasks by assignee and calculate hours and completed tasks
+            Map<Long, MemberStats> memberStatsMap = new HashMap<>();
 
-        // Calculate metrics for each developer
-        for (User user : users) {
-            Long userId = user.getId();
-            String userName = user.getFullName();
+            for (ToDoItem task : sprintTasks) {
+                Long assigneeId = task.getAssignee() != null ? task.getAssignee().getId() : null;
+                if (assigneeId == null)
+                    continue;
 
-            // Initialize developer metrics
-            DeveloperMetric hoursMetric = new DeveloperMetric();
-            hoursMetric.setDeveloperId(userId);
-            hoursMetric.setDeveloperName(userName);
-            hoursMetric.setSprints(sprintNames);
-            hoursMetric.setValues(new ArrayList<>());
+                MemberStats stats = memberStatsMap.computeIfAbsent(assigneeId, k -> new MemberStats());
 
-            DeveloperMetric tasksMetric = new DeveloperMetric();
-            tasksMetric.setDeveloperId(userId);
-            tasksMetric.setDeveloperName(userName);
-            tasksMetric.setSprints(sprintNames);
-            tasksMetric.setValues(new ArrayList<>());
+                // Add hours if task has actual hours
+                if (task.getActualHours() != null) {
+                    stats.hours += task.getActualHours();
+                }
 
-            // For each sprint, calculate hours and tasks for this developer
-            for (Sprint sprint : sprints) {
-                Long sprintId = sprint.getId();
-
-                // Get tasks for this user in this sprint
-                List<ToDoItem> userSprintTasks = todoItemRepository.findByAssigneeIdAndSprintId(userId, sprintId);
-
-                // Calculate total hours for user in sprint
-                double sprintHours = userSprintTasks.stream()
-                        .filter(task -> task.getActualHours() != null)
-                        .mapToDouble(ToDoItem::getActualHours)
-                        .sum();
-
-                // Count completed tasks
-                long completedTasks = userSprintTasks.stream()
-                        .filter(ToDoItem::isDone)
-                        .count();
-
-                // Add values to metrics
-                hoursMetric.getValues().add(sprintHours);
-                tasksMetric.getValues().add((double) completedTasks);
+                // Increment completed tasks if task is done
+                if ("DONE".equals(task.getStatus())) {
+                    stats.tasksCompleted++;
+                }
             }
 
-            // Add metrics to results
-            hoursByDeveloper.add(hoursMetric);
-            tasksByDeveloper.add(tasksMetric);
+            // Create member entries
+            List<MemberEntry> entries = new ArrayList<>();
+            int totalHours = 0;
+            int totalCompletedTasks = 0;
+
+            for (Map.Entry<Long, MemberStats> entry : memberStatsMap.entrySet()) {
+                Long userId = entry.getKey();
+                MemberStats stats = entry.getValue();
+
+                // Get user name
+                String memberName = "Unknown";
+                Optional<User> userOpt = userRepository.findById(userId);
+                if (userOpt.isPresent()) {
+                    memberName = userOpt.get().getFullName();
+                }
+
+                MemberEntry memberEntry = new MemberEntry();
+                memberEntry.setMember(memberName);
+                memberEntry.setHours(stats.hours.intValue());
+                memberEntry.setTasksCompleted(stats.tasksCompleted);
+
+                entries.add(memberEntry);
+
+                totalHours += stats.hours.intValue();
+                totalCompletedTasks += stats.tasksCompleted;
+            }
+
+            sprintData.setEntries(entries);
+            sprintData.setTotalHours(totalHours);
+            sprintData.setTotalTasks(totalCompletedTasks);
+
+            result.add(sprintData);
         }
 
-        // Calculate metrics by sprint
+        return result;
+    }
+
+    private List<SprintDataForPie> generateSprintHours(List<Sprint> sprints) {
+        List<SprintDataForPie> result = new ArrayList<>();
+
         for (Sprint sprint : sprints) {
-            Long sprintId = sprint.getId();
-            String sprintName = sprint.getName();
+            SprintDataForPie pieData = new SprintDataForPie();
+            pieData.setId(sprint.getId().intValue());
+            pieData.setName(sprint.getName());
 
-            // Get all tasks in this sprint
-            List<ToDoItem> sprintTasks = todoItemRepository.findBySprintId(sprintId);
+            // Get tasks for this sprint
+            List<ToDoItem> sprintTasks = toDoItemRepository.findBySprintId(sprint.getId());
 
-            // Calculate total hours for sprint
-            double sprintHours = sprintTasks.stream()
+            // Calculate total hours
+            double totalHours = sprintTasks.stream()
                     .filter(task -> task.getActualHours() != null)
                     .mapToDouble(ToDoItem::getActualHours)
                     .sum();
 
+            pieData.setCount((int) totalHours);
+            result.add(pieData);
+        }
+
+        return result;
+    }
+
+    private List<SprintDataForPie> generateSprintTasks(List<Sprint> sprints) {
+        List<SprintDataForPie> result = new ArrayList<>();
+
+        for (Sprint sprint : sprints) {
+            SprintDataForPie pieData = new SprintDataForPie();
+            pieData.setId(sprint.getId().intValue());
+            pieData.setName(sprint.getName());
+
+            // Get tasks for this sprint
+            List<ToDoItem> sprintTasks = toDoItemRepository.findBySprintId(sprint.getId());
+
             // Count completed tasks
-            long completedTasks = sprintTasks.stream()
-                    .filter(ToDoItem::isDone)
+            int completedTasks = (int) sprintTasks.stream()
+                    .filter(task -> "DONE".equals(task.getStatus()))
                     .count();
 
-            // Add metrics for hours
-            SprintMetric hoursMetric = new SprintMetric();
-            hoursMetric.setSprintId(sprintId);
-            hoursMetric.setSprintName(sprintName);
-            hoursMetric.setValue(sprintHours);
-            hoursBySprint.add(hoursMetric);
-
-            // Add metrics for tasks
-            SprintMetric tasksMetric = new SprintMetric();
-            tasksMetric.setSprintId(sprintId);
-            tasksMetric.setSprintName(sprintName);
-            tasksMetric.setValue((double) completedTasks);
-            tasksBySprint.add(tasksMetric);
-
-            // Create task information
-            SprintTaskInfo taskInfo = new SprintTaskInfo();
-            taskInfo.setSprintId(sprintId);
-            taskInfo.setSprintName(sprintName);
-
-            // Map tasks to task info objects
-            List<TaskInfo> taskInfoList = sprintTasks.stream()
-                    .map(this::mapToTaskInfo)
-                    .collect(Collectors.toList());
-
-            taskInfo.setTasks(taskInfoList);
-            taskInformation.add(taskInfo);
+            pieData.setCount(completedTasks);
+            result.add(pieData);
         }
 
-        // Set all chart data
-        chartData.setHoursByDeveloper(hoursByDeveloper);
-        chartData.setTasksByDeveloper(tasksByDeveloper);
-        chartData.setHoursBySprint(hoursBySprint);
-        chartData.setTasksBySprint(tasksBySprint);
-        chartData.setTaskInformation(taskInformation);
-
-        return chartData;
+        return result;
     }
 
-    private TaskInfo mapToTaskInfo(ToDoItem task) {
-        TaskInfo info = new TaskInfo();
-        info.setId((long) task.getID());
-        info.setTitle(task.getTitle());
-        info.setDescription(task.getDescription());
-        info.setStatus(task.getStatus());
-        info.setPriority(task.getPriority());
-        info.setEstimatedHours(task.getEstimatedHours());
-        info.setActualHours(task.getActualHours());
-        info.setAssigneeId(task.getAssigneeId());
-        info.setDueDate(task.getDueDate());
-        info.setCompletedAt(task.getCompletedAt());
-
-        // Get assignee name if available
-        if (task.getAssigneeId() != null) {
-            User assignee = userRepository.findById(task.getAssigneeId()).orElse(null);
-            if (assignee != null) {
-                info.setAssigneeName(assignee.getFullName());
-            }
-        }
-
-        return info;
+    private List<SprintForTask> generateSprintsForTasks(List<Sprint> sprints) {
+        return sprints.stream()
+                .map(sprint -> {
+                    SprintForTask sprintRef = new SprintForTask();
+                    sprintRef.setSprintId(sprint.getId().intValue());
+                    sprintRef.setSprintName(sprint.getName());
+                    return sprintRef;
+                })
+                .collect(Collectors.toList());
     }
 
-    private double calculatePercentage(long numerator, long denominator) {
-        if (denominator == 0) {
-            return 0;
-        }
-        return ((double) numerator / denominator) * 100;
+    // Helper class to track member statistics
+    private static class MemberStats {
+        Double hours = 0.0;
+        Integer tasksCompleted = 0;
     }
 }
