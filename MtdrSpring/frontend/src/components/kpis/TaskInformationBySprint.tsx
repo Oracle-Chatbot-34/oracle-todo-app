@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import KPITitle from './KPITtitle';
 import api from '@/services/api';
 import { config } from '@/lib/config';
+import userService from '@/services/userService';
 
 type Task = {
   id: number;
@@ -43,7 +44,7 @@ type TaskInformationBySprintProps = {
   example: string;
 };
 
-export default function RealHours({
+export default function TaskInformationBySprint({
   sprints,
   definition,
   example,
@@ -52,6 +53,29 @@ export default function RealHours({
     []
   );
   const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<Record<number, string>>({});
+
+  // Fetch all users first to have their names available
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const allUsers = await userService.getAllUsers();
+        const userMap: Record<number, string> = {};
+
+        allUsers.forEach((user) => {
+          if (user.id) {
+            userMap[user.id] = user.fullName;
+          }
+        });
+
+        setUsers(userMap);
+      } catch (err) {
+        console.error('Error fetching users:', err);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   // Fetch real tasks for sprints
   useEffect(() => {
@@ -75,7 +99,11 @@ export default function RealHours({
               estimatedHours: task.estimatedHours || 0,
               actualHours: task.actualHours || 0,
               assigneeId: task.assigneeId || 0,
-              assigneeName: task.assigneeName || `User ${task.assigneeId}`,
+              // Use the assigneeName from the task if available, otherwise look it up in our users map
+              assigneeName:
+                task.assigneeName ||
+                users[task.assigneeId || 0] ||
+                `User ${task.assigneeId}`,
               status: task.status || 'Unknown',
               priority: task.priority || 'Medium',
             }));
@@ -108,7 +136,12 @@ export default function RealHours({
     };
 
     fetchTasksForSprints();
-  }, [sprints]);
+  }, [sprints, users]); // Add users to the dependency array
+
+  // Helper function to get user name
+  const getUserName = (assigneeId: number) => {
+    return users[assigneeId] || `User ${assigneeId}`;
+  };
 
   return (
     <div className="w-full h-full flex flex-col p-5 bg-white rounded-xl shadow-lg">
@@ -153,7 +186,7 @@ export default function RealHours({
                           <div className="flex flex-row gap-1">
                             <p>Assigned to:</p>
                             <p className="font-semibold">
-                              {task.assigneeName || `User ${task.assigneeId}`}
+                              {getUserName(task.assigneeId)}
                             </p>
                           </div>
                         </div>
