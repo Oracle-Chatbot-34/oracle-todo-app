@@ -2,6 +2,8 @@ package com.springboot.MyTodoList.repository;
 
 import com.springboot.MyTodoList.model.ToDoItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import java.util.List;
@@ -55,5 +57,30 @@ public interface ToDoItemRepository extends JpaRepository<ToDoItem, Integer> {
     /**
      * Find tasks by assignee ID and creation date range
      */
-    List<ToDoItem> findByAssigneeIdAndCreationTsBetween(Long assigneeId, OffsetDateTime startDate, OffsetDateTime endDate);
+    List<ToDoItem> findByAssigneeIdAndCreationTsBetween(Long assigneeId, OffsetDateTime startDate,
+            OffsetDateTime endDate);
+
+    /**
+     * Count tasks by status
+     */
+    @Query("SELECT COUNT(t) FROM ToDoItem t WHERE t.status = :status")
+    long countByStatus(@Param("status") String status);
+
+    /**
+     * Count tasks by assignee and status
+     */
+    @Query("SELECT COUNT(t) FROM ToDoItem t WHERE t.assigneeId = :assigneeId AND t.status = :status")
+    long countByAssigneeIdAndStatus(@Param("assigneeId") Long assigneeId, @Param("status") String status);
+
+    /**
+     * Count tasks by team and status
+     */
+    @Query("SELECT COUNT(t) FROM ToDoItem t WHERE t.teamId = :teamId AND t.status = :status")
+    long countByTeamIdAndStatus(@Param("teamId") Long teamId, @Param("status") String status);
+
+    /**
+     * Get average completion time in days
+     */
+    @Query("SELECT AVG(FUNCTION('EXTRACT', DAY, t.completedAt - t.creationTs)) FROM ToDoItem t WHERE t.completedAt IS NOT NULL")
+    Double getAverageCompletionTimeInDays();
 }
