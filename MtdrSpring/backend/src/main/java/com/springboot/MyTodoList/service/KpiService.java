@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.DayOfWeek;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,17 +30,19 @@ public class KpiService {
      * Calculate KPIs for a user within a date range
      */
     public KpiData calculateUserKpis(Long userId, OffsetDateTime startDate, OffsetDateTime endDate) {
-        // Fetch user's tasks
-        List<ToDoItem> userTasks = todoItemRepository.findByAssigneeId(userId);
-
-        // Filter tasks by date range
-        List<ToDoItem> tasksInRange = filterTasksByDateRange(userTasks, startDate, endDate);
+        // Use defaults if dates not provided
+        OffsetDateTime effectiveStartDate = startDate != null ? startDate : OffsetDateTime.now().minusDays(30);
+        OffsetDateTime effectiveEndDate = endDate != null ? endDate : OffsetDateTime.now();
+        
+        // Fetch user's tasks directly with date range to reduce memory usage
+        List<ToDoItem> tasksInRange = todoItemRepository.findByAssigneeIdAndCreationTsBetween(
+                userId, effectiveStartDate, effectiveEndDate);
 
         // Calculate KPIs
         KpiData kpiData = calculateKpis(tasksInRange);
         kpiData.setUserId(userId);
-        kpiData.setStartDate(startDate);
-        kpiData.setEndDate(endDate);
+        kpiData.setStartDate(effectiveStartDate);
+        kpiData.setEndDate(effectiveEndDate);
 
         return kpiData;
     }
@@ -48,42 +51,29 @@ public class KpiService {
      * Calculate KPIs for a team within a date range
      */
     public KpiData calculateTeamKpis(Long teamId, OffsetDateTime startDate, OffsetDateTime endDate) {
-        // Fetch team's tasks
-        List<ToDoItem> teamTasks = todoItemRepository.findByTeamId(teamId);
+        // Use defaults if dates not provided
+        OffsetDateTime effectiveStartDate = startDate != null ? startDate : OffsetDateTime.now().minusDays(30);
+        OffsetDateTime effectiveEndDate = endDate != null ? endDate : OffsetDateTime.now();
+        
+        // Fetch team's tasks directly with date range
+        List<ToDoItem> tasksInRange = todoItemRepository.findByTeamIdAndCreationTsBetween(
+                teamId, effectiveStartDate, effectiveEndDate);
 
-        // Filter tasks by date range
-        List<ToDoItem> tasksInRange = filterTasksByDateRange(teamTasks, startDate, endDate);
-
-        // Get team members count
+        // Get team members count for average calculations
         long teamMembersCount = userRepository.findByTeamId(teamId).size();
 
         // Calculate KPIs
         KpiData kpiData = calculateKpis(tasksInRange);
         kpiData.setTeamId(teamId);
-        kpiData.setStartDate(startDate);
-        kpiData.setEndDate(endDate);
+        kpiData.setStartDate(effectiveStartDate);
+        kpiData.setEndDate(effectiveEndDate);
 
-        // Calculate average tasks per employee
+        // Calculate average tasks per employee if team has members
         if (teamMembersCount > 0) {
             kpiData.setAverageTasksPerEmployee((double) tasksInRange.size() / teamMembersCount);
         }
 
         return kpiData;
-    }
-
-    /**
-     * Filter tasks by date range
-     */
-    private List<ToDoItem> filterTasksByDateRange(List<ToDoItem> tasks, OffsetDateTime startDate,
-            OffsetDateTime endDate) {
-        return tasks.stream()
-                .filter(task -> {
-                    OffsetDateTime taskDate = task.getCreationTs();
-                    return taskDate != null &&
-                            (taskDate.isEqual(startDate) || taskDate.isAfter(startDate)) &&
-                            (taskDate.isEqual(endDate) || taskDate.isBefore(endDate));
-                })
-                .collect(Collectors.toList());
     }
 
     /**
@@ -96,6 +86,9 @@ public class KpiService {
             return kpiData;
         }
 
+        // Current date for calculations
+        OffsetDateTime now = OffsetDateTime.now();
+        
         // Task Completion Rate
         long completedTasks = tasks.stream()
                 .filter(ToDoItem::isDone)
@@ -110,6 +103,8 @@ public class KpiService {
 
         List<Double> weeklyTrends = new ArrayList<>();
         List<String> weekLabels = new ArrayList<>();
+        
+        DateTimeFormatter weekFormatter = DateTimeFormatter.ofPattern("MMM W yyyy");
 
         tasksByWeek.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -120,10 +115,7 @@ public class KpiService {
 
                     double weeklyRate = calculatePercentage(weeklyCompleted, entry.getValue().size());
                     weeklyTrends.add(weeklyRate);
-
-                    // Format week label
-                    String weekLabel = entry.getKey().format(DateTimeFormatter.ofPattern("MMM W yyyy"));
-                    weekLabels.add(weekLabel);
+                    weekLabels.add(entry.getKey().format(weekFormatter));
                 });
 
         kpiData.setTaskCompletionTrend(weeklyTrends);
@@ -156,7 +148,7 @@ public class KpiService {
         // In-progress rate from total tasks
         kpiData.setInProgressRate(calculatePercentage(inProgressTasks, tasks.size()));
 
-        // Real Hours Worked
+        // Hours metrics
         double totalEstimatedHours = tasks.stream()
                 .filter(task -> task.getEstimatedHours() != null)
                 .mapToDouble(ToDoItem::getEstimatedHours)
@@ -175,18 +167,23 @@ public class KpiService {
             kpiData.setHoursUtilizationPercent((totalActualHours / totalEstimatedHours) * 100);
         }
 
-        // OCI Resource Utilization (mock data - would need real OCI metrics)
-        kpiData.setOciResourcesUtilization(85.0); // Sample value
-
         // Tasks completed per week average
         if (!weeklyTrends.isEmpty()) {
-            double avgWeeklyCompletion = weeklyTrends.stream()
-                    .mapToDouble(Double::doubleValue)
-                    .average()
-                    .orElse(0);
-
-            kpiData.setTasksCompletedPerWeek(avgWeeklyCompletion);
+            // Calculate the number of weeks in the period
+            long daysInPeriod = ChronoUnit.DAYS.between(
+                    tasks.stream().map(ToDoItem::getCreationTs).min(OffsetDateTime::compareTo).orElse(now),
+                    tasks.stream().map(ToDoItem::getCreationTs).max(OffsetDateTime::compareTo).orElse(now)
+            );
+            
+            double weeksInPeriod = Math.max(1, daysInPeriod / 7.0);
+            
+            // Calculate tasks completed per week
+            double tasksPerWeek = completedTasks / weeksInPeriod;
+            kpiData.setTasksCompletedPerWeek(tasksPerWeek);
         }
+
+        // Set resource utilization (placeholder value)
+        kpiData.setOciResourcesUtilization(85.0);
 
         return kpiData;
     }
