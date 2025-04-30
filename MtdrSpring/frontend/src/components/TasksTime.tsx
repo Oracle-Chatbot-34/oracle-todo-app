@@ -2,31 +2,40 @@ import React from "react";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 
-// Define the props type
+// New type
+type LineChartType = {
+  month: string;
+  avg: number;
+};
+
+// Props now expects an array of LineChartType
 interface LineChartProps {
-    data: number[];
-    categories: string[]; // Time span (e.g., years)
+  data: LineChartType[];
 }
 
-const TasksTime: React.FC<LineChartProps> = ({ data, categories }) => {
+const TasksTime: React.FC<LineChartProps> = ({ data }) => {
+  // Extract months and averages
+  const categories = data.map(item => item.month);
+  const seriesData = data.map(item => item.avg);
+
   const options: ApexOptions = {
     chart: {
       id: "line-chart",
     },
     title: {
-        text: "Tasks over time (months)",
-        align: "center",
-        margin: 10,
+      text: "Tasks over time (months)",
+      align: "center",
+      margin: 10,
     },
     xaxis: {
-      categories: categories, // Time span (years)
-      labels: { rotate: -45 }, // Tilt labels for readability
+      categories: categories, // extracted months
+      labels: { rotate: -45 },
     },
     yaxis: {
       title: { text: "Tasks" },
     },
     stroke: {
-      curve: "smooth", // Smooth line
+      curve: "smooth",
       width: 3,
     },
     markers: {
@@ -39,8 +48,14 @@ const TasksTime: React.FC<LineChartProps> = ({ data, categories }) => {
   };
 
   return (
-    <div>
-      <Chart options={options} series={[{ name: "Data", data }]} type="line" width="500" />
+    <div className="p-4 w-full h-full">
+      <Chart
+        options={options}
+        series={[{ name: "Average Tasks", data: seriesData }]}
+        type="line"
+        width="100%"
+        height="100%"
+      />
     </div>
   );
 };

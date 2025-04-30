@@ -148,7 +148,7 @@ export default function KPI() {
             <div className="flex flex-col gap-6 w-full p-2">
               {loading ? (
                 <div className="h-60 flex items-center justify-center">
-                  <LoadingSpinner size={8} />
+                  <LoadingSpinner/>
                 </div>
               ) : kpiData ? (
                 <TaskCompletionRate
@@ -227,7 +227,7 @@ export default function KPI() {
                 KPIObject={dictionaryKPI[3]}
               />
               {loading ? (
-                <LoadingSpinner size={8} />
+                <LoadingSpinner />
               ) : kpiData ? (
                 <TimeCompletionRate
                   data={[
@@ -291,7 +291,7 @@ export default function KPI() {
                 KPIObject={dictionaryKPI[4]}
               />
               {loading ? (
-                <LoadingSpinner size={8} />
+                <LoadingSpinner />
               ) : kpiData ? (
                 <RealHours
                   selectedMemberId={selectedMember?.id || 0}
@@ -312,7 +312,7 @@ export default function KPI() {
                 KPIObject={dictionaryKPI[2]}
               />
               {loading ? (
-                <LoadingSpinner size={8} />
+                <LoadingSpinner />
               ) : kpiData ? (
                 <AvgHours selectedMemberId={selectedMember?.id || 0} average={kpiData.averageTasksPerEmployee || 0} />
               ) : (

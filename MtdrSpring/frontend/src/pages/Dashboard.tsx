@@ -11,6 +11,11 @@ import userService from '../services/userService';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAuth } from '@/hooks/useAuth';
 
+type LineChartType = {
+  month: string;
+  avg: number;
+};
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isAuthenticated, username } = useAuth();
@@ -19,10 +24,8 @@ export default function Dashboard() {
   const [error, setError] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [dataPie, setDataPie] = useState<number[]>([0, 0, 0]);
-  const [dataLine, setDataLine] = useState({
-    data: [] as number[],
-    categories: [] as string[],
-  });
+  const [dataLine, setDataLine] = useState<LineChartType[]>([]);
+
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // Navigate to the tasks page
@@ -79,7 +82,7 @@ export default function Dashboard() {
 
         activeTasks.forEach((task) => {
           if (!task.dueDate) {
-            onTime++; // If no due date, consider it on time
+            onTime++; // No due date -> consider on time
           } else {
             const dueDate = new Date(task.dueDate);
             const daysUntilDue = Math.floor(
@@ -87,26 +90,35 @@ export default function Dashboard() {
             );
 
             if (daysUntilDue < 0) {
-              beyondDeadline++; // Already past due
+              beyondDeadline++; // Past due
             } else if (daysUntilDue <= 2) {
-              behindSchedule++; // Due in 2 days or less
+              behindSchedule++; // Due soon
             } else {
-              onTime++; // Due in more than 2 days
+              onTime++; // Plenty of time
             }
           }
         });
-
         setDataPie([onTime, behindSchedule, beyondDeadline]);
 
         // Fetch KPI data for trend line
-        const kpiData = await kpiService.getUserKpis(currentUserId);
+        // const kpiData = await kpiService.getTeamKpis(currentUserId);
+        const kpiData = [
+          {
+            month: 'January',
+            avg: 20,
+          },
 
-        if (kpiData && kpiData.taskCompletionTrend && kpiData.trendLabels) {
-          setDataLine({
-            data: kpiData.taskCompletionTrend,
-            categories: kpiData.trendLabels,
-          });
-        }
+          {
+            month: 'February',
+            avg: 10,
+          },
+
+          {
+            month: 'March',
+            avg: 15,
+          },
+        ];
+        setDataLine(kpiData);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
@@ -124,99 +136,83 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-background h-screen w-full flex flex-row items-center justify-center gap-[40px]">
-      <div className="bg-whitie w-[650px] h-[800px] rounded-lg shadow-xl">
-        <br />
-        <div className="flex flex-row items-center gap-[20px]">
-          <br />
-          <div className="w-[40px] h-[40px] rounded-lg flex items-center justify-center">
-            <ChartArea className="w-[30px] h-[30px]" />
-          </div>
-          <p className="text-[24px] font-semibold">Analytics</p>
+    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip gap-5">
+      <div className="flex flex-col justify-center p-4 lg:p-6 gap-y-4 bg-whitie w-1/2 h-full rounded-lg shadow-xl ">
+        <div className="flex flex-row items-center gap-4">
+          <ChartArea />
+          <p className="text-2xl">Analytics</p>
         </div>
-
-        <div className="flex flex-col items-center gap-[20px]">
-          {/* Chart goes here */}
-          <div className="shadow-xl rounded-lg">
-            {loading ? (
-              <div className="h-80 flex items-center justify-center">
-                <LoadingSpinner size={8} />
-              </div>
-            ) : (
+        <div className="flex flex-col h-full w-full gap-4 ">
+          <div className="w-full h-1/2 bg-whitiish2 rounded-xl shadow-lg flex items-center justify-center">
+            {!loading ? (
               <PieChart data={dataPie} />
+            ) : (
+              <div className="h-40 w-40 ">
+                <LoadingSpinner />
+              </div>
             )}
           </div>
-          {/* Chart goes here */}
-          <div className="shadow-xl rounded-lg">
-            {loading ? (
-              <div className="h-80 flex items-center justify-center">
-                <LoadingSpinner size={8} />
-              </div>
+
+          <div className="w-full h-1/2 bg-whitiish2 rounded-xl shadow-lg flex items-center justify-center">
+            {!loading ? (
+              <TasksTime data={dataLine} />
             ) : (
-              <TasksTime
-                data={dataLine.data}
-                categories={dataLine.categories}
-              />
+              <div className="h-40 w-40">
+                <LoadingSpinner />
+              </div>
             )}
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-center gap-[20px]">
-        <div className="bg-whitie w-[650px] h-[570px] rounded-lg shadow-xl">
-          <br />
-          <div className="flex flex-row items-center gap-[20px]">
-            <br />
-            <div className="w-[40px] h-[40px] rounded-lg flex items-center justify-center">
-              <CheckCheck className="w-[30px] h-[30px]" />
-            </div>
-            <p className="text-[24px] font-semibold">Latest tasks</p>
-          </div>
-          <div className="flex flex-col items-center gap-[30px]">
-            {/* Task list */}
-            <div>
-              {loading ? (
-                <div className="h-80 flex items-center justify-center">
-                  <LoadingSpinner size={8} />
-                </div>
-              ) : error ? (
-                <div className="text-red-500 text-center p-4">{error}</div>
-              ) : tasks.length === 0 ? (
-                <div className="text-center p-4">No tasks found</div>
+
+      <div className="flex flex-col justify-center p-4 lg:p-6 gap-y-4 bg-whitie w-1/2 h-full rounded-lg shadow-xl ">
+        <div className="flex flex-row items-center gap-4">
+          <CheckCheck />
+          <p className="text-2xl">Latest Tasks</p>
+        </div>
+
+        <div className="flex flex-col h-full w-full gap-4 ">
+          <div className="w-full bg-whitiish2 rounded-xl shadow-lg ">
+            <div className="flex flex-col p-5 gap-3 items-center justify-center">
+              {!loading ? (
+                <>
+                  {tasks.map((task) => (
+                    <TaskDashCard
+                      key={task.id}
+                      id={task.id}
+                      title={task.title}
+                      dueDate={
+                        task.dueDate
+                          ? new Date(task.dueDate).toLocaleString()
+                          : 'No due date'
+                      }
+                      assignedTo={getAssigneeName(task)}
+                    />
+                  ))}
+                  <Button
+                    className="h-13 w-54 text-2xl"
+                    size="lg"
+                    onClick={navigateToTasks}
+                  >
+                    Manage all tasks
+                  </Button>
+                </>
               ) : (
-                tasks.map((task) => (
-                  <TaskDashCard
-                    key={task.ID}
-                    id={task.ID}
-                    title={task.title}
-                    dueDate={
-                      task.dueDate
-                        ? new Date(task.dueDate).toLocaleDateString()
-                        : 'No due date'
-                    }
-                    assignedTo={getAssigneeName(task)}
-                  />
-                ))
+                <div className="w-40 h-40">
+                  <LoadingSpinner />
+                </div>
               )}
             </div>
-            <div className="bg-greyie rounded-lg text-black text-[20px] font-semibold shadow-xl">
-              <Button
-                className="h-[40px] w-54 text-xl"
-                size={'lg'}
-                onClick={navigateToTasks}
-              >
-                Manage all tasks
-              </Button>
-            </div>
           </div>
-        </div>
-        <div className="bg-whitie w-[650px] h-[205px] rounded-lg shadow-xl p-4">
-          {/* Active task */}
-          <div className="flex flex-col items-center justify-center h-full">
-            <h2 className="text-2xl font-bold mb-4">Welcome to DashMaster</h2>
-            <p className="text-lg text-center">
-              Your one-stop solution for task management and team productivity
-              tracking.
-            </p>
+
+          <div className="w-full h-full bg-whitiish2 rounded-xl shadow-lg flex items-center justify-center">
+            <div className="flex flex-col items-center justify-center h-full">
+              <h2 className="text-2xl font-bold mb-4">Welcome to DashMaster</h2>
+              <p className="text-lg text-center">
+                Your one-stop solution for task management and team productivity
+                tracking.
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -35,8 +35,8 @@ const PieChart: React.FC<PieChartProps> = ({ data }) => {
   };
 
   return (
-    <div className="chart-container">
-      <Chart options={options} series={data} type="donut" width="350" />
+    <div className="w-full h-full flex items-center justify-center">
+      <Chart options={options} series={data} type="donut" width="100%" height="100%" />
     </div>
   );
 };

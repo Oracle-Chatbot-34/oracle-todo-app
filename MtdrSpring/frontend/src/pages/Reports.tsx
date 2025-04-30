@@ -2,14 +2,15 @@ import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import StatusSelections from '../components/StatusSelections';
 import ScopeSelection from '../components/ScopeSelection';
-import { DateRange } from '@mui/x-date-pickers-pro';
-import { Dayjs } from 'dayjs';
 import DatePickerRange from '../components/DatePickerRange';
 import { Button } from '@/components/ui/button';
 import PdfDisplayer from '@/components/PdfDisplayer';
 import userService from '../services/userService';
 import teamService from '../services/teamService';
 import reportService from '../services/reportService';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 interface Member {
   id: number;
@@ -17,6 +18,15 @@ interface Member {
 }
 
 export default function Reports() {
+
+  const form = useForm({
+    resolver: zodResolver(z.object({
+      startDate: z.date(),
+      endDate: z.date(),
+    })),
+  });
+
+
   const [isIndividual, setIsIndividual] = useState(true);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -25,8 +35,6 @@ export default function Reports() {
 
   const [selectedTaskOptions, setselectedTaskOptions] = useState<string[]>([]);
   const [selectAllTasksType, setselectAllTasksType] = useState(false);
-
-  const [dateRange, setDateRange] = useState<DateRange<Dayjs>>([null, null]);
 
   const [, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -108,8 +116,8 @@ export default function Reports() {
       }
 
       // Prepare dates
-      const startDate = dateRange[0]?.toDate();
-      const endDate = dateRange[1]?.toDate();
+      const startDate = form.getValues()["startDate"]
+      const endDate = form.getValues()["endDate"]
 
       // Create report request
       const reportRequest = {
@@ -231,10 +239,7 @@ export default function Reports() {
               setselectAllTasksType={setselectAllTasksType}
             />
 
-            <DatePickerRange
-              dateRangeProp={dateRange}
-              setDateRangeProp={setDateRange}
-            />
+            <DatePickerRange form={form}/>
 
             <Button
               variant={'default'}
