@@ -141,7 +141,7 @@ export default function HoursByTeam({ teamId }: HoursByTeamProps) {
 
   return (
     <div className="w-full h-full flex flex-col items-center">
-      <div className="flex flex row w-full items-center justify-center gap-2">
+      <div className="flex flex-row w-full items-center justify-center gap-2">
         <p>Select a sprint:</p>
         <select
           value={beginningSprint?.id || ''}

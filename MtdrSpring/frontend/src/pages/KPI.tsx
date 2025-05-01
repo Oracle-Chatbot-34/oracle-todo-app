@@ -227,132 +227,136 @@ export default function KPI() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-5 w-3/8 h-full">
-            <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col justify-center items-center h-2/3">
-              <KPITitle
-                title={
-                  isIndividual
-                    ? `Average Tasks by ${selectedMember?.name}`
-                    : `Sprint Tasks by ${selectedTeam?.name}`
-                }
-                KPIObject={isIndividual ? dictionaryKPI[2] : dictionaryKPI[7]}
-              />
-              {loading ? (
-                <div className="w-30 h-30">
-                  <LoadingSpinner />
-                </div>
-              ) : kpiData ? (
-                isIndividual ? (
-                  <AvgHours selectedMemberId={selectedMember!.id} />
-                ) : (
-                  <CompletedTasksBySprint teamId={selectedTeam!.id} />
-                )
-              ) : (
-                <div className="h-40 flex items-center justify-center">
-                  <p>No data available</p>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-whitiish2 rounded-2xl shadow-xl px-6 py-8 gap-5 flex flex-row justify-around items-center h-1/3 ">
-              <div className="w-2/3">
-                <div className="w-full flex flex-col gap-4 items-center justify-center">
+          <div className="w-3/4 h-full flex flex-col gap-3">
+            <div className="w-full h-2/3 flex flex-row gap-3">
+              <div className="flex flex-col gap-5 w-1/2 h-full">
+                <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col justify-center items-center h-full">
                   <KPITitle
-                    title="OCI Resources Utilization"
-                    KPIObject={dictionaryKPI[5]}
+                    title={
+                      isIndividual
+                        ? `Average Tasks by ${selectedMember?.name}`
+                        : `Sprint Tasks by ${selectedTeam?.name}`
+                    }
+                    KPIObject={
+                      isIndividual ? dictionaryKPI[2] : dictionaryKPI[7]
+                    }
                   />
                   {loading ? (
-                    <div className="w-10 h-10">
+                    <div className="w-30 h-30">
                       <LoadingSpinner />
                     </div>
                   ) : kpiData ? (
-                    <LineComponent
-                      percentage={kpiData.ociResourcesUtilization || 0}
-                    />
+                    isIndividual ? (
+                      <AvgHours selectedMemberId={selectedMember!.id} />
+                    ) : (
+                      <CompletedTasksBySprint teamId={selectedTeam!.id} />
+                    )
                   ) : (
-                    <div className="h-10 flex items-center justify-center">
-                      <p>No data available</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="w-full flex flex-col gap-4 items-center justify-center">
-                  <KPITitle
-                    title="Tasks Completed per Week"
-                    KPIObject={dictionaryKPI[6]}
-                  />
-                  {loading ? (
-                    <div className="w-10 h-10">
-                      <LoadingSpinner />
-                    </div>
-                  ) : kpiData ? (
-                    <LineComponent
-                      percentage={kpiData.tasksCompletedPerWeek || 0}
-                    />
-                  ) : (
-                    <div className="h-10 flex items-center justify-center">
+                    <div className="h-40 flex items-center justify-center">
                       <p>No data available</p>
                     </div>
                   )}
                 </div>
               </div>
-              <div className="w-1/3">
-                <KPITitle
-                  title="Time Completion Rate Over Time %"
-                  KPIObject={dictionaryKPI[3]}
-                />
-                {loading ? (
-                  <div className="w-30 h-30">
-                    <LoadingSpinner />
-                  </div>
-                ) : kpiData ? (
-                  <TimeCompletionRate
-                    data={[
-                      kpiData.onTimeCompletionRate || 0,
-                      kpiData.overdueTasksRate || 0,
-                      kpiData.inProgressRate || 0,
-                    ]}
+
+              {/* Real worked hours */}
+              <div className="flex flex-col w-1/2 h-full gap-5">
+                <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col justify-center items-center h-full">
+                  <KPITitle
+                    title={
+                      isIndividual
+                        ? `Hours by ${selectedMember?.name}`
+                        : `Hours by team ${selectedTeam?.name}`
+                    }
+                    KPIObject={
+                      isIndividual ? dictionaryKPI[4] : dictionaryKPI[7]
+                    }
                   />
-                ) : (
-                  <div className="h-40 flex items-center justify-center">
-                    <p>No data available</p>
-                  </div>
-                )}
+                  {loading ? (
+                    <div className="w-30 h-30">
+                      <LoadingSpinner />
+                    </div>
+                  ) : kpiData ? (
+                    isIndividual ? (
+                      <RealHours selectedMemberId={selectedMember!.id} />
+                    ) : (
+                      <HoursByTeam teamId={selectedTeam!.id} />
+                    )
+                  ) : (
+                    <div className="h-40 flex items-center justify-center">
+                      <p>No data available</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+            <div className="w-full h-1/3">
+              <div className="w-full h-full flex flex-row gap-3">
+                <div className="bg-whitiish2 rounded-2xl shadow-xl px-6 py-8 gap-5 flex flex-col justify-around items-center w-1/2">
+                  <div className="w-full flex flex-col gap-4 items-center justify-center">
+                    <KPITitle
+                      title="OCI Resources Utilization"
+                      KPIObject={dictionaryKPI[5]}
+                    />
+                    {loading ? (
+                      <div className="w-10 h-10">
+                        <LoadingSpinner />
+                      </div>
+                    ) : kpiData ? (
+                      <LineComponent
+                        percentage={kpiData.ociResourcesUtilization || 0}
+                      />
+                    ) : (
+                      <div className="h-10 flex items-center justify-center">
+                        <p>No data available</p>
+                      </div>
+                    )}
+                  </div>
 
-          {/* Real worked hours */}
-          <div className="flex flex-col w-3/8 h-full gap-5">
-            <div className="bg-whitiish2 rounded-2xl shadow-xl p-2 gap-5 flex flex-col justify-center items-center h-2/3">
-              <KPITitle
-                title={
-                  isIndividual
-                    ? `Hours by ${selectedMember?.name}`
-                    : `Hours by team ${selectedTeam?.name}`
-                }
-                KPIObject={isIndividual ? dictionaryKPI[4] : dictionaryKPI[7]}
-              />
-              {loading ? (
-                <div className="w-30 h-30">
-                  <LoadingSpinner />
+                  <div className="w-full flex flex-col gap-4 items-center justify-center">
+                    <KPITitle
+                      title="Tasks Completed per Week"
+                      KPIObject={dictionaryKPI[6]}
+                    />
+                    {loading ? (
+                      <div className="w-10 h-10">
+                        <LoadingSpinner />
+                      </div>
+                    ) : kpiData ? (
+                      <LineComponent
+                        percentage={kpiData.tasksCompletedPerWeek || 0}
+                      />
+                    ) : (
+                      <div className="h-10 flex items-center justify-center">
+                        <p>No data available</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : kpiData ? (
-                isIndividual ? (
-                  <RealHours
-                    selectedMemberId={selectedMember?.id || 0}
-                    percentage={kpiData.hoursUtilizationPercent || 0}
-                    workedHours={kpiData.workedHours || 0}
-                    plannedHours={kpiData.plannedHours || 0}
+                <div className="bg-whitiish2 rounded-2xl shadow-xl px-6 py-8 gap-5 flex flex-col justify-around items-center w-1/2">
+                  <KPITitle
+                    title="Time Completion Rate Over Time %"
+                    KPIObject={dictionaryKPI[3]}
                   />
-                ) : (
-                  <HoursByTeam teamId={selectedTeam!.id} />
-                )
-              ) : (
-                <div className="h-40 flex items-center justify-center">
-                  <p>No data available</p>
+                  {loading ? (
+                    <div className="w-30 h-30">
+                      <LoadingSpinner />
+                    </div>
+                  ) : kpiData ? (
+                    <TimeCompletionRate
+                      data={[
+                        kpiData.onTimeCompletionRate || 0,
+                        kpiData.overdueTasksRate || 0,
+                        kpiData.inProgressRate || 0,
+                      ]}
+                    />
+                  ) : (
+                    <div className="h-40 flex items-center justify-center">
+                      <p>No data available</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
