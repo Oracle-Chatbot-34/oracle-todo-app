@@ -35,10 +35,10 @@ export default function RealHours({
       <div className="relative w-[12rem] h-[12.5rem] border rounded-lg overflow-hidden">
         <div
           className="absolute bottom-0 left-0 w-full bg-blue-500 transition-all duration-1000 ease-in-out"
-          style={{ height: `${percentage}%` }}
+          style={{ height: `${percentage*0.7}%` }}
         ></div>
-        <div className="absolute inset-0 flex justify-center items-center text-white font-bold">
-          {percentage}%
+        <div className="absolute inset-0 flex justify-center items-center text-white font-bold text-2xl">
+            {Math.round(percentage)}%
         </div>
       </div>
 

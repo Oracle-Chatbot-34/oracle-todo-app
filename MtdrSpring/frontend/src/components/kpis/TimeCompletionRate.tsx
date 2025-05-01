@@ -14,7 +14,7 @@ export default function TimeCompletionRate({ data }: PieChartProps) {
     colors: ['#F68121', '#265599', '#8C57B2'],
     legend: {
       position: 'right',
-      fontSize: '20px',
+      fontSize: '18px',
     },
     dataLabels: {
       enabled: true,
@@ -30,7 +30,7 @@ export default function TimeCompletionRate({ data }: PieChartProps) {
 
   return (
     <div className='flex h-full w-full'>
-      <Chart options={options} series={data} type="pie" width="200%" height={"80%"} />
+      <Chart options={options} series={data} type="pie" />
     </div>
   );
 }

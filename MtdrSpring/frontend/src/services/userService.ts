@@ -44,12 +44,12 @@ const userService = {
   },
   /**
    * 
-   * Please uwu 
+   * Danni please ! 
    * 
    */
   getUserPlannedAndRealHours: async(id: number): Promise<number[]> => {
-    const response = await api.get(`${config.apiEndpoint}/users/hours/${id}`);
-    return response.data;
+    // Later replace with that route.
+    return [12,56]
 
   }
 };
