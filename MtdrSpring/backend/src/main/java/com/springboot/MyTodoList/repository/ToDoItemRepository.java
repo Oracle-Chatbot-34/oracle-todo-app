@@ -81,6 +81,6 @@ public interface ToDoItemRepository extends JpaRepository<ToDoItem, Integer> {
     /**
      * Get average completion time in days
      */
-    @Query("SELECT AVG(FUNCTION('EXTRACT', DAY, t.completedAt - t.creationTs)) FROM ToDoItem t WHERE t.completedAt IS NOT NULL")
+    @Query("SELECT AVG(CAST(t.completedAt AS date) - CAST(t.creationTs AS date)) FROM ToDoItem t WHERE t.completedAt IS NOT NULL")
     Double getAverageCompletionTimeInDays();
 }

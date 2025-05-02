@@ -15,12 +15,11 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 
 // Services
 import sprintService from '@/services/sprintService';
-import kpiGraphQLService, { 
-  KpiResult, 
+import kpiGraphQLService, {
+  KpiResult,
   SprintData,
-  SprintDataForPie
+  SprintDataForPie,
 } from '@/services/kpiGraphQLService';
-
 
 export default function KPI() {
   const { isAuthenticated } = useAuth();
@@ -45,39 +44,50 @@ export default function KPI() {
   // Load sprints on component mount
   useEffect(() => {
     if (!isAuthenticated) return;
-    
+
     const fetchAllSprints = async () => {
       try {
         setLoading(true);
         // Get all sprints from backend
         const sprintsResponse = await sprintService.getAllSprints();
-        
-        if (sprintsResponse.length > 0) {
+        console.log('Raw sprints response:', sprintsResponse);
+
+        if (Array.isArray(sprintsResponse) && sprintsResponse.length > 0) {
           // Convert to our SprintData format (just to get the list initially)
-          const convertedSprints: SprintData[] = sprintsResponse.map(sprint => ({
-            id: sprint.id || 0,
-            name: sprint.name,
-            entries: [],  // Will be populated by KPI data
-            totalHours: 0,
-            totalTasks: 0
-          }));
-          
+          const convertedSprints: SprintData[] = sprintsResponse.map(
+            (sprint) => ({
+              id: sprint.id || 0,
+              name: sprint.name,
+              entries: [], // Will be populated by KPI data
+              totalHours: 0,
+              totalTasks: 0,
+            })
+          );
+
+          console.log('Converted sprints:', convertedSprints);
           setSprints(convertedSprints);
           setStartSprint(convertedSprints[0]);
-          
+
           // Once we have the sprints, fetch KPI data for the first sprint
           if (convertedSprints.length > 0 && convertedSprints[0].id) {
+            console.log(
+              'Fetching KPI data for sprint ID:',
+              convertedSprints[0].id
+            );
             await fetchKpiData(convertedSprints[0].id);
           }
+        } else {
+          console.log('No sprints found or empty array:', sprintsResponse);
+          setError('No sprints available.');
         }
       } catch (err) {
-        console.error("Error fetching sprints:", err);
-        setError("Failed to load sprints. Please try again later.");
+        console.error('Error fetching sprints:', err);
+        setError('Failed to load sprints. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchAllSprints();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
@@ -86,17 +96,22 @@ export default function KPI() {
   const fetchKpiData = async (startSprintId: number, endSprintId?: number) => {
     try {
       setLoading(true);
-      
-      const response = await kpiGraphQLService.getKpiData(startSprintId, endSprintId);
+
+      const response = await kpiGraphQLService.getKpiData(
+        startSprintId,
+        endSprintId
+      );
       const kpiResult: KpiResult = response.data.getKpiData;
-      
+
       // Update sprints with the full data from the KPI service
       if (kpiResult.sprintData && kpiResult.sprintData.length > 0) {
-        setSprints(prevSprints => {
+        setSprints((prevSprints) => {
           // Update the existing sprints with the full data
           const updatedSprints = [...prevSprints];
-          kpiResult.sprintData.forEach(sprintData => {
-            const index = updatedSprints.findIndex(s => s.id === sprintData.id);
+          kpiResult.sprintData.forEach((sprintData) => {
+            const index = updatedSprints.findIndex(
+              (s) => s.id === sprintData.id
+            );
             if (index !== -1) {
               updatedSprints[index] = sprintData;
             } else {
@@ -105,23 +120,27 @@ export default function KPI() {
           });
           return updatedSprints;
         });
-      
+
         // Set filtered data
         setFilteredSprints(kpiResult.sprintData);
         setFilteredSprintHours(kpiResult.sprintHours);
         setFilteredSprintTasks(kpiResult.sprintTasks);
         setSprintsForTasks(kpiResult.sprintsForTasks);
-        
+
         // Update current sprint selection if needed
         if (!startSprint || startSprint.id !== startSprintId) {
-          const selectedSprint = kpiResult.sprintData.find(s => s.id === startSprintId);
+          const selectedSprint = kpiResult.sprintData.find(
+            (s) => s.id === startSprintId
+          );
           if (selectedSprint) {
             setStartSprint(selectedSprint);
           }
         }
-        
+
         if (endSprintId) {
-          const selectedEndSprint = kpiResult.sprintData.find(s => s.id === endSprintId);
+          const selectedEndSprint = kpiResult.sprintData.find(
+            (s) => s.id === endSprintId
+          );
           if (selectedEndSprint) {
             setEndSprint(selectedEndSprint);
           }
@@ -130,8 +149,8 @@ export default function KPI() {
         }
       }
     } catch (err) {
-      console.error("Error fetching KPI data:", err);
-      setError("Failed to load KPI data. Please try again later.");
+      console.error('Error fetching KPI data:', err);
+      setError('Failed to load KPI data. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -140,10 +159,10 @@ export default function KPI() {
   // When start or end sprint selection changes
   useEffect(() => {
     if (!startSprint) return;
-    
+
     const startId = startSprint.id;
     const endId = endSprint?.id;
-    
+
     fetchKpiData(startId, endId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startSprint?.id, endSprint?.id]);
@@ -171,7 +190,9 @@ export default function KPI() {
         ) : (
           <>
             <div className="flex flex-row items-center justify-center gap-4 w-full h-1/13 bg-white rounded-xl shadow-lg pl-7">
-              <div className="text-2xl font-semibold w-1/4">Select a scope:</div>
+              <div className="text-2xl font-semibold w-1/4">
+                Select a scope:
+              </div>
               <div className="w-3/4">
                 {startSprint && (
                   <KPIScopeSelection
@@ -201,7 +222,10 @@ export default function KPI() {
                       example={dictionaryKPI[3].example}
                     />
                   ) : (
-                    <CountLegend isHours={true} count={startSprint?.totalHours || 0} />
+                    <CountLegend
+                      isHours={true}
+                      count={startSprint?.totalHours || 0}
+                    />
                   )}
                 </div>
               </div>
@@ -220,7 +244,10 @@ export default function KPI() {
                       example={dictionaryKPI[4].example}
                     />
                   ) : (
-                    <CountLegend isHours={false} count={startSprint?.totalTasks || 0} />
+                    <CountLegend
+                      isHours={false}
+                      count={startSprint?.totalTasks || 0}
+                    />
                   )}
                 </div>
               </div>
