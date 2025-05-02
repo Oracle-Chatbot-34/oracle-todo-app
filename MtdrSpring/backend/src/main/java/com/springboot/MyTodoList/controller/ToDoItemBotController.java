@@ -665,10 +665,10 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     public ResponseEntity<ToDoItem> getToDoItemById(@PathVariable int id) {
         logger.info("Fetching todo item by ID: {}", id);
         try {
-            ResponseEntity<ToDoItem> responseEntity = toDoItemService.getItemById(id);
-            if (responseEntity.getBody() != null) {
-                ToDoItem item = responseEntity.getBody();
-                logger.info("Successfully fetched todo item with ID {}: {}", id, item != null ? item.getTitle() : "null");
+            Optional<ToDoItem> itemOpt = toDoItemService.findById(id);
+            if (itemOpt.isPresent()) {
+                ToDoItem item = itemOpt.get();
+                logger.info("Successfully fetched todo item with ID {}: {}", id, item.getTitle());
                 return new ResponseEntity<ToDoItem>(item, HttpStatus.OK);
             } else {
                 logger.warn("Todo item with ID {} not found", id);
