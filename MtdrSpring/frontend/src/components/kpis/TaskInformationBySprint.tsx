@@ -14,6 +14,7 @@ type Task = {
   assigneeName?: string;
   status: string;
   priority: string;
+  sprintId?: number;
 };
 
 type ApiTask = {
@@ -25,6 +26,7 @@ type ApiTask = {
   assigneeName?: string;
   status?: string;
   priority?: string;
+  sprintId?: number;
 };
 
 type FormattedSprint = {
@@ -93,19 +95,22 @@ export default function TaskInformationBySprint({
               `${config.apiEndpoint}/sprints/${sprint.sprintId}/tasks`
             );
 
-            const tasks = response.data.map((task: ApiTask) => ({
+            const tasksData = response.data?.data || response.data || [];
+            
+            // Map the tasks data to our Task type
+            const tasks = tasksData.map((task: ApiTask) => ({
               id: task.id,
               title: task.title || `Task ${task.id}`,
               estimatedHours: task.estimatedHours || 0,
               actualHours: task.actualHours || 0,
               assigneeId: task.assigneeId || 0,
-              // Use the assigneeName from the task if available, otherwise look it up in our users map
               assigneeName:
                 task.assigneeName ||
                 users[task.assigneeId || 0] ||
                 `User ${task.assigneeId}`,
               status: task.status || 'Unknown',
               priority: task.priority || 'Medium',
+              sprintId: task.sprintId || sprint.sprintId,
             }));
 
             formattedSprintsData.push({

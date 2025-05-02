@@ -2,7 +2,10 @@ package com.springboot.MyTodoList.controller;
 
 import com.springboot.MyTodoList.dto.ApiResponse;
 import com.springboot.MyTodoList.model.Sprint;
+import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.service.SprintService;
+import com.springboot.MyTodoList.service.ToDoItemService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +19,9 @@ public class SprintController {
 
     @Autowired
     private SprintService sprintService;
+
+    @Autowired
+    private ToDoItemService toDoItemService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Sprint>>> getAllSprints() {
@@ -43,6 +49,17 @@ public class SprintController {
                 .map(sprint -> ResponseEntity.ok(new ApiResponse<>(sprint)))
                 .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(new ApiResponse<>("No active sprint found for team ID: " + teamId)));
+    }
+
+    @GetMapping("/{id}/tasks")
+    public ResponseEntity<ApiResponse<List<ToDoItem>>> getTasksForSprint(@PathVariable("id") Long id) {
+        try {
+            List<ToDoItem> tasks = toDoItemService.findTasksBySprintId(id);
+            return ResponseEntity.ok(new ApiResponse<>(tasks));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse<>("An error occurred: " + e.getMessage()));
+        }
     }
 
     @PostMapping

@@ -50,7 +50,6 @@ export default function KPI() {
         setLoading(true);
         // Get all sprints from backend
         const sprintsResponse = await sprintService.getAllSprints();
-        console.log('Raw sprints response:', sprintsResponse);
 
         if (Array.isArray(sprintsResponse) && sprintsResponse.length > 0) {
           // Convert to our SprintData format (just to get the list initially)
@@ -64,16 +63,11 @@ export default function KPI() {
             })
           );
 
-          console.log('Converted sprints:', convertedSprints);
           setSprints(convertedSprints);
           setStartSprint(convertedSprints[0]);
 
           // Once we have the sprints, fetch KPI data for the first sprint
           if (convertedSprints.length > 0 && convertedSprints[0].id) {
-            console.log(
-              'Fetching KPI data for sprint ID:',
-              convertedSprints[0].id
-            );
             await fetchKpiData(convertedSprints[0].id);
           }
         } else {
