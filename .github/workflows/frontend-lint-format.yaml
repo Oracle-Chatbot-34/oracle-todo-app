@@ -20,11 +20,11 @@ jobs:
         bun-version: latest
 
     - name: Install dependencies
-      working-directory: ./frontend
+      working-directory: ./MtdrSpring/frontend
       run: bun install
 
     - name: Run ESLint
-      working-directory: ./frontend
+      working-directory: ./MtdrSpring/frontend
       # Continue on error to show lint failures without blocking prettier
       continue-on-error: true
       run: bun lint
@@ -44,11 +44,11 @@ jobs:
         bun-version: latest
 
     - name: Install dependencies
-      working-directory: ./frontend
+      working-directory: ./MtdrSpring/frontend
       run: bun install
 
     - name: Check Prettier formatting
-      working-directory: ./frontend
+      working-directory: ./MtdrSpring/frontend
       run: bunx prettier --check . --config .prettierrc
 
   # format-apply:
@@ -66,11 +66,11 @@ jobs:
   #       bun-version: latest
 
   #   - name: Install dependencies
-  #     working-directory: ./frontend
+  #     working-directory: ./MtdrSpring/frontend
   #     run: bun install
 
   #   - name: Format with Prettier
-  #     working-directory: ./frontend
+  #     working-directory: ./MtdrSpring/frontend
   #     run: bunx prettier --write . --config .prettierrc
 
   #   - name: Commit formatting changes
