@@ -5,16 +5,11 @@ import {
   CartesianGrid,
   XAxis,
   YAxis,
-  Legend,
 } from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
-import { CustomLegend } from './CustomLegend';
+import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { useEffect, useState } from 'react';
 import { SquareCheckBig } from 'lucide-react';
+import KPITitle from './KPITtitle';
 
 type ChartConfig = Record<
   string,
@@ -42,6 +37,8 @@ type SprintData = {
 
 type CompletedTasksBySprintProps = {
   sprintData: SprintData[];
+  definition: string;
+  example: string;
 };
 
 const generateChartConfig = (members: string[]): ChartConfig => {
@@ -56,6 +53,8 @@ const generateChartConfig = (members: string[]): ChartConfig => {
 
 export default function CompletedTasksBySprint({
   sprintData,
+  definition,
+  example
 }: CompletedTasksBySprintProps) {
   const [chartData, setChartData] = useState<ChartDataEntry[]>([]);
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
@@ -84,12 +83,16 @@ export default function CompletedTasksBySprint({
 
   return (
     <div className="w-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
-      <div className="flex flex-row text-2xl gap-4 w-1/2">
+      <div className="flex flex-row text-2xl gap-4 w-full items-center">
         <SquareCheckBig className="w-6 h-6" />
-        <p className="font-semibold">Completed Tasks by Developer</p>
+        <KPITitle 
+          title='Completed tasks by team members'
+          KPIObject={{ definition, example }}
+
+        />
       </div>
 
-      <ResponsiveContainer height="100%">
+      <ResponsiveContainer height="100%" width="100%">
         <ChartContainer config={chartConfig}>
           <BarChart data={chartData}>
             <CartesianGrid vertical={false} />
@@ -101,10 +104,8 @@ export default function CompletedTasksBySprint({
               axisLine={false}
               tickFormatter={(value) => value}
             />
-            <ChartTooltip
-              cursor={true}
-            />
-    
+            <ChartTooltip cursor={true} />
+
             {chartData.length > 0 &&
               Object.keys(chartData[0])
                 .filter((key) => key !== 'sprint')

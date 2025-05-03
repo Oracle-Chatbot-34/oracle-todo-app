@@ -5,7 +5,7 @@ type CountLegendProps = {
 
 export default function CountLegend({ isHours, count }: CountLegendProps) {
   return (
-    <div className="w-full h-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
+    <div className="w-1/2 h-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
       {isHours ? (
         <div className="w-full h-full flex flex-col gap-4 p-5 items-center justify-center text-center">
           <div className="text-4xl flex flex-col gap-5">

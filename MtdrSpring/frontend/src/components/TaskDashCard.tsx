@@ -1,4 +1,3 @@
-import React from 'react';
 
 type TaskDashCardProps = {
   id: number;
@@ -13,17 +12,8 @@ export default function TaskDashCard({
   dueDate,
   assignedTo,
 }: TaskDashCardProps) {
-  const handleEdit = (): void => {
-    console.log('Editing task', id);
-    // Your edit logic here
-  };
-
-  const handleDelete = (): void => {
-    console.log('Deleting task', id);
-    // Your delete logic here
-  };
   return (
-    <div className="flex flex-row bg-whitie rounded-lg shadow-md w-full h-full p-3 justify-between">
+    <div key={id} className="flex flex-row bg-whitie rounded-lg shadow-md w-full h-full p-3 justify-between">
       <div className="flex flex-col items-start gap-3">
         {/* Task type */}
         <p className="text-2xl font-bold mt-2">{title}</p>

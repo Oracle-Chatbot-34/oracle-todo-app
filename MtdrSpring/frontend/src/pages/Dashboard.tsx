@@ -8,11 +8,6 @@ import userService from '../services/userService';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAuth } from '@/hooks/useAuth';
 
-type LineChartType = {
-  month: string;
-  avg: number;
-};
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { isAuthenticated, username } = useAuth();

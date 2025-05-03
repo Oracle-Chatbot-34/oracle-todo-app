@@ -1,5 +1,6 @@
 import { ClipboardList } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import KPITitle from './KPITtitle';
 
 type Task = {
   id: number;
@@ -24,6 +25,8 @@ type Sprint = {
 
 type TaskInformationBySprintProps = {
   sprints: Sprint[];
+  definition: string;
+  example: string;
 };
 
 /*
@@ -42,7 +45,11 @@ Example of props:
 
 */
 
-export default function RealHours({ sprints }: TaskInformationBySprintProps) {
+export default function RealHours({
+  sprints,
+  definition,
+  example,
+}: TaskInformationBySprintProps) {
   const [formattedSprints, setFormattedSprints] = useState<FormattedSprint[]>(
     []
   );
@@ -124,29 +131,35 @@ export default function RealHours({ sprints }: TaskInformationBySprintProps) {
   }, [sprints]);
 
   return (
-    <div className="w-full h-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
-      <div className="flex flex-row text-2xl gap-4 w-1/2">
+    <div className="w-full h-full flex flex-col p-5 bg-white rounded-xl shadow-lg">
+      <div className="flex flex-row text-2xl gap-4 w-17/18 items-center">
         <ClipboardList className="w-6 h-6" />
-        <p className="font-semibold">Tasks Information by sprints</p>
+        <KPITitle
+          title="Task Information by Sprint"
+          KPIObject={{ definition, example }}
+        />
       </div>
 
-      <div className="w-full max-h-full flex flex-col gap-2 overflow-y-scroll">
+      <div className="max-w-full max-h-[65vh] flex flex-col gap-2 p-4 overflow-y-auto">
         {formattedSprints.map((sprint) => (
           <div
             key={sprint.id}
-            className="w-full h-full flex flex-col gap-4 border-b px-4 pb-4"
+            className="w-full max-h-full flex flex-col gap-4 border-b px-4 pb-4"
           >
             <p className="text-2xl font-semibold">{sprint.name}</p>
-            <div className="flex flex-col gap-2 px-4 ">
+            <div className="flex flex-col gap-2 px-4 h-fit w-full">
               {sprint.tasks.map((task) => (
                 <div
                   key={task.id}
                   className="flex flex-row gap-4 items-center justify-between"
                 >
-                  <div className="flex flex-col gap-1">
+                  <div className="flex flex-col gap-2 text-lg">
                     <div className="flex flex-row gap-4">
-                      <p className="font-semibold text-lg">{task.title}</p>
-                      <p className="font-semibold text-lg">{task.assigneeId}</p>
+                      <p className="font-semibold">{task.title}</p>
+                      <div className="flex flex-row gap-1">
+                        <p>Assigned to:</p>
+                        <p className="font-semibold">{task.assigneeId}</p>
+                      </div>
                     </div>
                     <div className="flex flex-row gap-4">
                       <p>{task.status}</p>

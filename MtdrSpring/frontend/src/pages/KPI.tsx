@@ -14,8 +14,6 @@ import TaskInformationBySprint from '@/components/kpis/TaskInformationBySprint';
 import LineComponent from '@/components/kpis/LineComponent';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-
-
 type MemberEntry = {
   member: string;
   hours: number;
@@ -68,14 +66,16 @@ export default function KPI() {
   const [startSprint, setStartSprint] = useState<SprintData | null>(null);
   const [endSprint, setEndSprint] = useState<SprintData | null>(null);
 
-  const [sprintsForTasks, setSprintsForTasks] = useState<{sprintId: number, sprintName: string}[]>([]);
+  const [sprintsForTasks, setSprintsForTasks] = useState<
+    { sprintId: number; sprintName: string }[]
+  >([]);
   const [filteredSprints, setFilteredSprints] = useState<SprintData[]>([]);
-  const [filteredSprintHours, setFilteredSprintHours] = useState<SprintDataForPie[]>(
-    []
-  );
-  const [filteredSprintTasks, setFilteredSprintTasks] = useState<SprintDataForPie[]>(
-    []
-  );
+  const [filteredSprintHours, setFilteredSprintHours] = useState<
+    SprintDataForPie[]
+  >([]);
+  const [filteredSprintTasks, setFilteredSprintTasks] = useState<
+    SprintDataForPie[]
+  >([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -149,16 +149,17 @@ export default function KPI() {
     setSprintsForTasks(sprintsForTasks);
     setFilteredSprintHours(sprintHours);
     setFilteredSprintTasks(sprintTasks);
-
   }, [filteredSprints]);
 
   return (
     <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
       <div className="flex flex-col p-4 lg:p-6 gap-y-4 bg-whitie w-full h-full rounded-lg shadow-xl ">
         {/* Title */}
-        <div className="flex flex-row items-center gap-4 w-full h-1/10">
+        <div className="flex flex-row items-center gap-4 w-full h-1/13">
           <ChartPie className="w-8 h-8" />
-          <p className="text-3xl font-semibold mr-20">Key Performance Indicators</p>
+          <p className="text-3xl font-semibold mr-20">
+            Key Performance Indicators
+          </p>
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-6/10">
               {error}
@@ -166,7 +167,7 @@ export default function KPI() {
           )}
         </div>
 
-        <div className="flex flex-row items-center justify-center gap-4 w-full h-1/10 bg-white rounded-xl shadow-lg pl-7">
+        <div className="flex flex-row items-center justify-center gap-4 w-full h-1/13 bg-white rounded-xl shadow-lg pl-7">
           <div className="text-2xl font-semibold w-1/4">Select a scope:</div>
           <div className="w-3/4">
             <KPIScopeSelection
@@ -179,34 +180,52 @@ export default function KPI() {
           </div>
         </div>
 
-        <div className="flex flex-row w-full h-8/10 gap-4">
+        <div className="flex flex-row w-full h-11/13 gap-4">
           <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <HoursByTeam sprintData={filteredSprints} />
+            <HoursByTeam
+              sprintData={filteredSprints}
+              definition={dictionaryKPI[1].definition}
+              example={dictionaryKPI[1].example}
+            />
             <div className="flex flex-row w-full items-center justify-center gap-4">
               {filteredSprintHours.length > 1 ? (
                 <HoursBySprints
                   isHours={true}
                   chartData={filteredSprintHours}
+                  definition={dictionaryKPI[3].definition}
+                  example={dictionaryKPI[3].example}
                 />
               ) : (
                 <CountLegend isHours={true} count={startSprint?.totalHours!} />
               )}
+            </div>
+          </div>
+          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
+            <CompletedTasksBySprint
+              sprintData={filteredSprints}
+              definition={dictionaryKPI[2].definition}
+              example={dictionaryKPI[2].example}
+            />
+            <div className="flex flex-row w-full items-center justify-center gap-4">
               {filteredSprintTasks.length > 1 ? (
                 <HoursBySprints
                   isHours={false}
                   chartData={filteredSprintTasks}
+                  definition={dictionaryKPI[4].definition}
+                  example={dictionaryKPI[4].example}
                 />
               ) : (
                 <CountLegend isHours={false} count={startSprint?.totalTasks!} />
               )}
             </div>
           </div>
-          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <CompletedTasksBySprint sprintData={filteredSprints} />
-          </div>
 
-          <div className="flex flex-row w-1/3 h-9/10 items-center justify-center bg-white rounded-xl shadow-lg">
-            <TaskInformationBySprint sprints={sprintsForTasks} />
+          <div className="flex flex-row w-1/3 h-full items-center justify-center">
+            <TaskInformationBySprint
+              sprints={sprintsForTasks}
+              definition={dictionaryKPI[5].definition}
+              example={dictionaryKPI[5].example}
+            />
           </div>
         </div>
       </div>

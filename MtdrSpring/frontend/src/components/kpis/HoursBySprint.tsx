@@ -48,6 +48,8 @@ type SprintData = {
 type HoursBySprintProps = {
   isHours: boolean;
   chartData: SprintData[];
+  definition: string;
+  example: string;
 };
 
 type ChartConfig = {
@@ -70,6 +72,8 @@ const generateChartConfig = (labels: string[]): ChartConfig => {
 export default function HoursBySprints({
   isHours,
   chartData,
+  definition,
+  example,
 }: HoursBySprintProps) {
   // Calculate the total count from chartData
   const totalCount = React.useMemo(() => {
@@ -79,21 +83,22 @@ export default function HoursBySprints({
   console.log('chartData', chartData, isHours);
   const chartConfig = generateChartConfig(chartData.map((s) => s.name));
   return (
-    <div className="w-full h-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
-      {isHours ? (
-        <div className="flex flex-row text-2xl gap-4 w-full items-center">
+    <div className="w-1/2 h-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
+      <div className="flex flex-row text-2xl gap-4 w-full items-center">
+        {isHours ? (
           <AlarmClockCheck className="w-6 h-6" />
-          <KPITitle
-            title={'Worked Hours by Developer'}
-            KPIObject={{ definition: 'uWu', example: 'uWu' }}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-row text-2xl gap-4 w-full items-center">
+        ) : (
           <ListChecks className="w-6 h-6" />
-          <p className="font-semibold">Completed Tasks by Sprint</p>
-        </div>
-      )}
+        )}
+        <KPITitle
+          title={
+            isHours
+              ? 'Worked Hours in Range'
+              : 'Completed Tasks in Range'
+          }
+          KPIObject={{definition, example}}
+        />
+      </div>
 
       <ResponsiveContainer height="100%" width="100%">
         <ChartContainer config={chartConfig}>

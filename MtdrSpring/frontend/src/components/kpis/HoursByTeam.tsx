@@ -13,6 +13,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import KPITitle from './KPITtitle';
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 
@@ -41,7 +42,9 @@ type ChartDataEntree = {
 };
 
 type HoursByTeamProps = {
-  sprintData: SprintData[]; // NEW: pre-filtered + aggregated by parent
+  sprintData: SprintData[];
+  definition: string;
+  example: string;
 };
 
 const generateChartConfig = (chartData: ChartDataEntree[]): ChartConfig => {
@@ -54,7 +57,11 @@ const generateChartConfig = (chartData: ChartDataEntree[]): ChartConfig => {
   }, {} as ChartConfig);
 };
 
-export default function HoursByTeam({ sprintData }: HoursByTeamProps) {
+export default function HoursByTeam({
+  sprintData,
+  definition,
+  example,
+}: HoursByTeamProps) {
   const [chartData, setChartData] = useState<ChartDataEntree[]>([]);
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
 
@@ -84,9 +91,12 @@ export default function HoursByTeam({ sprintData }: HoursByTeamProps) {
 
   return (
     <div className="w-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
-      <div className="flex flex-row text-2xl gap-4 w-1/2">
+      <div className="flex flex-row text-2xl gap-4 w-full items-center">
         <Clock className="w-6 h-6" />
-        <p className="font-semibold">Hours Worked by Developer</p>
+        <KPITitle
+          title="Worked hours by team member"
+          KPIObject={{ definition, example }}
+        />
       </div>
       <ResponsiveContainer height="100%">
         <ChartContainer config={chartConfig}>
