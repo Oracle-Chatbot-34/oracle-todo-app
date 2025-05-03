@@ -5,14 +5,16 @@ import {
   CartesianGrid,
   XAxis,
   YAxis,
+  Legend,
 } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import sprintService from '@/services/sprintService';
-import { useState, useEffect } from 'react';
+import { CustomLegend } from './CustomLegend';
+import { useEffect, useState } from 'react';
+import { SquareCheckBig } from 'lucide-react';
 
 type ChartConfig = Record<
   string,
@@ -27,90 +29,90 @@ type ChartDataEntry = {
   [memberName: string]: string | number;
 };
 
+type MemberEntry = {
+  member: string;
+  tasksCompleted: number;
+};
+
+type SprintData = {
+  id: number;
+  name: string;
+  entries: MemberEntry[];
+};
+
 type CompletedTasksBySprintProps = {
-  teamId: number;
+  sprintData: SprintData[];
 };
 
 const generateChartConfig = (members: string[]): ChartConfig => {
   return members.reduce((config, member, index) => {
     config[member] = {
       label: member,
-      color: `hsl(${(index * 50) % 360}, 70%, 60%)`, // consistent unique color
+      color: `hsl(${(index * 50) % 360}, 70%, 60%)`,
     };
     return config;
   }, {} as ChartConfig);
 };
 
 export default function CompletedTasksBySprint({
-  teamId,
+  sprintData,
 }: CompletedTasksBySprintProps) {
   const [chartData, setChartData] = useState<ChartDataEntry[]>([]);
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // 1. Fetch team sprints (replace with real API call later)
-        // const sprints = await sprintService.getTeamSprints(teamId);
-        const sprints = Array.from({ length: 6 }, (_, i) => ({
-          id: i + 1,
-          name: `Sprint ${i + 1}`,
-        }));
+    if (!sprintData || sprintData.length === 0) return;
 
-        const allChartData: ChartDataEntry[] = [];
+    const allChartData: ChartDataEntry[] = [];
+    const memberSet = new Set<string>();
 
-        // 2. Loop through each sprint
-        for (const sprint of sprints) {
-          // Simulate team members (replace with real API call later)
-          const members = ['Rober', 'Benjamin', 'Hannia'];
-          const newChartConfig = generateChartConfig(members); // Example static list
-          setChartConfig(newChartConfig);
-          const sprintEntry: ChartDataEntry = { sprint: sprint.name };
+    sprintData.forEach((sprint) => {
+      const sprintEntry: ChartDataEntry = { sprint: sprint.name };
+      sprint.entries.forEach((entry) => {
+        sprintEntry[entry.member] = entry.tasksCompleted;
+        memberSet.add(entry.member);
+      });
+      allChartData.push(sprintEntry);
+    });
 
-          members.forEach((member) => {
-            // Generate a random number of tasks (simulate fetching)
-            const tasksCompleted = Math.floor(Math.random() * 100) + 1;
-            sprintEntry[member] = tasksCompleted;
-          });
+    const members = Array.from(memberSet);
+    const newChartConfig = generateChartConfig(members);
 
-          allChartData.push(sprintEntry);
-        }
-
-        setChartData(allChartData);
-      } catch (error) {
-        console.error('Error fetching chart data:', error);
-      }
-    };
-
-    fetchData();
-  }, []);
+    setChartConfig(newChartConfig);
+    setChartData(allChartData);
+  }, [sprintData]);
 
   return (
-    <div className="w-full h-full">
-      <ResponsiveContainer>
-        <ChartContainer config={chartConfig as ChartConfig}>
-          <BarChart accessibilityLayer data={chartData}>
+    <div className="w-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
+      <div className="flex flex-row text-2xl gap-4 w-1/2">
+        <SquareCheckBig className="w-6 h-6" />
+        <p className="font-semibold">Completed Tasks by Developer</p>
+      </div>
+
+      <ResponsiveContainer height="100%">
+        <ChartContainer config={chartConfig}>
+          <BarChart data={chartData}>
             <CartesianGrid vertical={false} />
-            <YAxis/>
+            <YAxis />
             <XAxis
               dataKey="sprint"
               tickLine={false}
               tickMargin={10}
               axisLine={false}
-              tickFormatter={(value) => value.slice(0, 3)}
+              tickFormatter={(value) => value}
             />
             <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="dashed" />}
+              cursor={true}
             />
+    
             {chartData.length > 0 &&
               Object.keys(chartData[0])
                 .filter((key) => key !== 'sprint')
-                .map((memberName, index) => (
+                .map((memberName) => (
                   <Bar
                     key={memberName}
                     dataKey={memberName}
-                    fill={`hsl(${(index * 50) % 360}, 70%, 60%)`} // Different color per member
+                    fill={chartConfig[memberName]?.color}
                     radius={[4, 4, 0, 0]}
                   />
                 ))}

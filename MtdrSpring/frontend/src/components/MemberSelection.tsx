@@ -1,4 +1,4 @@
-import { Member } from './ScopeSelection';
+import { Member } from './kpis/KPIScopeSelection';
 
 type Props = {
   isIndividual: boolean;

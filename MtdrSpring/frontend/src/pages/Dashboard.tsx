@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
-import PieChart from '../components/PieChart';
-import TasksTime from '../components/TasksTime';
+import LineComponent from '@/components/kpis/LineComponent';
 import TaskDashCard from '../components/TaskDashCard';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { ChartArea, CheckCheck } from 'lucide-react';
+import { AlarmClock, CalendarClock, Info, LayoutList } from 'lucide-react';
 import taskService, { Task } from '@/services/tasksService';
-import kpiService from '../services/kpiService';
 import userService from '../services/userService';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,15 +20,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [dataPie, setDataPie] = useState<number[]>([0, 0, 0]);
-  const [dataLine, setDataLine] = useState<LineChartType[]>([]);
 
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-
-  // Navigate to the tasks page
-  const navigateToTasks = () => {
-    navigate('/tasks');
-  };
 
   // Fetch user ID based on username
   useEffect(() => {
@@ -70,55 +60,12 @@ export default function Dashboard() {
           return dateB - dateA; // Newest first
         });
 
-        setTasks(sortedTasks.slice(0, 3)); // Get latest 3 tasks
+        // Filter tasks by not completed
+        const notCompletedTasks = sortedTasks.filter(
+          (task) => task.status !== 'completed'
+        );
 
-        // Get task status for pie chart
-        const now = new Date();
-        const activeTasks = allTasks.filter((task) => !task.done);
-
-        let onTime = 0;
-        let behindSchedule = 0;
-        let beyondDeadline = 0;
-
-        activeTasks.forEach((task) => {
-          if (!task.dueDate) {
-            onTime++; // No due date -> consider on time
-          } else {
-            const dueDate = new Date(task.dueDate);
-            const daysUntilDue = Math.floor(
-              (dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24)
-            );
-
-            if (daysUntilDue < 0) {
-              beyondDeadline++; // Past due
-            } else if (daysUntilDue <= 2) {
-              behindSchedule++; // Due soon
-            } else {
-              onTime++; // Plenty of time
-            }
-          }
-        });
-        setDataPie([onTime, behindSchedule, beyondDeadline]);
-
-        // Fetch KPI data for trend line
-        // const kpiData = await kpiService.getTeamKpis(currentUserId);
-        const kpiData = [
-          {
-            month: 'January',
-            avg: 20,
-          },
-
-          {
-            month: 'February',
-            avg: 10,
-          },
-
-          {
-            month: 'March',
-            avg: 15,
-          },
-        ];
-        setDataLine(kpiData);
+        setTasks(notCompletedTasks.slice(0, 5)); // Get latest 3 tasks
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
@@ -136,84 +83,114 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip gap-5">
-      <div className="flex flex-col justify-center p-4 lg:p-6 gap-y-4 bg-whitie w-1/2 h-full rounded-lg shadow-xl ">
-        <div className="flex flex-row items-center gap-4">
-          <ChartArea />
-          <p className="text-2xl">Analytics</p>
+    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
+      <div className="flex flex-col justify-center w-1/3 h-full">
+        <div className="w-full h-1/3 flex flex-col justify-center items-center">
+          <p className="text-4xl">Welcome to DashMaster</p>
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-full">
+              {error}
+            </div>
+          )}
         </div>
-        <div className="flex flex-col h-full w-full gap-4 ">
-          <div className="w-full h-1/2 bg-whitiish2 rounded-xl shadow-lg flex items-center justify-center">
-            {!loading ? (
-              <PieChart data={dataPie} />
-            ) : (
-              <div className="h-40 w-40 ">
+        <div className="w-full h-2/3 bg-whitie rounded-tl-xl rounded-bl-xl shadow-accent pl-6 pr-1 py-6">
+          <div className="w-full h-full bg-white rounded-xl shadow-xl flex flex-col">
+            {/* Title */}
+            <div className="flex flex-row gap-3 p-4 items-center">
+              <LayoutList className="w-8 h-8" />
+              <p className="text-2xl font-semibold">Current Sprint Info</p>
+            </div>
+
+            {/* Loading Spinner */}
+            {loading ? (
+              <div className="flex items-center justify-center h-1/3">
                 <LoadingSpinner />
               </div>
-            )}
-          </div>
-
-          <div className="w-full h-1/2 bg-whitiish2 rounded-xl shadow-lg flex items-center justify-center">
-            {!loading ? (
-              <TasksTime data={dataLine} />
             ) : (
-              <div className="h-40 w-40">
-                <LoadingSpinner />
+              <div className="w-full h-full flex flex-col gap-5 px-8 mt-5">
+                <div className="flex flex-row gap-4 items-center">
+                  <Info className="w-6 h-6" />
+                  <p className="text-xl font-semibold">General Information</p>
+                </div>
+
+                <div className="flex flex-col gap-3 text-xl px-4">
+                  <p>
+                    Sprint Name: {/*sprint.name*/}
+                    {'Backend Sprint 1'}
+                  </p>
+                  <p>
+                    Description: {/*sprint.description*/}
+                    {'Backend Sprint 1 for the new feature X'}
+                  </p>
+                </div>
+
+                <div className="flex flex-row gap-4 items-center">
+                  <AlarmClock className="w-6 h-6" />
+                  <p className="text-xl font-semibold">Important Dates</p>
+                </div>
+
+                <div className="flex flex-col gap-3 text-xl px-4">
+                  <p>
+                    Start date: {/*sprint.startdate*/}
+                    {'2025-04-10'}
+                  </p>
+                  <p>
+                    End date: {/*sprint.dueDate*/}
+                    {'2025-05-05'}
+                  </p>
+                </div>
+
+                <div className="flex flex-row gap-4 items-center">
+                  <AlarmClock className="w-6 h-6" />
+                  <p className="text-xl font-semibold">Sprint Progression</p>
+                </div>
+
+                <div className="h-1/5 flex flex-col gap-3 text-xl px-4">
+                  <p>There are {3} days left in the current spring.</p>
+                  <LineComponent percentage={55} />
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
-
-      <div className="flex flex-col justify-center p-4 lg:p-6 gap-y-4 bg-whitie w-1/2 h-full rounded-lg shadow-xl ">
-        <div className="flex flex-row items-center gap-4">
-          <CheckCheck />
-          <p className="text-2xl">Latest Tasks</p>
-        </div>
-
-        <div className="flex flex-col h-full w-full gap-4 ">
-          <div className="w-full bg-whitiish2 rounded-xl shadow-lg ">
-            <div className="flex flex-col p-5 gap-3 items-center justify-center">
-              {!loading ? (
-                <>
-                  {tasks.map((task) => (
-                    <TaskDashCard
-                      key={task.id}
-                      id={task.id}
-                      title={task.title}
-                      dueDate={
-                        task.dueDate
-                          ? new Date(task.dueDate).toLocaleString()
-                          : 'No due date'
-                      }
-                      assignedTo={getAssigneeName(task)}
-                    />
-                  ))}
-                  <Button
-                    className="h-13 w-54 text-2xl"
-                    size="lg"
-                    onClick={navigateToTasks}
+      <div className="w-2/3 h-full bg-whitie rounded-tl-xl rounded-br-xl rounded-tr-xl shadow-accent p-6">
+        <div className="flex flex-col gap-5 p-4 items-start bg-white rounded-xl shadow-xl w-full h-full">
+          <div className="flex flex-row gap-4">
+            <CalendarClock className="w-8 h-8" />
+            <p className="text-2xl font-semibold">Not Completed Tasks!</p>
+          </div>
+          {tasks.length > 0 ? (
+            <div className="w-full flex flex-col gap-5">
+              <div className="flex flex-col gap-6 mb-3">
+                {tasks.map((task) => (
+                  <TaskDashCard
+                    key={task.id}
+                    id={task.id}
+                    title={task.title}
+                    assignedTo={task.assigneeId}
+                    dueDate={task.dueDate}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-row gap-3 text-2xl p-3 w-full font italic items-center justify-between">
+                <Info className="w-6 h-6" />
+                <div className="flex flex-row">
+                  This list is view only, if you wish to manage tasks, go to:
+                  <button
+                    onClick={() => navigate('/tasks')}
+                    className="font-semibold underline"
                   >
-                    Manage all tasks
-                  </Button>
-                </>
-              ) : (
-                <div className="w-40 h-40">
-                  <LoadingSpinner />
+                    Task Management
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-
-          <div className="w-full h-full bg-whitiish2 rounded-xl shadow-lg flex items-center justify-center">
-            <div className="flex flex-col items-center justify-center h-full">
-              <h2 className="text-2xl font-bold mb-4">Welcome to DashMaster</h2>
-              <p className="text-lg text-center">
-                Your one-stop solution for task management and team productivity
-                tracking.
-              </p>
+          ) : (
+            <div className="h-40 flex items-center justify-center">
+              <p>No data available</p>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,36 +1,40 @@
 import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
 import StatusSelections from '../components/StatusSelections';
-import ScopeSelection from '../components/ScopeSelection';
-import DatePickerRange from '../components/DatePickerRange';
+import ReportScopeSelection from '@/components/reports/ReportScopeSelection';
 import { Button } from '@/components/ui/button';
 import PdfDisplayer from '@/components/PdfDisplayer';
 import userService from '../services/userService';
-import teamService from '../services/teamService';
 import reportService from '../services/reportService';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import ReportUserSelection from '@/components/reports/ReportUserSelection';
 
 interface Member {
   id: number;
   name: string;
 }
+type SprintData = {
+  id: number;
+  name: string;
+  members: Member[];
+}
 
 export default function Reports() {
-
   const form = useForm({
-    resolver: zodResolver(z.object({
-      startDate: z.date(),
-      endDate: z.date(),
-    })),
+    resolver: zodResolver(
+      z.object({
+        startDate: z.date(),
+        endDate: z.date(),
+      })
+    ),
   });
 
-
-  const [isIndividual, setIsIndividual] = useState(true);
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [teams, setTeams] = useState<{ id: number; name: string }[]>([]);
+  const [sprints, setSprints] = useState<SprintData[]>([]);
+  const [startSprint, setStartSprint] = useState<SprintData | null>(null);
+  const [endSprint, setEndSprint] = useState<SprintData | null>(null);
+  const [users, setUsers] = useState<Member[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null);
 
   const [selectedTaskOptions, setselectedTaskOptions] = useState<string[]>([]);
@@ -63,7 +67,7 @@ export default function Reports() {
       assignee?: { name: string };
     }>;
   }
-  
+
   const [reportData, setReportData] = useState<ReportData | null>(null);
 
   // Load users and teams on component mount
@@ -71,23 +75,16 @@ export default function Reports() {
     const fetchData = async () => {
       try {
         const usersResponse = await userService.getAllUsers();
-        const userMembers = usersResponse
+        // Map User objects to Member interface
+        const mappedUsers = usersResponse
           .filter(user => user.id !== undefined)
-          .map((user) => ({
+          .map(user => ({
             id: user.id as number,
-            name: user.fullName,
+            name: user.fullName
           }));
-        setMembers(userMembers);
+        setUsers(mappedUsers);
 
-        const teamsResponse = await teamService.getAllTeams();
-        setTeams(
-          teamsResponse
-            .filter(team => team.id !== undefined)
-            .map((team) => ({
-              id: team.id as number,
-              name: team.name,
-            }))
-        );
+
       } catch (err) {
         console.error('Error fetching users and teams:', err);
         setError('Failed to load users and teams data');
@@ -102,28 +99,13 @@ export default function Reports() {
       setLoading(true);
       setError('');
 
-      // Validate required fields
-      if (isIndividual && !selectedMember) {
-        setError('Please select a team member');
-        setLoading(false);
-        return;
-      }
-
-      if (!isIndividual && !selectedTeam) {
-        setError('Please select a team');
-        setLoading(false);
-        return;
-      }
-
       // Prepare dates
-      const startDate = form.getValues()["startDate"]
-      const endDate = form.getValues()["endDate"]
+      const startDate = form.getValues()['startDate'];
+      const endDate = form.getValues()['endDate'];
 
       // Create report request
       const reportRequest = {
-        isIndividual,
-        userId: isIndividual ? selectedMember?.id : undefined,
-        teamId: !isIndividual ? selectedTeam || undefined : undefined,
+        teamId: !selectedTeam || undefined,
         statuses:
           selectedTaskOptions.length > 0 ? selectedTaskOptions : undefined,
         startDate,
@@ -131,7 +113,64 @@ export default function Reports() {
       };
 
       // Generate report
-      const result = await reportService.generateReport(reportRequest);
+      // Call the API to generate the report
+      //const response = await reportService.generateReport(reportRequest);
+
+      // Example mocked result for development/testing
+      const result = {
+        reportType: 'Performance',
+        generatedAt: new Date().toISOString(),
+        totalTasks: '24',
+        dateRange: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        user: { name: 'John Doe', role: 'Developer' },
+        teamId: selectedTeam ? selectedTeam.toString() : undefined,
+        teamSize: '5',
+        taskCompletionRate: 78.5,
+        onTimeCompletionRate: 82.3,
+        overdueTasksRate: 17.7,
+        plannedHours: 120,
+        workedHours: 105,
+        hoursUtilizationPercent: 87.5,
+        tasks: [
+          {
+            id: 1,
+            title: 'Implement user authentication',
+            status: 'Completed',
+            dueDate: '2023-06-15',
+            assignee: { name: 'Jane Smith' },
+          },
+          {
+            id: 2,
+            title: 'Design landing page',
+            status: 'In Progress',
+            dueDate: '2023-06-20',
+            assignee: { name: 'John Doe' },
+          },
+          {
+            id: 3,
+            title: 'Fix navigation bug',
+            status: 'Completed',
+            dueDate: '2023-06-10',
+            assignee: { name: 'Mike Johnson' },
+          },
+          {
+            id: 4,
+            title: 'API integration',
+            status: 'Blocked',
+            dueDate: '2023-06-25',
+            assignee: { name: 'Sarah Wilson' },
+          },
+          {
+            id: 5,
+            title: 'Performance optimization',
+            status: 'To Do',
+            dueDate: '2023-06-30',
+            assignee: { name: 'Alex Brown' },
+          },
+        ],
+      };
+
       // Convert API result to match ReportData interface
       const formattedResult: ReportData = {
         reportType: result.reportType || '',
@@ -139,9 +178,10 @@ export default function Reports() {
         totalTasks: result.totalTasks || '0',
         dateRange: result.dateRange,
         endDate: result.endDate,
-        user: typeof result.user === 'string' 
-          ? { name: result.user, role: '' } 
-          : result.user as { name: string; role: string },
+        user:
+          typeof result.user === 'string'
+            ? { name: result.user, role: '' }
+            : (result.user as { name: string; role: string }),
         teamId: result.teamId,
         teamSize: result.teamSize,
         kpiData: {
@@ -183,54 +223,15 @@ export default function Reports() {
 
           {/* Form */}
           <div className="flex flex-col items-center justify-around bg-whitiish2 w-full max-w-[37.5rem] lg:min-h-[50rem] space-y-3 h-full rounded-4xl shadow-xl p-10">
-            <ScopeSelection
-              isIndividual={isIndividual}
-              setIsInidividual={setIsIndividual}
+            <ReportScopeSelection
+              sprints={sprints}
+              startSprint={startSprint!}
+              endSprint={endSprint}
+              setStartSprint={setStartSprint}
+              setEndSprint={setEndSprint}
             />
 
-            {isIndividual ? (
-              <div className="w-full">
-                <p className="text-[#747276] text-[1.5625rem]">
-                  Select a member
-                </p>
-                <select
-                  className="w-full pl-4 pr-2 rounded-xl h-12 border-2 border-[#DFDFE4] transition-shadow duration-200 ease-in-out bg-white text-[20px]"
-                  value={selectedMember?.id || ''}
-                  onChange={(e) => {
-                    const memberId = parseInt(e.target.value);
-                    const member =
-                      members.find((m) => m.id === memberId) || null;
-                    setSelectedMember(member);
-                  }}
-                >
-                  <option value="" disabled></option>
-                  {members.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div className="w-full">
-                <p className="text-[#747276] text-[1.5625rem]">Select a team</p>
-                <select
-                  className="w-full pl-4 pr-2 rounded-xl h-12 border-2 border-[#DFDFE4] transition-shadow duration-200 ease-in-out bg-white text-[20px]"
-                  value={selectedTeam || ''}
-                  onChange={(e) => {
-                    const teamId = parseInt(e.target.value);
-                    setSelectedTeam(teamId);
-                  }}
-                >
-                  <option value="" disabled></option>
-                  {teams.map((team) => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <ReportUserSelection members={users}/>
 
             <StatusSelections
               selectedTaskOptions={selectedTaskOptions}
@@ -238,8 +239,6 @@ export default function Reports() {
               selectAllTasksType={selectAllTasksType}
               setselectAllTasksType={setselectAllTasksType}
             />
-
-            <DatePickerRange form={form}/>
 
             <Button
               variant={'default'}
@@ -270,10 +269,13 @@ export default function Reports() {
                 <p>Total Tasks: {reportData.totalTasks}</p>
                 <p>
                   Date Range:{' '}
-                  {reportData.dateRange ? 
-                    `${new Date(reportData.dateRange).toLocaleDateString()} to ${new Date(reportData.endDate || '').toLocaleDateString()}` :
-                    'Not specified'
-                  }
+                  {reportData.dateRange
+                    ? `${new Date(
+                        reportData.dateRange
+                      ).toLocaleDateString()} to ${new Date(
+                        reportData.endDate || ''
+                      ).toLocaleDateString()}`
+                    : 'Not specified'}
                 </p>
 
                 {reportData.user && (
