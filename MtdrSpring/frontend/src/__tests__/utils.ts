@@ -6,8 +6,9 @@ export async function login(driver: WebDriver) {
   const usernameField = await driver.findElement(By.id('username'));
   const passwordField = await driver.findElement(By.id('password'));
 
-  await usernameField.sendKeys('roberto.morales');
-  await passwordField.sendKeys('Manager@2025');
+  // Find a way to pull these from a config file or environment variables
+  await usernameField.sendKeys('');
+  await passwordField.sendKeys('');
 
   const submitButton = await driver.findElement(
     By.css('button[type="submit"]')
