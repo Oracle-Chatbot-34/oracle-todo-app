@@ -45,7 +45,7 @@ export default function Tasks() {
 
   const handleTaskUpdated = (updatedTask: Task) => {
     setTasks((prevTasks) =>
-      prevTasks.map((task) => (task.ID === updatedTask.ID ? updatedTask : task))
+      prevTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
     );
 
     // Recalculate task statistics
@@ -190,7 +190,7 @@ export default function Tasks() {
       try {
         await taskService.deleteTask(taskId);
         // Remove task from state
-        setTasks(tasks.filter((task) => task.ID !== taskId));
+        setTasks(tasks.filter((task) => task.id !== taskId));
       } catch (err) {
         console.error('Error deleting task:', err);
         alert('Failed to delete task. Please try again.');
@@ -206,7 +206,7 @@ export default function Tasks() {
   };
 
   return (
-    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
+    <div id='tasks-page' className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
       <div className="flex flex-col justify-start items-start p-6 lg:p-10 gap-y-6 bg-whitie w-full h-full rounded-lg shadow-xl">
         {/* Title */}
         <div className="flex flex-row items-center justify-between w-full">
@@ -294,8 +294,8 @@ export default function Tasks() {
             ) : (
               sortedTasks.map((task) => (
                 <TaskCard
-                  key={task.ID}
-                  taskId={task.ID!}
+                  key={task.id}
+                  taskId={task.id!}
                   title={task.title}
                   description={task.description}
                   created={

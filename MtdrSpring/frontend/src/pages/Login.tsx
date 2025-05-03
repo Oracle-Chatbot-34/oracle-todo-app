@@ -48,7 +48,7 @@ export default function Login() {
   };
 
   return (
-    <div className="bg-background h-screen w-full flex flex-row items-center justify-center gap-[250px]">
+    <div id='login' className="bg-background h-screen w-full flex flex-row items-center justify-center gap-[250px]">
       <div className="flex flex-col items-center">
         <p className="text-[80px]">DashMaster</p>
         <img src={logo} className="w-[500px] h-[460px]" alt="Logo" />
@@ -66,7 +66,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-full">
+            <div id='error' className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-full">
               {error}
             </div>
           )}
@@ -77,6 +77,7 @@ export default function Login() {
               <p className="text-[20px] text-[#747276] text-left">Username</p>
               <input
                 type="text"
+                id="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{
@@ -90,6 +91,7 @@ export default function Login() {
             <div className="w-full">
               <p className="text-[20px] text-[#747276] text-left">Password</p>
               <input
+                id="password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

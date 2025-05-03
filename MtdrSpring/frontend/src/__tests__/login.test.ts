@@ -28,7 +28,9 @@ describe('Login functionality test', () => {
   test('User can login and see correct username displayed', async () => {
     // Test data
     const loginUrl = 'http://localhost:5173/login';
-    const expectedDisplayName = 'Roberto Morales';
+    // Find a way to pull these from a config file or environment variables
+    const testUsername = '';
+    const testPassword = '';
 
     // Step 1: Navigate to the login page
     await driver.get(loginUrl);
