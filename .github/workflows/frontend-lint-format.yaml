@@ -1,4 +1,4 @@
-name: Frontend Lint and Format
+name: Frontend
 
 on:
   pull_request:
@@ -24,10 +24,9 @@ jobs:
     - name: Run ESLint
       working-directory: ./MtdrSpring/frontend
       # Continue on error to show lint failures without blocking prettier
-      continue-on-error: true
       run: bun lint
 
-  format-check:
+  format:
     runs-on: ubuntu-latest
     # Run regardless of lint job outcome
     if: always()
