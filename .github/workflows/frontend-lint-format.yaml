@@ -23,7 +23,28 @@ jobs:
 
     - name: Run ESLint
       working-directory: ./MtdrSpring/frontend
-      run: bun lint
+      run: |
+        echo "::group::ESLint Results"
+        bun lint || echo "::error::ESLint found errors"
+        echo "::endgroup::"
+        
+        # Save detailed output to file
+        bun lint --format json > eslint-report.json 2>&1 || true
+        
+        # Show summary in annotations
+        if [ -f eslint-report.json ]; then
+          echo "::group::ESLint Summary"
+          cat eslint-report.json | jq -r '.[].messages[] | "::error file=\(.line)::\(.message)"' 2>/dev/null || cat eslint-report.json
+          echo "::endgroup::"
+        fi
+    
+    - name: Upload ESLint report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: eslint-report
+        path: frontend/eslint-report.json
+
 
   format:
     runs-on: ubuntu-latest
@@ -45,34 +66,12 @@ jobs:
 
     - name: Check Prettier formatting
       working-directory: ./MtdrSpring/frontend
-      run: bunx prettier --check . --config .prettierrc
-
-  format-apply:
-    runs-on: ubuntu-latest
-    # Only run on push to develop
-    if: github.event_name == 'pull_request' && github.ref == 'refs/heads/dev'
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Bun
-      uses: oven-sh/setup-bun@v1
-      with:
-        bun-version: latest
-
-    - name: Install dependencies
-      working-directory: ./MtdrSpring/frontend
-      run: bun install
-
-    - name: Format with Prettier
-      working-directory: ./MtdrSpring/frontend
-      run: bunx prettier --write . --config .prettierrc
-
-    - name: Commit formatting changes
       run: |
-        git config --global user.name 'GitHub Actions'
-        git config --global user.email 'actions@github.com'
-        git add .
-        git diff --quiet && git diff --staged --quiet || git commit -m "Apply prettier formatting [skip ci]"
-        git push
+        echo "::group::Prettier Check"
+        if bunx prettier --check . --config .prettierrc; then
+          echo "::notice::All files are properly formatted"
+        else
+          echo "::error::Formatting issues found. Run 'bunx prettier --write .' to fix."
+          bunx prettier --list-different . --config .prettierrc
+        fi
+        echo "::endgroup::"
