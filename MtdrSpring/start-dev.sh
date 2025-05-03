@@ -5,7 +5,7 @@ SCRIPT_DIR=$(dirname "$(realpath "$0")")
 cd "$SCRIPT_DIR"
 
 # Check environment files
-for dir in backend frontend; do
+for dir in frontend; do
   if [ ! -f "$SCRIPT_DIR/$dir/.env" ]; then
     echo "Error: .env file not found in $dir directory."
     exit 1
