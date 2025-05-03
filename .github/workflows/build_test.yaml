@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install dependencies
+      working-directory: ./MtdrSpring/frontend
+      run: bun install
+
+    - name: Run Build
+      working-directory: ./MtdrSpring/frontend
+      run: bunx --bun vite build --mode development
+  
+  backend:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v3
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+    
+    - name: Build with mvn
+      working-directory: ./MtdrSpring/backend
+      run: ./mvnw clean package -DskipTests
