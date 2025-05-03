@@ -1,8 +1,6 @@
 name: Frontend
 
 on:
-  push:
-    branches: [ "dev", "main" ]
   pull_request:
     branches: [ "*" ]
 
@@ -52,7 +50,7 @@ jobs:
   format-apply:
     runs-on: ubuntu-latest
     # Only run on push to develop
-    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    if: github.event_name == 'pull_request' && github.ref == 'refs/heads/dev'
     
     steps:
     - name: Checkout repository
