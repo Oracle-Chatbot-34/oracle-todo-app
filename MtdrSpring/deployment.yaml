@@ -4,9 +4,15 @@ kind: Secret
 metadata:
   name: dashmaster-secrets
 stringData:
-  # Replace with your actual Telegram Bot Token and Database Password
-  TELEGRAM_BOT_TOKEN: "7818362029:AAHjytZcyWk66nNzI3-KIDBbSuonVAymORA"
-  DB_PASSWORD: "Spring-boot103"
+  # Store sensitive information as Kubernetes secrets
+  # Replace these placeholder values with actual credentials in a production environment
+  # Consider using a secrets management solution in production
+  TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}" # Replace with actual token when deploying
+  DB_PASSWORD: "${DB_PASSWORD}" # Replace with actual password when deploying
+  DB_URL: "${DB_URL}" # Database connection string from environment variable
+  DB_USERNAME: "${DB_USERNAME}" # Database username from environment variable
+  TNS_ADMIN_PATH: "src/main/resources/Wallet_javadev" # Path to wallet
+  DRIVER_CLASS_NAME: "oracle.jdbc.OracleDriver" # Database driver class name
 type: Opaque
 ---
 apiVersion: apps/v1
@@ -25,12 +31,13 @@ spec:
     spec:
       containers:
       - name: dashmaster-backend
-        # --- Docker Hub Image Path ---
-        # Replace <your-dockerhub-username> with your Docker Hub username
+        # Container image from Docker Hub
+        # Version tag should be specific for production deployments
         image: docker.io/danielbarreras/dashmaster-backend:v1
         ports:
         - containerPort: 8080
         env:
+        # Reference secrets securely via secretKeyRef instead of hardcoding values
         - name: TELEGRAM_BOT_TOKEN
           valueFrom:
             secretKeyRef:
@@ -42,21 +49,28 @@ spec:
               name: dashmaster-secrets
               key: DB_PASSWORD
         - name: spring.datasource.url
-          # Ensure this points to your OCI Database endpoint accessible from OKE
-          # If using an Autonomous Database with a Wallet, you might need to
-          # configure the Wallet securely in the pod, which is more complex.
-          # This URL format suggests a direct connection which might require
-          # VCN peering or a Service Gateway depending on your setup.
-          value: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=src/main/resources/Wallet_javadev"
+          valueFrom:
+            secretKeyRef:
+              name: dashmaster-secrets
+              key: DB_URL
         - name: spring.datasource.username
-          value: "JAVADEV103"
+          valueFrom:
+            secretKeyRef:
+              name: dashmaster-secrets
+              key: DB_USERNAME
         - name: spring.datasource.driver-class-name
-          value: "oracle.jdbc.OracleDriver"
-      # imagePullSecrets are NOT needed for public Docker Hub images
-      # If you were using a private registry, you would add them here
-      # spec:
-      #   imagePullSecrets:
-      #   - name: your-registry-secret-name
+          valueFrom:
+            secretKeyRef:
+              name: dashmaster-secrets
+              key: DRIVER_CLASS_NAME
+        - name: TNS_ADMIN
+          valueFrom:
+            secretKeyRef:
+              name: dashmaster-secrets
+              key: TNS_ADMIN_PATH
+      # For private registries, uncomment and configure imagePullSecrets
+      # imagePullSecrets:
+      # - name: your-registry-secret-name
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -74,17 +88,15 @@ spec:
     spec:
       containers:
       - name: dashmaster-frontend
-        # --- Docker Hub Image Path ---
-        # Replace <your-dockerhub-username> with your Docker Hub username
+        # Frontend container image
         image: docker.io/danielbarreras/dashmaster-frontend:v1
         ports:
         - containerPort: 3000
         env:
-        # This assumes the frontend in the browser will access the API
-        # via the /api path provided by the Ingress.
+        # API base URL for frontend to communicate with backend
+        # "/api" path will be routed through Ingress to the backend service
         - name: VITE_API_BASE_URL
           value: "/api"
-      # imagePullSecrets are NOT needed for public Docker Hub images
 ---
 apiVersion: v1
 kind: Service
@@ -96,7 +108,7 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
-  type: ClusterIP # Use ClusterIP for internal communication
+  type: ClusterIP # Internal service not exposed directly outside the cluster
 ---
 apiVersion: v1
 kind: Service
@@ -108,22 +120,23 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
-  type: ClusterIP # Use ClusterIP as the Ingress exposes it
+  type: ClusterIP # Internal service accessed through Ingress
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: dashmaster-ingress
   annotations:
-    # This annotation tells OCI's load balancer to handle this Ingress
+    # Specifies NGINX as the ingress controller implementation
     kubernetes.io/ingress.class: "nginx"
-    # These rewrite rules are for the NGINX ingress controller
+    # Rewrites request paths for proper routing
     nginx.ingress.kubernetes.io/rewrite-target: /$1
     nginx.ingress.kubernetes.io/use-regex: "true"
 spec:
   rules:
   - http:
       paths:
+      # Route /api requests to the backend service
       - path: /api(/|$)(.*)
         pathType: Prefix
         backend:
@@ -131,6 +144,7 @@ spec:
             name: dashmaster-backend-service
             port:
               number: 8080
+      # Route all other requests to the frontend service
       - path: /(.*)
         pathType: Prefix
         backend:
