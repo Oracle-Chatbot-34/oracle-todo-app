@@ -5,16 +5,20 @@ import { useAuth } from '@/hooks/useAuth';
 
 const Navbar = () => {
   const location = useLocation();
-  const locationText =
-    location.pathname.split('/')[1].charAt(0).toUpperCase() +
-    location.pathname.split('/')[1].slice(1);
+
+  const pathSegment = location.pathname.split('/')[1];
+  const locationText = pathSegment
+    ? pathSegment.charAt(0).toUpperCase() + pathSegment.slice(1)
+    : 'Home';
 
   const [active, setActive] = useState(locationText);
   const { isAuthenticated, fullName, logout } = useAuth();
 
   useEffect(() => {
-    setActive(locationText);
-  }, [locationText]);
+    if (locationText !== active) {
+      setActive(locationText);
+    }
+  }, [locationText, active]);
 
   const handleLogout = () => {
     logout();
@@ -24,13 +28,10 @@ const Navbar = () => {
   return (
     <nav className="flex flex-row bg-background shrink-0 min-h-16 items-center justify-between px-10 shadow-md z-50">
       {/* Logo and Title */}
-      <div className="flex flex-row items-center gap-[10px]">
+      <a href="/" className="text-4xl font-semibold ml-2 flex flex-row items-center gap-2 justify-center"> 
         <img src={logo} className="h-14 aspect-square" alt="Logo" />
-        <div />
-        <a href="/" className="text-[36px] font-semibold ml-2">
-          DashMaster
-        </a>
-      </div>
+        DashMaster
+      </a>
 
       {/* Navigation Menu */}
       <div className="flex flex-row items-center justify-start">
@@ -49,7 +50,7 @@ const Navbar = () => {
             </li>
           </Link>
           {/* Pages */}
-          {['Reports', 'Tasks', 'KPIs','Groups','Sprints'].map((item) => (
+          {['Reports', 'Tasks', 'KPIs', 'Groups', 'Sprints'].map((item) => (
             <Link to={`/${item.toLowerCase()}`} key={item}>
               <li
                 onClick={() => setActive(item)}

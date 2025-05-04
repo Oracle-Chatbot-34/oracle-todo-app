@@ -1,16 +1,30 @@
 type LineComponentProps = {
-    percentage: number;
+  percentage: number;
 };
 
+export default function LineComponent({ percentage }: LineComponentProps) {
+  // Dynamic HSL green
+  const hue = 166; // base green hue
+  const saturation = Math.min(30 + percentage * 0.7, 100); // from 30% to 100%
+  const lightness = Math.max(40 - percentage * 0.1, 20); // from 40% to 20%
+  const dynamicGreen = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 
-export default function LineComponent({percentage}: LineComponentProps) {
+  // Determine text color
+  const textColor = percentage >= 55 ? 'white' : 'black';
+
   return (
-    <div className="w-full bg-whitie rounded-lg h-10 relative">
+    <div className="w-full bg-white rounded-lg h-full relative text-2xl">
       <div
-        className="bg-greenie h-full rounded-lg transition-all duration-500"
-        style={{ width: `${percentage}%` }}
+        className="h-full rounded-lg transition-all duration-500"
+        style={{
+          width: `${percentage}%`,
+          backgroundColor: dynamicGreen,
+        }}
       ></div>
-      <span className="absolute inset-0 flex items-center justify-center text-black font-bold">
+      <span
+        className="absolute inset-0 flex items-center justify-center font-bold transition-all duration-300"
+        style={{ color: textColor }}
+      >
         {percentage}%
       </span>
     </div>
