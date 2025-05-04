@@ -1,25 +1,32 @@
-import { useState, useEffect } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useState, useEffect, use } from 'react';
+import { ChevronDown, Sparkles } from 'lucide-react';
 import StatusSelections from '../components/StatusSelections';
 import ReportScopeSelection from '@/components/reports/ReportScopeSelection';
 import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import PdfDisplayer from '@/components/PdfDisplayer';
 import userService from '../services/userService';
 import reportService from '../services/reportService';
+import { useAuth } from '@/hooks/useAuth';
+
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import ReportUserSelection from '@/components/reports/ReportUserSelection';
 
-interface Member {
+type Member = {
   id: number;
   name: string;
-}
+};
 type SprintData = {
   id: number;
   name: string;
   members: Member[];
-}
+};
 
 export default function Reports() {
   const form = useForm({
@@ -31,16 +38,20 @@ export default function Reports() {
     ),
   });
 
+  const { isAuthenticated } = useAuth();
+
   const [sprints, setSprints] = useState<SprintData[]>([]);
+
   const [startSprint, setStartSprint] = useState<SprintData | null>(null);
   const [endSprint, setEndSprint] = useState<SprintData | null>(null);
+
   const [users, setUsers] = useState<Member[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<number | null>(null);
 
   const [selectedTaskOptions, setselectedTaskOptions] = useState<string[]>([]);
   const [selectAllTasksType, setselectAllTasksType] = useState(false);
 
-  const [, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   interface ReportData {
     reportType: string;
@@ -77,14 +88,12 @@ export default function Reports() {
         const usersResponse = await userService.getAllUsers();
         // Map User objects to Member interface
         const mappedUsers = usersResponse
-          .filter(user => user.id !== undefined)
-          .map(user => ({
+          .filter((user) => user.id !== undefined)
+          .map((user) => ({
             id: user.id as number,
-            name: user.fullName
+            name: user.fullName,
           }));
         setUsers(mappedUsers);
-
-
       } catch (err) {
         console.error('Error fetching users and teams:', err);
         setError('Failed to load users and teams data');
@@ -93,6 +102,41 @@ export default function Reports() {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    console.log('Sprints:', sprints);
+  }, [sprints]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchAllSprints = async (): Promise<SprintData[]> => {
+      const sprintsTemp: SprintData[] = Array.from({ length: 6 }, (_, i) => {
+        const memberCount = Math.floor(Math.random() * 3) + 3;
+        const entries = Array.from({ length: memberCount }, (_, j) => ({
+          id: j + 1,
+          name: `Member ${j + 1}`,
+        }));
+
+        return {
+          id: i + 1,
+          name: `Sprint ${i + 1}`,
+          members: entries,
+        };
+      });
+
+      return sprintsTemp;
+    };
+
+    fetchAllSprints().then((result) => {
+      setSprints(result);
+
+      // Only set start/end if they are still null
+      if (!startSprint) setStartSprint(result[0]);
+      if (!endSprint) setEndSprint(result[result.length - 1]);
+    });
+  }, [isAuthenticated]);
 
   const handleGenerateReport = async () => {
     try {
@@ -222,7 +266,7 @@ export default function Reports() {
           )}
 
           {/* Form */}
-          <div className="flex flex-col items-center justify-around bg-whitiish2 w-full max-w-[37.5rem] lg:min-h-[50rem] space-y-3 h-full rounded-4xl shadow-xl p-10">
+          <div className="flex flex-col items-center justify-around text-2xl bg-whitiish2 w-full max-w-[70vh] lg:min-h-[50rem] space-y-3 h-full rounded-4xl shadow-xl p-10">
             <ReportScopeSelection
               sprints={sprints}
               startSprint={startSprint!}
@@ -231,7 +275,16 @@ export default function Reports() {
               setEndSprint={setEndSprint}
             />
 
-            <ReportUserSelection members={users}/>
+            <Popover>
+              <PopoverTrigger className="w-full font-semibold p-4 border-2 border-gray-300 rounded-lg text-left flex justify-between items-center">
+                Member Selection
+                <ChevronDown className="w-8 h-8" />
+              </PopoverTrigger>
+              <PopoverContent className="w-full">
+                <p className="font-semibold mb-3 text-2xl px-4">Filter by Member</p>
+                <ReportUserSelection members={users} />
+              </PopoverContent>
+            </Popover>
 
             <StatusSelections
               selectedTaskOptions={selectedTaskOptions}
