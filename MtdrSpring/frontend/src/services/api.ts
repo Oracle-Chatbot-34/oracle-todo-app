@@ -4,6 +4,7 @@ import { config } from '../lib/config';
 // Create axios instance with base URL
 const api = axios.create({
   baseURL: config.apiBaseUrl,
+  withCredentials: true, // 👈 Add this line
 });
 
 // Request interceptor to add auth token to requests

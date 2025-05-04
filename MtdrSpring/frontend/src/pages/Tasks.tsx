@@ -45,7 +45,7 @@ export default function Tasks() {
 
   const handleTaskUpdated = (updatedTask: Task) => {
     setTasks((prevTasks) =>
-      prevTasks.map((task) => (task.ID === updatedTask.ID ? updatedTask : task))
+      prevTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task))
     );
 
     // Recalculate task statistics
@@ -190,7 +190,7 @@ export default function Tasks() {
       try {
         await taskService.deleteTask(taskId);
         // Remove task from state
-        setTasks(tasks.filter((task) => task.ID !== taskId));
+        setTasks(tasks.filter((task) => task.id !== taskId));
       } catch (err) {
         console.error('Error deleting task:', err);
         alert('Failed to delete task. Please try again.');
@@ -294,8 +294,8 @@ export default function Tasks() {
             ) : (
               sortedTasks.map((task) => (
                 <TaskCard
-                  key={task.ID}
-                  taskId={task.ID!}
+                  key={task.id}
+                  taskId={task.id!}
                   title={task.title}
                   description={task.description}
                   created={
@@ -319,15 +319,15 @@ export default function Tasks() {
               <Plus className="mr-2" /> Create new task
             </button>
 
-            <div className="bg-white h-full rounded-lg shadow-md p-6 min-h-40 flex flex-col justify-center items-center">
+            <div className="bg-white h-full rounded-lg shadow-md p-6 flex flex-col justify-center items-center">
               <p className="text-4xl">There are</p>
-              <p className="text-[130px] flex justify-center items-center">
+              <p className="text-[130px]">
                 {activeTasksCount}
               </p>
               <p className="text-4xl">active tasks</p>
             </div>
 
-            <div className="flex flex-col gap-4 bg-white h-full justify-around items-center rounded-lg shadow-md p-6 min-h-48">
+            <div className="flex flex-col gap-4 bg-white h-full justify-around items-center rounded-lg shadow-md p-6 min-h-48 text-2xl lg:text-3xl">
               <p className="text-2xl lg:text-3xl">
                 {onTimeCount} tasks are on time
               </p>

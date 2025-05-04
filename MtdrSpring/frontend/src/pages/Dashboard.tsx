@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
-import PieChart from '../components/PieChart';
-import TasksTime from '../components/TasksTime';
+import LineComponent from '@/components/kpis/LineComponent';
 import TaskDashCard from '../components/TaskDashCard';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { ChartArea, CheckCheck } from 'lucide-react';
+import { AlarmClock, CalendarClock, Info, LayoutList } from 'lucide-react';
 import taskService, { Task } from '@/services/tasksService';
-import kpiService from '../services/kpiService';
 import userService from '../services/userService';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,17 +15,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [dataPie, setDataPie] = useState<number[]>([0, 0, 0]);
-  const [dataLine, setDataLine] = useState({
-    data: [] as number[],
-    categories: [] as string[],
-  });
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
-  // Navigate to the tasks page
-  const navigateToTasks = () => {
-    navigate('/tasks');
-  };
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // Fetch user ID based on username
   useEffect(() => {
@@ -67,46 +55,12 @@ export default function Dashboard() {
           return dateB - dateA; // Newest first
         });
 
-        setTasks(sortedTasks.slice(0, 3)); // Get latest 3 tasks
+        // Filter tasks by not completed
+        const notCompletedTasks = sortedTasks.filter(
+          (task) => task.status !== 'completed'
+        );
 
-        // Get task status for pie chart
-        const now = new Date();
-        const activeTasks = allTasks.filter((task) => !task.done);
-
-        let onTime = 0;
-        let behindSchedule = 0;
-        let beyondDeadline = 0;
-
-        activeTasks.forEach((task) => {
-          if (!task.dueDate) {
-            onTime++; // If no due date, consider it on time
-          } else {
-            const dueDate = new Date(task.dueDate);
-            const daysUntilDue = Math.floor(
-              (dueDate.getTime() - now.getTime()) / (1000 * 3600 * 24)
-            );
-
-            if (daysUntilDue < 0) {
-              beyondDeadline++; // Already past due
-            } else if (daysUntilDue <= 2) {
-              behindSchedule++; // Due in 2 days or less
-            } else {
-              onTime++; // Due in more than 2 days
-            }
-          }
-        });
-
-        setDataPie([onTime, behindSchedule, beyondDeadline]);
-
-        // Fetch KPI data for trend line
-        const kpiData = await kpiService.getUserKpis(currentUserId);
-
-        if (kpiData && kpiData.taskCompletionTrend && kpiData.trendLabels) {
-          setDataLine({
-            data: kpiData.taskCompletionTrend,
-            categories: kpiData.trendLabels,
-          });
-        }
+        setTasks(notCompletedTasks.slice(0, 5)); // Get latest 3 tasks
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
         setError('Failed to load dashboard data');
@@ -124,100 +78,114 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-background h-screen w-full flex flex-row items-center justify-center gap-[40px]">
-      <div className="bg-whitie w-[650px] h-[800px] rounded-lg shadow-xl">
-        <br />
-        <div className="flex flex-row items-center gap-[20px]">
-          <br />
-          <div className="w-[40px] h-[40px] rounded-lg flex items-center justify-center">
-            <ChartArea className="w-[30px] h-[30px]" />
-          </div>
-          <p className="text-[24px] font-semibold">Analytics</p>
+    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
+      <div className="flex flex-col justify-center w-1/3 h-full">
+        <div className="w-full h-1/3 flex flex-col justify-center items-center">
+          <p className="text-4xl">Welcome to DashMaster</p>
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-full">
+              {error}
+            </div>
+          )}
         </div>
+        <div className="w-full h-2/3 bg-whitie rounded-tl-xl rounded-bl-xl shadow-accent pl-6 pr-1 py-6">
+          <div className="w-full h-full bg-white rounded-xl shadow-xl flex flex-col">
+            {/* Title */}
+            <div className="flex flex-row gap-3 p-4 items-center">
+              <LayoutList className="w-8 h-8" />
+              <p className="text-2xl font-semibold">Current Sprint Info</p>
+            </div>
 
-        <div className="flex flex-col items-center gap-[20px]">
-          {/* Chart goes here */}
-          <div className="shadow-xl rounded-lg">
+            {/* Loading Spinner */}
             {loading ? (
-              <div className="h-80 flex items-center justify-center">
-                <LoadingSpinner size={8} />
+              <div className="flex items-center justify-center h-1/3">
+                <LoadingSpinner />
               </div>
             ) : (
-              <PieChart data={dataPie} />
-            )}
-          </div>
-          {/* Chart goes here */}
-          <div className="shadow-xl rounded-lg">
-            {loading ? (
-              <div className="h-80 flex items-center justify-center">
-                <LoadingSpinner size={8} />
+              <div className="w-full h-full flex flex-col gap-5 px-8 mt-5">
+                <div className="flex flex-row gap-4 items-center">
+                  <Info className="w-6 h-6" />
+                  <p className="text-xl font-semibold">General Information</p>
+                </div>
+
+                <div className="flex flex-col gap-3 text-xl px-4">
+                  <p>
+                    Sprint Name: {/*sprint.name*/}
+                    {'Backend Sprint 1'}
+                  </p>
+                  <p>
+                    Description: {/*sprint.description*/}
+                    {'Backend Sprint 1 for the new feature X'}
+                  </p>
+                </div>
+
+                <div className="flex flex-row gap-4 items-center">
+                  <AlarmClock className="w-6 h-6" />
+                  <p className="text-xl font-semibold">Important Dates</p>
+                </div>
+
+                <div className="flex flex-col gap-3 text-xl px-4">
+                  <p>
+                    Start date: {/*sprint.startdate*/}
+                    {'2025-04-10'}
+                  </p>
+                  <p>
+                    End date: {/*sprint.dueDate*/}
+                    {'2025-05-05'}
+                  </p>
+                </div>
+
+                <div className="flex flex-row gap-4 items-center">
+                  <AlarmClock className="w-6 h-6" />
+                  <p className="text-xl font-semibold">Sprint Progression</p>
+                </div>
+
+                <div className="h-1/5 flex flex-col gap-3 text-xl px-4">
+                  <p>There are {3} days left in the current spring.</p>
+                  <LineComponent percentage={55} />
+                </div>
               </div>
-            ) : (
-              <TasksTime
-                data={dataLine.data}
-                categories={dataLine.categories}
-              />
             )}
           </div>
         </div>
       </div>
-      <div className="flex flex-col items-center gap-[20px]">
-        <div className="bg-whitie w-[650px] h-[570px] rounded-lg shadow-xl">
-          <br />
-          <div className="flex flex-row items-center gap-[20px]">
-            <br />
-            <div className="w-[40px] h-[40px] rounded-lg flex items-center justify-center">
-              <CheckCheck className="w-[30px] h-[30px]" />
-            </div>
-            <p className="text-[24px] font-semibold">Latest tasks</p>
+      <div className="w-2/3 h-full bg-whitie rounded-tl-xl rounded-br-xl rounded-tr-xl shadow-accent p-6">
+        <div className="flex flex-col gap-5 p-4 items-start bg-white rounded-xl shadow-xl w-full h-full">
+          <div className="flex flex-row gap-4">
+            <CalendarClock className="w-8 h-8" />
+            <p className="text-2xl font-semibold">Not Completed Tasks!</p>
           </div>
-          <div className="flex flex-col items-center gap-[30px]">
-            {/* Task list */}
-            <div>
-              {loading ? (
-                <div className="h-80 flex items-center justify-center">
-                  <LoadingSpinner size={8} />
-                </div>
-              ) : error ? (
-                <div className="text-red-500 text-center p-4">{error}</div>
-              ) : tasks.length === 0 ? (
-                <div className="text-center p-4">No tasks found</div>
-              ) : (
-                tasks.map((task) => (
+          {tasks.length > 0 ? (
+            <div className="w-full flex flex-col gap-5">
+              <div className="flex flex-col gap-6 mb-3">
+                {tasks.map((task) => (
                   <TaskDashCard
-                    key={task.ID}
-                    id={task.ID}
+                    key={task.id}
+                    id={task.id}
                     title={task.title}
-                    dueDate={
-                      task.dueDate
-                        ? new Date(task.dueDate).toLocaleDateString()
-                        : 'No due date'
-                    }
-                    assignedTo={getAssigneeName(task)}
+                    assignedTo={task.assigneeId}
+                    dueDate={task.dueDate}
                   />
-                ))
-              )}
+                ))}
+              </div>
+              <div className="flex flex-row gap-3 text-2xl p-3 w-full font italic items-center justify-between">
+                <Info className="w-6 h-6" />
+                <div className="flex flex-row">
+                  This list is view only, if you wish to manage tasks, go to:
+                  <button
+                    onClick={() => navigate('/tasks')}
+                    className="font-semibold underline"
+                  >
+                    Task Management
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="bg-greyie rounded-lg text-black text-[20px] font-semibold shadow-xl">
-              <Button
-                className="h-[40px] w-54 text-xl"
-                size={'lg'}
-                onClick={navigateToTasks}
-              >
-                Manage all tasks
-              </Button>
+          ) : (
+            <div className="h-40 flex items-center justify-center">
+              <p>No data available</p>
             </div>
-          </div>
-        </div>
-        <div className="bg-whitie w-[650px] h-[205px] rounded-lg shadow-xl p-4">
-          {/* Active task */}
-          <div className="flex flex-col items-center justify-center h-full">
-            <h2 className="text-2xl font-bold mb-4">Welcome to DashMaster</h2>
-            <p className="text-lg text-center">
-              Your one-stop solution for task management and team productivity
-              tracking.
-            </p>
-          </div>
+          )}
         </div>
       </div>
     </div>

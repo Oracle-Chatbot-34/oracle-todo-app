@@ -8,38 +8,30 @@ type KPIDictionary = {
 export const dictionaryKPI: KPIDictionary = {
   1: {
     definition:
-      'Task Completion Rate (TCR) measures the percentage of completed tasks out of the total created tasks.',
+      'Hours Worked by Developer tracks the total number of hours (actual) logged by each developer across all assigned tasks in a given sprint range.',
     example:
-      'If a team created 100 tasks and completed 80, the TCR would be (80/100) * 100 = 80%.',
+      'If Developer A worked 10 hours on Task 1 and 15 on Task 2, the total hours worked would be 25 hours.',
   },
   2: {
     definition:
-      'Average Tasks per Employee (ATE) calculates the average number of tasks assigned to each active employee.',
+      'Completed Tasks by Developer per Sprint measures the number of tasks each developer has marked as completed during a specific sprint.',
     example:
-      'If 5 employees handled 200 tasks, ATE = 200/5 = 40 tasks per employee.',
+      'If Developer B completed 4 tasks in Sprint 2, the metric would be 4 completed tasks for that sprint.',
   },
   3: {
     definition:
-      'On-Time Completion Rate (OTCR) determines the percentage of tasks that were completed on or before the deadline.\nOverdue Tasks Ratio (OTR) measures the proportion of completed tasks that were finished late.',
-    example:
-      'OTCR: If 50 out of 60 completed tasks met the deadline, OTCR = (50/60) * 100 = 83.3%.\nOTR: If 20 out of 80 completed tasks were late, OTR = (20/80) * 100 = 25%.',
+      'This graph ilustrates the amount of worked hours across a selected range of sprints (By Sprint). It also gives the total worked hours for the whole sprint range.',
+    example: 'Sprint 1: 10 hours, Sprint 2: 15 hours, Total: 25 hours.',
   },
   4: {
     definition:
-      'Real Hours Worked (RH) calculates the difference between actual hours worked and planned hours.',
-    example:
-      'If an employee was scheduled for 40 hours but worked 45, RH = 45 - 40 = 5 extra hours.',
+      'This graph ilustrates the amount of completed tasks across a selected range of sprints (By Sprint). It also gives the total amount of completed tasks for the whole sprint range.',
+    example: 'Sprint 1: 5 tasks, Sprint 2: 8 tasks, Total: 13 tasks.',
   },
   5: {
     definition:
-      'OCI Resources Utilization (OCIRU) indicates the percentage of actual resource usage compared to planned usage.',
+      'Task Information by Sprints displays all tasks grouped by sprint, including details like assignee, title, status, priority, estimated hours, and actual hours.',
     example:
-      'If the planned usage was 100 CPU hours and actual usage was 85, OCIRU = (85/100) * 100 = 85%.',
-  },
-  6: {
-    definition:
-      'Tasks Completed per Week (CR) calculates the percentage of completed tasks out of the planned tasks for a given week.',
-    example:
-      'If a team planned 50 tasks but completed 45, CR = (45/50) * 100 = 90%.',
+      'Sprint 1 includes Task A (assigned to Dev 1, High Priority, Estimated: 6h, Actual: 7h, Status: Done).',
   },
 };

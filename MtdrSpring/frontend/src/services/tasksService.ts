@@ -17,6 +17,8 @@ export interface Task {
   completedAt: string;
 }
 
+
+
 const taskService = {
   getAllTasks: async (): Promise<Task[]> => {
     try {
@@ -158,9 +160,16 @@ const taskService = {
    * Pls uwu
    */
   getUserCountOfTasks: async (userId: number): Promise<number> => {
-    const response = await api.get(`/users/${userId}/active-tasks/count`);
-    return response.data;
+    // Later replace with the real route
+    return 40;
   },
+
+  getUserAverageOfTasks: async (userId: number): Promise<number> => {
+    // Later replace with the real route
+    return 4.5;
+  },
+
+
 };
 
 export default taskService;
