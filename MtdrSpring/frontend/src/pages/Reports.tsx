@@ -1,4 +1,4 @@
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronDown, Sparkles } from 'lucide-react';
 import StatusSelections from '../components/StatusSelections';
 import ReportScopeSelection from '@/components/reports/ReportScopeSelection';
@@ -250,7 +250,7 @@ export default function Reports() {
   };
 
   return (
-    <div className="bg-background w-full p-6 lg:px-10 py-10 flex items-start justify-center">
+    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center">
       <div className="flex flex-col lg:flex-row p-6 lg:p-10 gap-y-6 bg-whitie w-full h-full rounded-lg shadow-xl">
         <div className="flex flex-col gap-4 justify-center items-start w-full h-fit mx-2">
           {/* Title */}
@@ -266,7 +266,7 @@ export default function Reports() {
           )}
 
           {/* Form */}
-          <div className="flex flex-col items-center justify-around text-2xl bg-whitiish2 w-full max-w-[70vh] lg:min-h-[50rem] space-y-3 h-full rounded-4xl shadow-xl p-10">
+          <div className="flex flex-col items-center justify-around text-2xl bg-whitiish2 w-full max-w-[70vh] lg:min-h-[75vh] space-y-3 h-full rounded-4xl shadow-xl p-10">
             <ReportScopeSelection
               sprints={sprints}
               startSprint={startSprint!}
