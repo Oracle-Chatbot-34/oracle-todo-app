@@ -10,33 +10,84 @@ import {
 } from '@/components/ui/popover';
 import PdfDisplayer from '@/components/PdfDisplayer';
 import userService from '../services/userService';
-import reportService from '../services/reportService';
+import sprintService from '@/services/sprintService';
+import kpiGraphQLService from '@/services/kpiGraphQLService';
 import { useAuth } from '@/hooks/useAuth';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import ReportUserSelection from '@/components/reports/ReportUserSelection';
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: {
+      startY?: number;
+      head?: string[][];
+      body: string[][];
+      margin?: { top?: number; right?: number; bottom?: number; left?: number };
+      theme?: string;
+      styles?: Record<string, unknown>;
+      headStyles?: Record<string, unknown>;
+      bodyStyles?: Record<string, unknown>;
+      alternateRowStyles?: Record<string, unknown>;
+      columnStyles?: Record<string, unknown>;
+    }) => void;
+    lastAutoTable: {
+      finalY: number;
+    };
+  }
+}
 
 type Member = {
   id: number;
   name: string;
 };
+
 type SprintData = {
   id: number;
   name: string;
   members: Member[];
 };
 
+type KpiData = {
+  taskCompletionRate: number;
+  onTimeCompletionRate: number;
+  overdueTasksRate: number;
+  workedHours: number;
+  plannedHours: number;
+  hoursUtilizationPercent: number;
+};
+
+type TaskInfo = {
+  id: string | number;
+  title: string;
+  status: string;
+  dueDate?: string;
+  assigneeName?: string;
+};
+
+type SprintTaskInfo = {
+  tasks: TaskInfo[];
+};
+
+type ReportCharts = {
+  taskInformation: SprintTaskInfo[];
+};
+
+type ReportData = {
+  isIndividual: boolean;
+  reportType: string;
+  generatedAt: string;
+  kpiData: KpiData;
+  charts: ReportCharts;
+  insights: string;
+  user: Member | null;
+  teamId: number | null;
+  dateRange: {
+    startSprint: string;
+    endSprint: string;
+  };
+};
+
 export default function Reports() {
-  const form = useForm({
-    resolver: zodResolver(
-      z.object({
-        startDate: z.date(),
-        endDate: z.date(),
-      })
-    ),
-  });
 
   const { isAuthenticated } = useAuth();
 
@@ -46,40 +97,16 @@ export default function Reports() {
   const [endSprint, setEndSprint] = useState<SprintData | null>(null);
 
   const [users, setUsers] = useState<Member[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<number | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   const [selectedTaskOptions, setselectedTaskOptions] = useState<string[]>([]);
   const [selectAllTasksType, setselectAllTasksType] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  interface ReportData {
-    reportType: string;
-    generatedAt: string;
-    totalTasks: string;
-    dateRange?: string | Date;
-    endDate?: string | Date;
-    user?: { name: string; role: string };
-    teamId?: string;
-    teamSize?: string;
-    kpiData: {
-      taskCompletionRate: number;
-      onTimeCompletionRate: number;
-      overdueTasksRate: number;
-      plannedHours: number;
-      workedHours: number;
-      hoursUtilizationPercent: number;
-    };
-    tasks: Array<{
-      id: string | number;
-      title: string;
-      status: string;
-      dueDate?: string;
-      assignee?: { name: string };
-    }>;
-  }
-
   const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   // Load users and teams on component mount
   useEffect(() => {
@@ -105,148 +132,176 @@ export default function Reports() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    console.log('Sprints:', sprints);
-  }, [sprints]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
+    const fetchAllSprints = async () => {
+      try {
+        setLoading(true);
+        const sprintsResponse = await sprintService.getAllSprints();
 
-    const fetchAllSprints = async (): Promise<SprintData[]> => {
-      const sprintsTemp: SprintData[] = Array.from({ length: 6 }, (_, i) => {
-        const memberCount = Math.floor(Math.random() * 3) + 3;
-        const entries = Array.from({ length: memberCount }, (_, j) => ({
-          id: j + 1,
-          name: `Member ${j + 1}`,
-        }));
+        if (!sprintsResponse || sprintsResponse.length === 0) {
+          setError('No sprints available');
+          setLoading(false);
+          return;
+        }
 
-        return {
-          id: i + 1,
-          name: `Sprint ${i + 1}`,
-          members: entries,
-        };
-      });
+        // Format sprints
+        const formattedSprints: SprintData[] = sprintsResponse.map(
+          (sprint) => ({
+            id: sprint.id!,
+            name: sprint.name,
+            members: [],
+          })
+        );
 
-      return sprintsTemp;
+        setSprints(formattedSprints);
+        setStartSprint(formattedSprints[0]);
+      } catch (err) {
+        console.error('Error fetching sprints:', err);
+        setError('Failed to load sprints');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchAllSprints().then((result) => {
-      setSprints(result);
-
-      // Only set start/end if they are still null
-      if (!startSprint) setStartSprint(result[0]);
-      if (!endSprint) setEndSprint(result[result.length - 1]);
-    });
+    fetchAllSprints();
   }, [isAuthenticated]);
+
+  const generatePdf = () => {
+    if (!reportData) return;
+
+    const doc = new jsPDF();
+
+    // Add title
+    doc.setFontSize(18);
+    doc.text('Performance Report', 20, 20);
+
+    // Add metadata
+    doc.setFontSize(12);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 30);
+    doc.text(
+      `Report Type: ${reportData.isIndividual ? 'Individual' : 'Team'}`,
+      20,
+      40
+    );
+    doc.text(
+      `Sprint Range: ${startSprint?.name} ${
+        endSprint ? `to ${endSprint.name}` : ''
+      }`,
+      20,
+      50
+    );
+
+    // Add KPI summary
+    doc.setFontSize(14);
+    doc.text('KPI Summary', 20, 65);
+
+    // Add KPI table
+    const kpiData = [
+      [
+        'Task Completion Rate',
+        `${reportData.kpiData.taskCompletionRate.toFixed(2)}%`,
+      ],
+      [
+        'On-Time Completion',
+        `${reportData.kpiData.onTimeCompletionRate.toFixed(2)}%`,
+      ],
+      ['Overdue Tasks', `${reportData.kpiData.overdueTasksRate.toFixed(2)}%`],
+      ['Worked Hours', `${reportData.kpiData.workedHours.toFixed(1)} hrs`],
+      ['Planned Hours', `${reportData.kpiData.plannedHours.toFixed(1)} hrs`],
+      [
+        'Hours Utilization',
+        `${reportData.kpiData.hoursUtilizationPercent.toFixed(2)}%`,
+      ],
+    ];
+
+    doc.autoTable({
+      startY: 70,
+      head: [['Metric', 'Value']],
+      body: kpiData,
+    });
+
+    // Add AI insights
+    doc.setFontSize(14);
+    doc.text('AI Insights', 20, doc.lastAutoTable.finalY + 15);
+
+    // Add insights content with text wrapping
+    doc.setFontSize(10);
+    const insightsText = reportData.insights;
+    const splitInsights = doc.splitTextToSize(insightsText, 170);
+    doc.text(splitInsights, 20, doc.lastAutoTable.finalY + 25);
+
+    // Save PDF
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    setPdfUrl(pdfUrl);
+
+    return pdfUrl;
+  };
 
   const handleGenerateReport = async () => {
     try {
       setLoading(true);
       setError('');
+      setPdfUrl(null);
 
-      // Prepare dates
-      const startDate = form.getValues()['startDate'];
-      const endDate = form.getValues()['endDate'];
+      if (!startSprint) {
+        setError('Please select a start sprint');
+        setLoading(false);
+        return;
+      }
 
-      // Create report request
-      const reportRequest = {
-        teamId: !selectedTeam || undefined,
-        statuses:
-          selectedTaskOptions.length > 0 ? selectedTaskOptions : undefined,
-        startDate,
-        endDate,
-      };
+      if (!selectedUserId && !selectedTeamId) {
+        setError('Please select either a user or a team');
+        setLoading(false);
+        return;
+      }
 
-      // Generate report
-      // Call the API to generate the report
-      //const response = await reportService.generateReport(reportRequest);
+      // Call GraphQL service
+      const kpiResult = await kpiGraphQLService.getKpiData(
+        startSprint.id,
+        endSprint?.id
+      );
 
-      // Example mocked result for development/testing
-      const result = {
+      // Format report data
+      const formattedResult: ReportData = {
+        isIndividual: selectedUserId !== null,
         reportType: 'Performance',
         generatedAt: new Date().toISOString(),
-        totalTasks: '24',
-        dateRange: startDate.toISOString(),
-        endDate: endDate.toISOString(),
-        user: { name: 'John Doe', role: 'Developer' },
-        teamId: selectedTeam ? selectedTeam.toString() : undefined,
-        teamSize: '5',
-        taskCompletionRate: 78.5,
-        onTimeCompletionRate: 82.3,
-        overdueTasksRate: 17.7,
-        plannedHours: 120,
-        workedHours: 105,
-        hoursUtilizationPercent: 87.5,
-        tasks: [
-          {
-            id: 1,
-            title: 'Implement user authentication',
-            status: 'Completed',
-            dueDate: '2023-06-15',
-            assignee: { name: 'Jane Smith' },
-          },
-          {
-            id: 2,
-            title: 'Design landing page',
-            status: 'In Progress',
-            dueDate: '2023-06-20',
-            assignee: { name: 'John Doe' },
-          },
-          {
-            id: 3,
-            title: 'Fix navigation bug',
-            status: 'Completed',
-            dueDate: '2023-06-10',
-            assignee: { name: 'Mike Johnson' },
-          },
-          {
-            id: 4,
-            title: 'API integration',
-            status: 'Blocked',
-            dueDate: '2023-06-25',
-            assignee: { name: 'Sarah Wilson' },
-          },
-          {
-            id: 5,
-            title: 'Performance optimization',
-            status: 'To Do',
-            dueDate: '2023-06-30',
-            assignee: { name: 'Alex Brown' },
-          },
-        ],
+        kpiData: kpiResult.data.getKpiData.data,
+        charts: kpiResult.data.getKpiData.charts,
+        insights: "AI-generated insights here",
+        user: selectedUserId
+          ? users.find((u) => u.id === selectedUserId) || null
+          : null,
+        teamId: selectedTeamId,
+        dateRange: {
+          startSprint: startSprint.name,
+          endSprint: endSprint?.name || startSprint.name,
+        },
       };
 
-      // Convert API result to match ReportData interface
-      const formattedResult: ReportData = {
-        reportType: result.reportType || '',
-        generatedAt: result.generatedAt || new Date().toISOString(),
-        totalTasks: result.totalTasks || '0',
-        dateRange: result.dateRange,
-        endDate: result.endDate,
-        user:
-          typeof result.user === 'string'
-            ? { name: result.user, role: '' }
-            : (result.user as { name: string; role: string }),
-        teamId: result.teamId,
-        teamSize: result.teamSize,
-        kpiData: {
-          taskCompletionRate: Number(result.taskCompletionRate || 0),
-          onTimeCompletionRate: Number(result.onTimeCompletionRate || 0),
-          overdueTasksRate: Number(result.overdueTasksRate || 0),
-          plannedHours: Number(result.plannedHours || 0),
-          workedHours: Number(result.workedHours || 0),
-          hoursUtilizationPercent: Number(result.hoursUtilizationPercent || 0),
-        },
-        tasks: Array.isArray(result.tasks) ? result.tasks : [],
-      };
       setReportData(formattedResult);
 
-      console.log('Report data:', formattedResult);
+      // Generate PDF
+      setTimeout(() => {
+        generatePdf();
+      }, 500);
     } catch (err) {
       console.error('Error generating report:', err);
       setError('Failed to generate report. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUserSelect = (userId: number) => {
+    setSelectedUserId(userId);
+    setSelectedTeamId(null); // Clear team selection when user is selected
+  };
+
+  const handleTeamSelect = (teamId: number) => {
+    setSelectedTeamId(teamId);
+    setSelectedUserId(null); // Clear user selection when team is selected
   };
 
   return (
@@ -275,7 +330,7 @@ export default function Reports() {
               setEndSprint={setEndSprint}
             />
 
-            <Popover>
+<Popover>
               <PopoverTrigger className="w-full font-semibold p-4 border-2 border-gray-300 rounded-lg text-left flex justify-between items-center">
                 Member Selection
                 <ChevronDown className="w-8 h-8" />
@@ -299,8 +354,9 @@ export default function Reports() {
               className="text-lg"
               type="button"
               onClick={handleGenerateReport}
+              disabled={loading}
             >
-              Generate Report
+              {loading ? 'Generating...' : 'Generate Report'}
             </Button>
           </div>
         </div>
@@ -309,9 +365,23 @@ export default function Reports() {
         <div className="w-full h-full">
           {reportData ? (
             <div className="flex flex-col w-full h-full rounded-xl bg-card justify-start items-center p-6 outline gap-4 overflow-y-auto">
-              <h2 className="text-2xl font-bold">
-                {reportData.reportType} Report
-              </h2>
+              <div className="flex justify-between w-full">
+                <h2 className="text-2xl font-bold">
+                  {reportData.reportType} Report
+                </h2>
+
+                {pdfUrl && (
+                  <a
+                    href={pdfUrl}
+                    download="performance_report.pdf"
+                    className="flex items-center gap-2 bg-greenie text-white px-4 py-2 rounded-lg"
+                  >
+                    <Download size={18} />
+                    Download PDF
+                  </a>
+                )}
+              </div>
+
               <p>
                 Generated at:{' '}
                 {new Date(reportData.generatedAt).toLocaleString()}
@@ -319,28 +389,25 @@ export default function Reports() {
 
               <div className="w-full p-4 bg-white rounded-lg shadow-md">
                 <h3 className="text-xl font-semibold mb-2">Report Summary</h3>
-                <p>Total Tasks: {reportData.totalTasks}</p>
                 <p>
-                  Date Range:{' '}
-                  {reportData.dateRange
-                    ? `${new Date(
-                        reportData.dateRange
-                      ).toLocaleDateString()} to ${new Date(
-                        reportData.endDate || ''
-                      ).toLocaleDateString()}`
-                    : 'Not specified'}
+                  Date Range: {reportData.dateRange.startSprint}
+                  {reportData.dateRange.endSprint !==
+                    reportData.dateRange.startSprint &&
+                    ` to ${reportData.dateRange.endSprint}`}
+                </p>
+                <p>
+                  Report Type: {reportData.isIndividual ? 'Individual' : 'Team'}
                 </p>
 
-                {reportData.user && (
+                {reportData.isIndividual && reportData.user && (
                   <div className="mt-4">
                     <p>User: {reportData.user.name}</p>
-                    <p>Role: {reportData.user.role}</p>
                   </div>
                 )}
 
-                {reportData.teamId && (
+                {!reportData.isIndividual && reportData.teamId && (
                   <div className="mt-4">
-                    <p>Team Size: {reportData.teamSize}</p>
+                    <p>Team ID: {reportData.teamId}</p>
                   </div>
                 )}
               </div>
@@ -365,13 +432,31 @@ export default function Reports() {
                   </div>
 
                   <div>
-                    <p>Planned Hours: {reportData.kpiData.plannedHours}</p>
-                    <p>Worked Hours: {reportData.kpiData.workedHours}</p>
+                    <p>
+                      Planned Hours:{' '}
+                      {reportData.kpiData.plannedHours.toFixed(1)}
+                    </p>
+                    <p>
+                      Worked Hours: {reportData.kpiData.workedHours.toFixed(1)}
+                    </p>
                     <p>
                       Hours Utilization:{' '}
                       {reportData.kpiData.hoursUtilizationPercent.toFixed(2)}%
                     </p>
                   </div>
+                </div>
+              </div>
+
+              <div className="w-full mt-4 p-4 bg-white rounded-lg shadow-md">
+                <h3 className="text-xl font-semibold mb-2">AI Insights</h3>
+                <div className="prose max-w-none">
+                  {reportData.insights
+                    .split('\n\n')
+                    .map((paragraph: string, idx: number) => (
+                      <p key={idx} className="mb-2">
+                        {paragraph}
+                      </p>
+                    ))}
                 </div>
               </div>
 
@@ -397,24 +482,27 @@ export default function Reports() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {reportData.tasks.map((task) => (
-                        <tr key={task.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {task.title}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {task.status}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {task.dueDate
-                              ? new Date(task.dueDate).toLocaleDateString()
-                              : 'N/A'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {task.assignee ? task.assignee.name : 'Unassigned'}
-                          </td>
-                        </tr>
-                      ))}
+                      {reportData.charts.taskInformation.flatMap(
+                        (sprintInfo: SprintTaskInfo) =>
+                          sprintInfo.tasks.map((task) => (
+                            <tr key={task.id}>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {task.title}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.status}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.dueDate
+                                  ? new Date(task.dueDate).toLocaleDateString()
+                                  : 'N/A'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {task.assigneeName || 'Unassigned'}
+                              </td>
+                            </tr>
+                          ))
+                      )}
                     </tbody>
                   </table>
                 </div>

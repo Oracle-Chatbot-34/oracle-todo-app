@@ -22,7 +22,7 @@ public class ToDoItem {
     String description;
 
     @Column(name = "CREATION_TS")
-    OffsetDateTime creation_ts;
+    private OffsetDateTime creationTs; // Changed from creation_ts to creationTs
 
     @Column(name = "DUE_DATE")
     OffsetDateTime dueDate;
@@ -58,12 +58,12 @@ public class ToDoItem {
     public ToDoItem() {
     }
 
-    public ToDoItem(int ID, String title, String description, OffsetDateTime creation_ts, OffsetDateTime dueDate,
+    public ToDoItem(int ID, String title, String description, OffsetDateTime creationTs, OffsetDateTime dueDate,
             Long assigneeId, Long teamId, String status, String priority, boolean done, OffsetDateTime completedAt) {
         this.ID = ID;
         this.title = title;
         this.description = description;
-        this.creation_ts = creation_ts;
+        this.creationTs = creationTs; // Changed from creation_ts to creationTs
         this.dueDate = dueDate;
         this.assigneeId = assigneeId;
         this.teamId = teamId;
@@ -89,12 +89,13 @@ public class ToDoItem {
         this.description = description;
     }
 
-    public OffsetDateTime getCreation_ts() {
-        return creation_ts;
+    // Updated getter and setter methods for creationTs
+    public OffsetDateTime getCreationTs() {
+        return creationTs;
     }
 
-    public void setCreation_ts(OffsetDateTime creation_ts) {
-        this.creation_ts = creation_ts;
+    public void setCreationTs(OffsetDateTime creationTs) {
+        this.creationTs = creationTs;
     }
 
     public boolean isDone() {
@@ -201,7 +202,7 @@ public class ToDoItem {
                 "ID=" + ID +
                 ", title='" + title + '\'' +
                 ", description='" + description + '\'' +
-                ", creation_ts=" + creation_ts +
+                ", creationTs=" + creationTs + // Changed from creation_ts to creationTs
                 ", dueDate=" + dueDate +
                 ", assigneeId=" + assigneeId +
                 ", teamId=" + teamId +

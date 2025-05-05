@@ -57,3 +57,4 @@ MtdrSpring/.env.local
 MtdrSpring/.env.local.bat
 **/wallet
 *.env
+**/application.properties

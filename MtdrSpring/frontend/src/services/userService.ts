@@ -9,6 +9,7 @@ export interface User {
   role: string;
   employeeId?: string;
   telegramId?: number;
+  teamId?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -42,16 +43,6 @@ const userService = {
     const response = await api.get(`${config.apiEndpoint}/users/roles/${role}`);
     return response.data;
   },
-  /**
-   * 
-   * Danni please ! 
-   * 
-   */
-  getUserPlannedAndRealHours: async(id: number): Promise<number[]> => {
-    // Later replace with that route.
-    return [12,56]
-
-  }
 };
 
 export default userService;

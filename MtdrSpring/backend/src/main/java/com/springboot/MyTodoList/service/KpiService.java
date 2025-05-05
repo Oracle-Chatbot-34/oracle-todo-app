@@ -78,7 +78,7 @@ public class KpiService {
             OffsetDateTime endDate) {
         return tasks.stream()
                 .filter(task -> {
-                    OffsetDateTime taskDate = task.getCreation_ts();
+                    OffsetDateTime taskDate = task.getCreationTs();
                     return taskDate != null &&
                             (taskDate.isEqual(startDate) || taskDate.isAfter(startDate)) &&
                             (taskDate.isEqual(endDate) || taskDate.isBefore(endDate));
@@ -106,7 +106,7 @@ public class KpiService {
         // Calculate task completion trend (weekly)
         Map<OffsetDateTime, List<ToDoItem>> tasksByWeek = tasks.stream()
                 .collect(Collectors.groupingBy(
-                        task -> task.getCreation_ts().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))));
+                        task -> task.getCreationTs().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))));
 
         List<Double> weeklyTrends = new ArrayList<>();
         List<String> weekLabels = new ArrayList<>();
