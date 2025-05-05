@@ -34,8 +34,8 @@ export default function ReportScopeSelection({
   }, [startSprint]);
 
   return (
-    <div className="w-full flex gap-4 items-center text-2xl justify-between">
-      <div className="flex flex-row items-center gap-3 w-1/2">
+    <div className="w-full flex flex-row items-center justify-center">
+      <div className="flex flex-row items-center gap-2 w-1/2">
         <label className=" font-semibold">Start Sprint: </label>
         <select
           className="border px-2 py-1 rounded-lg w-1/2"
@@ -55,8 +55,8 @@ export default function ReportScopeSelection({
         </select>
       </div>
 
-      <div className="flex flex-row items-center gap-3 w-1/2">
-        <label className=" font-semibold">End Sprint: (optional)</label>
+      <div className="flex flex-row items-center gap-2 w-1/2">
+        <div className=" font-semibold">End Sprint: (optional)</div>
         <select
           className="border px-2 py-1 rounded-lg w-1/2"
           value={endSprint?.id || ''}
