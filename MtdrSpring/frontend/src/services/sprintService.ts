@@ -15,8 +15,39 @@ export interface Sprint {
 
 const sprintService = {
   getAllSprints: async (): Promise<Sprint[]> => {
-    const response = await api.get(`${config.apiEndpoint}/sprints`);
-    return response.data;
+    try {
+      const response = await api.get(`${config.apiEndpoint}/sprints`);
+      console.log('Sprint service raw response:', response);
+
+      let sprintsData;
+
+      // Handle the API response structure
+      if (response.data && typeof response.data === 'object') {
+        if (Array.isArray(response.data)) {
+          sprintsData = response.data;
+        } else if (response.data.data && Array.isArray(response.data.data)) {
+          // For {"data": [...]} structure
+          sprintsData = response.data.data;
+        } else if (
+          response.data.success !== undefined &&
+          Array.isArray(response.data.data)
+        ) {
+          // For {"success": true, "data": [...]} structure
+          sprintsData = response.data.data;
+        } else {
+          // For object with numeric keys format like {"0": {...}, "1": {...}}
+          sprintsData = Object.values(response.data);
+        }
+      } else {
+        sprintsData = [];
+      }
+
+      console.log('Processed sprints data:', sprintsData);
+      return sprintsData;
+    } catch (error) {
+      console.error('Error in getAllSprints:', error);
+      return [];
+    }
   },
 
   getSprintById: async (id: number): Promise<Sprint> => {

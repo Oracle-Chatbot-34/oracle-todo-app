@@ -3,169 +3,137 @@ package com.springboot.MyTodoList.controller;
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.service.ToDoItemService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @RestController
-@RequestMapping("/api")
-
+@RequestMapping("/api/tasks")
 public class ToDoItemController {
     @Autowired
     private ToDoItemService toDoItemService;
 
-    // @CrossOrigin
-    @GetMapping(value = "/todolist")
-    public List<ToDoItem> getAllToDoItems() {
-        return toDoItemService.findAll();
+    @GetMapping
+    public ResponseEntity<List<ToDoItem>> getAllToDoItems() {
+        return ResponseEntity.ok(toDoItemService.findAll());
     }
 
-    // @CrossOrigin
-    @GetMapping(value = "/todolist/{id}")
+    @GetMapping("/{id}")
     public ResponseEntity<ToDoItem> getToDoItemById(@PathVariable int id) {
-        try {
-            ResponseEntity<ToDoItem> responseEntity = toDoItemService.getItemById(id);
-            return new ResponseEntity<ToDoItem>(responseEntity.getBody(), HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
+        Optional<ToDoItem> todoData = toDoItemService.findById(id);
+        return todoData.map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // @CrossOrigin
-    @PostMapping(value = "/todolist")
-    public ResponseEntity addToDoItem(@RequestBody ToDoItem todoItem) throws Exception {
-        ToDoItem td = toDoItemService.addToDoItem(todoItem);
-        HttpHeaders responseHeaders = new HttpHeaders();
-        responseHeaders.set("location", "" + td.getID());
-        responseHeaders.set("Access-Control-Expose-Headers", "location");
-        // URI location = URI.create(""+td.getID())
-
-        return ResponseEntity.ok()
-                .headers(responseHeaders).build();
-    }
-
-    /**
-     * Create a new task with estimation validation
-     */
-    @PostMapping(value = "/tasks")
-    public ResponseEntity<?> addTaskWithEstimation(@RequestBody ToDoItem todoItem) {
+    @PostMapping
+    public ResponseEntity<?> createTask(@RequestBody ToDoItem todoItem) {
         try {
-            ToDoItem td = toDoItemService.addTaskWithEstimation(todoItem);
-            HttpHeaders responseHeaders = new HttpHeaders();
-            responseHeaders.set("location", "" + td.getID());
-            responseHeaders.set("Access-Control-Expose-Headers", "location");
-
-            return ResponseEntity.ok()
-                    .headers(responseHeaders).build();
+            ToDoItem task = toDoItemService.addTaskWithEstimation(todoItem);
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .header("location", String.valueOf(task.getID()))
+                    .body(task);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
         }
     }
 
-    /**
-     * Assign a task to a sprint
-     */
-    @PostMapping(value = "/tasks/{id}/assign-to-sprint/{sprintId}")
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateTask(@PathVariable int id, @RequestBody ToDoItem todoItem) {
+        try {
+            todoItem.setID(id);
+            ToDoItem updatedTask = toDoItemService.updateToDoItem(id, todoItem);
+            if (updatedTask == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(updatedTask);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteTask(@PathVariable int id) {
+        try {
+            boolean deleted = toDoItemService.deleteToDoItem(id);
+            if (!deleted) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/assign-to-sprint/{sprintId}")
     public ResponseEntity<?> assignTaskToSprint(@PathVariable("id") int id, @PathVariable("sprintId") Long sprintId) {
         try {
             ToDoItem task = toDoItemService.assignTaskToSprint(id, sprintId);
             return ResponseEntity.ok(task);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
         }
     }
 
-    /**
-     * Start working on a task
-     */
-    @PostMapping(value = "/tasks/{id}/start")
+    @PostMapping("/{id}/start")
     public ResponseEntity<?> startTask(@PathVariable("id") int id, @RequestParam("userId") Long userId) {
         try {
             ToDoItem task = toDoItemService.startTask(id, userId);
             return ResponseEntity.ok(task);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
         }
     }
 
-    /**
-     * Complete a task
-     */
-    @PostMapping(value = "/tasks/{id}/complete")
+    @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeTask(
             @PathVariable("id") int id,
             @RequestParam("actualHours") Double actualHours,
             @RequestParam(value = "comments", required = false) String comments) {
         try {
-            if (comments == null) {
-                comments = "";
-            }
-            ToDoItem task = toDoItemService.completeTask(id, actualHours, comments);
+            ToDoItem task = toDoItemService.completeTask(id, actualHours, comments != null ? comments : "");
             return ResponseEntity.ok(task);
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
         }
     }
 
-    /**
-     * Get all tasks in a sprint
-     */
-    @GetMapping(value = "/sprints/{sprintId}/tasks")
-    public ResponseEntity<List<ToDoItem>> getTasksBySprintId(@PathVariable("sprintId") Long sprintId) {
+    @GetMapping("/sprint/{sprintId}")
+    public ResponseEntity<?> getTasksBySprintId(@PathVariable("sprintId") Long sprintId) {
         try {
             List<ToDoItem> tasks = toDoItemService.findTasksBySprintId(sprintId);
             return ResponseEntity.ok(tasks);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
         }
     }
 
-    /**
-     * Get active tasks for a user
-     */
-    @GetMapping(value = "/users/{userId}/active-tasks")
-    public ResponseEntity<List<ToDoItem>> getActiveTasksByUserId(@PathVariable("userId") Long userId) {
+    @GetMapping("/user/{userId}/active")
+    public ResponseEntity<?> getActiveTasksByUserId(@PathVariable("userId") Long userId) {
         try {
             List<ToDoItem> tasks = toDoItemService.findActiveTasksByAssigneeId(userId);
             return ResponseEntity.ok(tasks);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An error occurred: " + e.getMessage()));
         }
     }
-
-    // @CrossOrigin
-    @PutMapping(value = "todolist/{id}")
-    public ResponseEntity updateToDoItem(@RequestBody ToDoItem toDoItem, @PathVariable int id) {
-        try {
-            ToDoItem toDoItem1 = toDoItemService.updateToDoItem(id, toDoItem);
-            System.out.println(toDoItem1.toString());
-            return new ResponseEntity<>(toDoItem1, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
-        }
-    }
-
-    // @CrossOrigin
-    @DeleteMapping(value = "todolist/{id}")
-    public ResponseEntity<Boolean> deleteToDoItem(@PathVariable("id") int id) {
-        Boolean flag = false;
-        try {
-            flag = toDoItemService.deleteToDoItem(id);
-            return new ResponseEntity<>(flag, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(flag, HttpStatus.NOT_FOUND);
-        }
-    }
-
 }
