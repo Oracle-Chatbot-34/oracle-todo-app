@@ -1,6 +1,9 @@
 import { ClipboardList } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import KPITitle from './KPITtitle';
+import api from '@/services/api';
+import { config } from '@/lib/config';
+import userService from '@/services/userService';
 
 type Task = {
   id: number;
@@ -8,8 +11,20 @@ type Task = {
   estimatedHours: number;
   actualHours: number;
   assigneeId: number;
+  assigneeName?: string;
   status: string;
   priority: string;
+};
+
+type ApiTask = {
+  id: number;
+  title?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  assigneeId?: number;
+  assigneeName?: string;
+  status?: string;
+  priority?: string;
 };
 
 type FormattedSprint = {
@@ -29,23 +44,7 @@ type TaskInformationBySprintProps = {
   example: string;
 };
 
-/*
-Example of props:
-{
-  {
-    sprintId: 1,
-    sprintName: "Sprint 1",
-  },
-  {
-    sprintId: 2,
-    sprintName: "Sprint 2",
-  },
-  // Add more sprints as needed
-}
-
-*/
-
-export default function RealHours({
+export default function TaskInformationBySprint({
   sprints,
   definition,
   example,
@@ -53,82 +52,96 @@ export default function RealHours({
   const [formattedSprints, setFormattedSprints] = useState<FormattedSprint[]>(
     []
   );
+  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<Record<number, string>>({});
 
-  // Simulate fetching sprints and their tasks
-  // For each of the sprints, we will fetch the tasks in that specific sprint
-  /*
-    Example of fetching tasks for each sprint:
-    [
-      {
-        sprintId: 1,
-        tasks: [
-          {
-            id: 101,
-            title: "Login feature",
-            estimatedHours: 5,
-            actualHours: 6,
-            assigneeId: 1,
-            status: "Done",
-            priority: "High",
-          },
-          // More tasks...
-        ],
-      },
-      {
-        sprintId: 2,
-        tasks: [
-          {
-            id: 201,
-            title: "Dashboard chart",
-            estimatedHours: 8,
-            actualHours : 7,
-            assigneeId: 3,
-            status: "In Progress",
-            priority: "High",
-          },
-          // More tasks...
-        ],
-      },
-    ]
-    */
+  // Fetch all users first to have their names available
   useEffect(() => {
-    const fakeFetch = async () => {
-      const statuses = ['To Do', 'In Progress', 'Done'];
-      const priorities = ['Low', 'Medium', 'High'];
+    const fetchUsers = async () => {
+      try {
+        const allUsers = await userService.getAllUsers();
+        const userMap: Record<number, string> = {};
 
-      const simulatedData: FormattedSprint[] = sprints.map((sprint) => {
-        const numberOfTasks = Math.floor(Math.random() * 2) + 3; // 3 to 4 tasks
-        const tasks: Task[] = Array.from(
-          { length: numberOfTasks },
-          (_, idx) => {
-            const estimated = Math.floor(Math.random() * 10) + 1;
-            const variation = Math.floor(Math.random() * 3) - 1; // -1, 0, or 1
-            const actual = Math.max(1, estimated + variation);
-            return {
-              id: sprint.sprintId * 100 + idx,
-              title: `Task ${idx + 1} of ${sprint.sprintName}`,
-              estimatedHours: estimated,
-              actualHours: actual,
-              assigneeId: Math.floor(Math.random() * 5) + 1,
-              status: statuses[Math.floor(Math.random() * statuses.length)],
-              priority:
-                priorities[Math.floor(Math.random() * priorities.length)],
-            };
+        allUsers.forEach((user) => {
+          if (user.id) {
+            userMap[user.id] = user.fullName;
           }
-        );
+        });
 
-        return {
-          id: sprint.sprintId,
-          name: sprint.sprintName,
-          tasks,
-        };
-      });
-
-      setFormattedSprints(simulatedData);
+        setUsers(userMap);
+      } catch (err) {
+        console.error('Error fetching users:', err);
+      }
     };
 
-    fakeFetch();
-  }, [sprints]);
+    fetchUsers();
+  }, []);
+
+  // Fetch real tasks for sprints
+  useEffect(() => {
+    if (!sprints || sprints.length === 0) return;
+
+    const fetchTasksForSprints = async () => {
+      setLoading(true);
+      try {
+        const formattedSprintsData: FormattedSprint[] = [];
+
+        for (const sprint of sprints) {
+          try {
+            // Get tasks for this sprint
+            const response = await api.get(
+              `${config.apiEndpoint}/sprints/${sprint.sprintId}/tasks`
+            );
+
+            const tasks = response.data.map((task: ApiTask) => ({
+              id: task.id,
+              title: task.title || `Task ${task.id}`,
+              estimatedHours: task.estimatedHours || 0,
+              actualHours: task.actualHours || 0,
+              assigneeId: task.assigneeId || 0,
+              // Use the assigneeName from the task if available, otherwise look it up in our users map
+              assigneeName:
+                task.assigneeName ||
+                users[task.assigneeId || 0] ||
+                `User ${task.assigneeId}`,
+              status: task.status || 'Unknown',
+              priority: task.priority || 'Medium',
+            }));
+
+            formattedSprintsData.push({
+              id: sprint.sprintId,
+              name: sprint.sprintName,
+              tasks,
+            });
+          } catch (err) {
+            console.error(
+              `Error fetching tasks for sprint ${sprint.sprintId}:`,
+              err
+            );
+            // Still add the sprint with empty tasks so it shows up in the UI
+            formattedSprintsData.push({
+              id: sprint.sprintId,
+              name: sprint.sprintName,
+              tasks: [],
+            });
+          }
+        }
+
+        setFormattedSprints(formattedSprintsData);
+      } catch (err) {
+        console.error('Error fetching tasks:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTasksForSprints();
+  }, [sprints, users]); // Add users to the dependency array
+
+  // Helper function to get user name
+  const getUserName = (assigneeId: number) => {
+    return users[assigneeId] || `User ${assigneeId}`;
+  };
 
   return (
     <div className="w-full h-full flex flex-col p-5 bg-white rounded-xl shadow-lg">
@@ -141,44 +154,62 @@ export default function RealHours({
       </div>
 
       <div className="max-w-full max-h-[65vh] flex flex-col gap-2 p-4 overflow-y-auto">
-        {formattedSprints.map((sprint) => (
-          <div
-            key={sprint.id}
-            className="w-full max-h-full flex flex-col gap-4 border-b px-4 pb-4"
-          >
-            <p className="text-2xl font-semibold">{sprint.name}</p>
-            <div className="flex flex-col gap-2 px-4 h-fit w-full">
-              {sprint.tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex flex-row gap-4 items-center justify-between"
-                >
-                  <div className="flex flex-col gap-2 text-lg">
-                    <div className="flex flex-row gap-4">
-                      <p className="font-semibold">{task.title}</p>
-                      <div className="flex flex-row gap-1">
-                        <p>Assigned to:</p>
-                        <p className="font-semibold">{task.assigneeId}</p>
+        {loading ? (
+          <div className="flex items-center justify-center h-48">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+          </div>
+        ) : formattedSprints.length === 0 ? (
+          <div className="text-center text-gray-500 py-8">
+            No sprint data available.
+          </div>
+        ) : (
+          formattedSprints.map((sprint) => (
+            <div
+              key={sprint.id}
+              className="w-full max-h-full flex flex-col gap-4 border-b px-4 pb-4"
+            >
+              <p className="text-2xl font-semibold">{sprint.name}</p>
+              <div className="flex flex-col gap-2 px-4 h-fit w-full">
+                {sprint.tasks.length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">
+                    No tasks in this sprint.
+                  </div>
+                ) : (
+                  sprint.tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="flex flex-row gap-4 items-center justify-between"
+                    >
+                      <div className="flex flex-col gap-2 text-lg">
+                        <div className="flex flex-row gap-4">
+                          <p className="font-semibold">{task.title}</p>
+                          <div className="flex flex-row gap-1">
+                            <p>Assigned to:</p>
+                            <p className="font-semibold">
+                              {getUserName(task.assigneeId)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-row gap-4">
+                          <p>{task.status}</p>
+                          <p>{task.priority}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <p className="text-md text-gray-700 text-right">
+                          Estimated: {task.estimatedHours} hours
+                        </p>
+                        <p className="text-md text-gray-700 text-right">
+                          Actual: {task.actualHours} hours
+                        </p>
                       </div>
                     </div>
-                    <div className="flex flex-row gap-4">
-                      <p>{task.status}</p>
-                      <p>{task.priority}</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <p className="text-md text-gray-700 text-right">
-                      Estimated: {task.estimatedHours} hours
-                    </p>
-                    <p className="text-md text-gray-700 text-right">
-                      Actual: {task.actualHours} hours
-                    </p>
-                  </div>
-                </div>
-              ))}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );

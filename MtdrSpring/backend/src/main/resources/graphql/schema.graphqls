@@ -1,14 +1,17 @@
 scalar DateTime
 
 type Query {
-    # Simplified KPI query that only needs sprint info
+    # KPI query with sprint range selection
     getKpiData(startSprintId: ID!, endSprintId: ID): KpiResult
 }
 
 # Main KPI result structure
 type KpiResult {
     data: KpiData
-    charts: ChartData
+    sprintData: [SprintData]
+    sprintHours: [SprintDataForPie]
+    sprintTasks: [SprintDataForPie]
+    sprintsForTasks: [SprintForTask]
 }
 
 # Core KPI calculations
@@ -29,6 +32,35 @@ type KpiData {
     endDate: DateTime
     userId: ID
     teamId: ID
+}
+
+# Simplified format for pie charts
+type SprintDataForPie {
+    id: Int
+    name: String
+    count: Int
+}
+
+# Sprint data with member entries
+type SprintData {
+    id: Int
+    name: String
+    entries: [MemberEntry]
+    totalHours: Int
+    totalTasks: Int
+}
+
+# Individual member data
+type MemberEntry {
+    member: String
+    hours: Int
+    tasksCompleted: Int
+}
+
+# Sprint reference for task information
+type SprintForTask {
+    sprintId: Int
+    sprintName: String
 }
 
 # Chart data for frontend rendering

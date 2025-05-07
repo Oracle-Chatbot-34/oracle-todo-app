@@ -3,73 +3,65 @@ import { config } from '../lib/config';
 
 export interface KpiGraphQLResult {
   data: {
-    getKpiData: {
-      data: {
-        taskCompletionRate: number;
-        taskCompletionTrend: number[];
-        trendLabels: string[];
-        onTimeCompletionRate: number;
-        overdueTasksRate: number;
-        inProgressRate: number;
-        ociResourcesUtilization: number;
-        tasksCompletedPerWeek: number;
-        workedHours: number;
-        plannedHours: number;
-        hoursUtilizationPercent: number;
-        averageTasksPerEmployee: number;
-        startDate: string;
-        endDate: string;
-        userId?: number;
-        teamId?: number;
-      };
-      charts: {
-        hoursByDeveloper: Array<{
-          developerId: number;
-          developerName: string;
-          values: number[];
-          sprints: string[];
-        }>;
-        tasksByDeveloper: Array<{
-          developerId: number;
-          developerName: string;
-          values: number[];
-          sprints: string[];
-        }>;
-        hoursBySprint: Array<{
-          sprintId: number;
-          sprintName: string;
-          value: number;
-        }>;
-        tasksBySprint: Array<{
-          sprintId: number;
-          sprintName: string;
-          value: number;
-        }>;
-        taskInformation: Array<{
-          sprintId: number;
-          sprintName: string;
-          tasks: Array<{
-            id: number;
-            title: string;
-            description?: string;
-            status: string;
-            priority: string;
-            estimatedHours?: number;
-            actualHours?: number;
-            assigneeId?: number;
-            assigneeName?: string;
-            dueDate?: string;
-            completedAt?: string;
-          }>;
-        }>;
-      };
-    };
+    getKpiData: KpiResult;
   };
+}
+
+export interface KpiResult {
+  data: KpiData;
+  sprintData: SprintData[];
+  sprintHours: SprintDataForPie[];
+  sprintTasks: SprintDataForPie[];
+  sprintsForTasks: SprintForTask[];
+}
+
+export interface KpiData {
+  taskCompletionRate: number;
+  taskCompletionTrend: number[];
+  trendLabels: string[];
+  onTimeCompletionRate: number;
+  overdueTasksRate: number;
+  inProgressRate: number;
+  ociResourcesUtilization: number;
+  tasksCompletedPerWeek: number;
+  workedHours: number;
+  plannedHours: number;
+  hoursUtilizationPercent: number;
+  averageTasksPerEmployee: number;
+  startDate: string;
+  endDate: string;
+  userId?: number;
+  teamId?: number;
+}
+
+export interface SprintData {
+  id: number;
+  name: string;
+  entries: MemberEntry[];
+  totalHours: number;
+  totalTasks: number;
+}
+
+export interface MemberEntry {
+  member: string;
+  hours: number;
+  tasksCompleted: number;
+}
+
+export interface SprintDataForPie {
+  id: number;
+  name: string;
+  count: number;
+}
+
+export interface SprintForTask {
+  sprintId: number;
+  sprintName: string;
 }
 
 const kpiGraphQLService = {
   getKpiData: async (
-    startSprintId?: number,
+    startSprintId: number,
     endSprintId?: number
   ): Promise<KpiGraphQLResult> => {
     if (!startSprintId) {
@@ -97,62 +89,43 @@ const kpiGraphQLService = {
             userId
             teamId
           }
-          charts {
-            hoursByDeveloper {
-              developerId
-              developerName
-              values
-              sprints
+          sprintData {
+            id
+            name
+            entries {
+              member
+              hours
+              tasksCompleted
             }
-            tasksByDeveloper {
-              developerId
-              developerName
-              values
-              sprints
-            }
-            hoursBySprint {
-              sprintId
-              sprintName
-              value
-            }
-            tasksBySprint {
-              sprintId
-              sprintName
-              value
-            }
-            taskInformation {
-              sprintId
-              sprintName
-              tasks {
-                id
-                title
-                description
-                status
-                priority
-                estimatedHours
-                actualHours
-                assigneeId
-                assigneeName
-                dueDate
-                completedAt
-              }
-            }
+            totalHours
+            totalTasks
+          }
+          sprintHours {
+            id
+            name
+            count
+          }
+          sprintTasks {
+            id
+            name
+            count
+          }
+          sprintsForTasks {
+            sprintId
+            sprintName
           }
         }
       }
     `;
 
     try {
-      const response = await api.post(
-        `${config.apiEndpoint}/graphql`,
-        {
-          query,
-          variables: {
-            startSprintId: String(startSprintId),
-            endSprintId: endSprintId ? String(endSprintId) : null,
-          },
-        }
-      );
+      const response = await api.post(`${config.apiEndpoint}/graphql`, {
+        query,
+        variables: {
+          startSprintId: String(startSprintId),
+          endSprintId: endSprintId ? String(endSprintId) : null,
+        },
+      });
 
       return response.data;
     } catch (error) {

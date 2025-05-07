@@ -1,15 +1,17 @@
 package com.springboot.MyTodoList.dto;
 
-public class SprintMetric {
-    private Long sprintId;
+public class SprintForTask {
+    private Integer sprintId;
     private String sprintName;
-    private Double value;
 
-    public Long getSprintId() {
+    public SprintForTask() {
+    }
+
+    public Integer getSprintId() {
         return sprintId;
     }
 
-    public void setSprintId(Long sprintId) {
+    public void setSprintId(Integer sprintId) {
         this.sprintId = sprintId;
     }
 
@@ -19,13 +21,5 @@ public class SprintMetric {
 
     public void setSprintName(String sprintName) {
         this.sprintName = sprintName;
-    }
-
-    public Double getValue() {
-        return value;
-    }
-
-    public void setValue(Double value) {
-        this.value = value;
     }
 }

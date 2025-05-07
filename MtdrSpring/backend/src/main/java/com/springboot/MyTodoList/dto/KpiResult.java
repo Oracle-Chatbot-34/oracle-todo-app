@@ -1,15 +1,15 @@
 package com.springboot.MyTodoList.dto;
 
+import java.util.List;
+
 public class KpiResult {
     private KpiData data;
-    private ChartData charts;
+    private List<SprintData> sprintData;
+    private List<SprintDataForPie> sprintHours;
+    private List<SprintDataForPie> sprintTasks;
+    private List<SprintForTask> sprintsForTasks;
 
     public KpiResult() {
-    }
-
-    public KpiResult(KpiData data, ChartData charts) {
-        this.data = data;
-        this.charts = charts;
     }
 
     public KpiData getData() {
@@ -20,11 +20,35 @@ public class KpiResult {
         this.data = data;
     }
 
-    public ChartData getCharts() {
-        return charts;
+    public List<SprintData> getSprintData() {
+        return sprintData;
     }
 
-    public void setCharts(ChartData charts) {
-        this.charts = charts;
+    public void setSprintData(List<SprintData> sprintData) {
+        this.sprintData = sprintData;
+    }
+
+    public List<SprintDataForPie> getSprintHours() {
+        return sprintHours;
+    }
+
+    public void setSprintHours(List<SprintDataForPie> sprintHours) {
+        this.sprintHours = sprintHours;
+    }
+
+    public List<SprintDataForPie> getSprintTasks() {
+        return sprintTasks;
+    }
+
+    public void setSprintTasks(List<SprintDataForPie> sprintTasks) {
+        this.sprintTasks = sprintTasks;
+    }
+
+    public List<SprintForTask> getSprintsForTasks() {
+        return sprintsForTasks;
+    }
+
+    public void setSprintsForTasks(List<SprintForTask> sprintsForTasks) {
+        this.sprintsForTasks = sprintsForTasks;
     }
 }
