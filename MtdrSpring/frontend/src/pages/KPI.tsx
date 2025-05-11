@@ -8,6 +8,7 @@ import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
 // Components
 import CompletedTasksBySprint from '@/components/kpis/CompletedTasksBySprint';
 import HoursByTeam from '@/components/kpis/HoursByTeam';
+import HoursByDeveloperPerSprint from '@/components/kpis/HoursByDeveloperPerSprint'; // New component
 import HoursBySprints from '@/components/kpis/HoursBySprint';
 import CountLegend from '@/components/kpis/CountLegend';
 import TaskInformationBySprint from '@/components/kpis/TaskInformationBySprint';
@@ -275,64 +276,83 @@ export default function KPI() {
           </div>
         </div>
 
-        <div className="flex flex-row w-full h-11/13 gap-4">
-          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <HoursByTeam
-              isLoading={loading}
-              sprintData={filteredSprints}
-              definition={dictionaryKPI[1].definition}
-              example={dictionaryKPI[1].example}
-            />
-            <div className="flex flex-row w-full items-center justify-center gap-4">
-              {filteredSprintHours.length > 1 ? (
-                <HoursBySprints
-                  isLoading={loading}
-                  isHours={true}
-                  chartData={filteredSprintHours}
-                  definition={dictionaryKPI[3].definition}
-                  example={dictionaryKPI[3].example}
-                />
-              ) : (
-                <CountLegend
-                  isLoading={loading}
-                  isHours={true}
-                  count={startSprint?.totalHours || 0}
-                />
-              )}
+        {/* Updated layout to include the new Oracle-required charts */}
+        <div className="flex flex-col w-full h-11/13 gap-4">
+          {/* Top row - Original charts */}
+          <div className="flex flex-row w-full h-1/2 gap-4">
+            <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
+              <HoursByTeam
+                isLoading={loading}
+                sprintData={filteredSprints}
+                definition={dictionaryKPI[1].definition}
+                example={dictionaryKPI[1].example}
+              />
             </div>
-          </div>
-          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <CompletedTasksBySprint
-              isLoading={loading}
-              sprintData={filteredSprints}
-              definition={dictionaryKPI[2].definition}
-              example={dictionaryKPI[2].example}
-            />
-            <div className="flex flex-row w-full items-center justify-center gap-4">
-              {filteredSprintTasks.length > 1 ? (
-                <HoursBySprints
-                  isLoading={loading}
-                  isHours={false}
-                  chartData={filteredSprintTasks}
-                  definition={dictionaryKPI[4].definition}
-                  example={dictionaryKPI[4].example}
-                />
-              ) : (
-                <CountLegend
-                  isLoading={loading}
-                  isHours={false}
-                  count={startSprint?.totalTasks || 0}
-                />
-              )}
+            <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
+              <CompletedTasksBySprint
+                isLoading={loading}
+                sprintData={filteredSprints}
+                definition={dictionaryKPI[2].definition}
+                example={dictionaryKPI[2].example}
+              />
+            </div>
+            <div className="flex flex-row w-1/3 h-full items-center justify-center">
+              <TaskInformationBySprint
+                sprints={sprintsForTasks}
+                definition={dictionaryKPI[5].definition}
+                example={dictionaryKPI[5].example}
+              />
             </div>
           </div>
 
-          <div className="flex flex-row w-1/3 h-full items-center justify-center">
-            <TaskInformationBySprint
-              sprints={sprintsForTasks}
-              definition={dictionaryKPI[5].definition}
-              example={dictionaryKPI[5].example}
-            />
+          {/* Bottom row - New Oracle-required charts */}
+          <div className="flex flex-row w-full h-1/2 gap-4">
+            <div className="flex flex-col w-1/2 h-full items-center justify-center">
+              {/* NEW: Hours worked by developer per sprint - Oracle Requirement */}
+              <HoursByDeveloperPerSprint
+                isLoading={loading}
+                sprintData={filteredSprints}
+                definition="Hours Worked by Developer per Sprint shows the actual hours logged by each developer for each sprint, allowing visualization of workload distribution and individual productivity across different sprint periods."
+                example="Sprint 1: Developer A worked 25 hours, Developer B worked 30 hours. Sprint 2: Developer A worked 28 hours, Developer B worked 35 hours."
+              />
+            </div>
+            <div className="flex flex-col w-1/2 h-full items-center justify-center gap-4">
+              {/* Sprint totals */}
+              <div className="flex flex-row w-full h-1/2 gap-4">
+                {filteredSprintHours.length > 1 ? (
+                  <HoursBySprints
+                    isLoading={loading}
+                    isHours={true}
+                    chartData={filteredSprintHours}
+                    definition={dictionaryKPI[3].definition}
+                    example={dictionaryKPI[3].example}
+                  />
+                ) : (
+                  <CountLegend
+                    isLoading={loading}
+                    isHours={true}
+                    count={startSprint?.totalHours || 0}
+                  />
+                )}
+              </div>
+              <div className="flex flex-row w-full h-1/2 gap-4">
+                {filteredSprintTasks.length > 1 ? (
+                  <HoursBySprints
+                    isLoading={loading}
+                    isHours={false}
+                    chartData={filteredSprintTasks}
+                    definition={dictionaryKPI[4].definition}
+                    example={dictionaryKPI[4].example}
+                  />
+                ) : (
+                  <CountLegend
+                    isLoading={loading}
+                    isHours={false}
+                    count={startSprint?.totalTasks || 0}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
