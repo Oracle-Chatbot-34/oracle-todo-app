@@ -4,8 +4,7 @@ import {
   BarChart,
   CartesianGrid,
   XAxis,
-  YAxis,
-  Legend,
+  YAxis
 } from 'recharts';
 import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { useEffect, useState } from 'react';
@@ -45,21 +44,40 @@ type HoursByDeveloperPerSprintProps = {
 };
 
 const generateChartConfig = (members: string[]): ChartConfig => {
-  const colors = [
-    'hsl(220, 70%, 60%)', // Blue
-    'hsl(160, 70%, 55%)', // Green
-    'hsl(30, 70%, 60%)', // Orange
-    'hsl(280, 70%, 60%)', // Purple
-    'hsl(350, 70%, 60%)', // Red
-    'hsl(200, 70%, 60%)', // Cyan
-    'hsl(50, 70%, 60%)', // Yellow
-    'hsl(300, 70%, 60%)', // Magenta
+  // Color mapping that matches the reference design exactly
+  const colorMap: { [key: string]: string } = {
+    'Daniel Alfredo': '#3b82f6', // Blue
+    'Hanna Karina': '#10b981', // Teal/Green
+    'José Benjamin': '#f59e0b', // Orange/Amber
+    'Yair Salvador': '#8b5cf6', // Purple
+  };
+
+  // Fallback colors for additional members
+  const fallbackColors = [
+    '#ef4444', // Red
+    '#06b6d4', // Cyan
+    '#84cc16', // Lime
+    '#f97316', // Orange
   ];
 
   return members.reduce((config, member, index) => {
+    // First try to match by full name, then by first name
+    let color = colorMap[member];
+
+    if (!color) {
+      // Try matching by first name
+      const firstName = member.split(' ')[0];
+      const matchingKey = Object.keys(colorMap).find(
+        (key) => key.split(' ')[0] === firstName
+      );
+      color = matchingKey
+        ? colorMap[matchingKey]
+        : fallbackColors[index % fallbackColors.length];
+    }
+
     config[member] = {
       label: member,
-      color: colors[index % colors.length],
+      color: color,
     };
     return config;
   }, {} as ChartConfig);
@@ -139,84 +157,59 @@ export default function HoursByDeveloperPerSprint({
     setChartData(allChartData);
   }, [sprintData]);
 
+
+
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200">
-        <div className="flex items-center space-x-3">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Clock className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-slate-800">
-              Hours by Developer per Sprint
-            </h3>
-            <p className="text-sm text-slate-600">Oracle DevOps Requirement</p>
-          </div>
-        </div>
-        <KPITitle title="" KPIObject={{ definition, example }} />
+    <div className="w-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
+      {/* Header - now horizontal layout matching the reference */}
+      <div className="flex flex-row text-2xl gap-4 w-full items-center">
+        <Clock className="w-6 h-6" />
+        <KPITitle
+          title="Hours by Developer per Sprint"
+          KPIObject={{ definition, example }}
+        />
       </div>
 
       {/* Chart Content */}
-      <div className="flex-1 p-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
+      {isLoading ? (
+        <div className="flex items-center justify-center">
+          <div className="h-28/50 w-28/50">
             <LoadingSpinner />
           </div>
-        ) : chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-slate-500">
-              <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="text-lg">No hours data available</p>
-              <p className="text-sm">Ensure tasks have logged hours</p>
-            </div>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <ChartContainer config={chartConfig}>
-              <BarChart
-                data={chartData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                <YAxis
-                  label={{ value: 'Hours', angle: -90, position: 'insideLeft' }}
-                  tick={{ fontSize: 12 }}
-                />
-                <XAxis
-                  dataKey="sprint"
-                  tick={{ fontSize: 12 }}
-                  tickFormatter={(value) =>
-                    value.length > 10 ? value.substring(0, 10) + '...' : value
-                  }
-                />
-                <ChartTooltip
-                  cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
-                  labelStyle={{ color: '#1e293b', fontWeight: 'bold' }}
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ paddingTop: '10px', fontSize: '12px' }}
-                />
+        </div>
+      ) : chartData.length === 0 ? (
+        <div className="flex items-center justify-center h-40">
+          <p className="text-xl">No hours data available</p>
+        </div>
+      ) : (
+        <ResponsiveContainer height="100%" width="100%">
+          <ChartContainer config={chartConfig}>
+            <BarChart data={chartData}>
+              {/* Updated grid styling to match reference */}
+              <CartesianGrid vertical={false} />
+              <YAxis domain={[0, 'auto']} />
+              <XAxis
+                dataKey="sprint"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value}
+              />
+              <ChartTooltip cursor={true} />
 
-                {Object.keys(chartConfig).map((memberName) => (
-                  <Bar
-                    key={memberName}
-                    dataKey={memberName}
-                    fill={chartConfig[memberName]?.color}
-                    radius={[2, 2, 0, 0]}
-                  />
-                ))}
-              </BarChart>
-            </ChartContainer>
-          </ResponsiveContainer>
-        )}
-      </div>
+              {/* Render bars with updated styling */}
+              {Object.keys(chartConfig).map((memberName) => (
+                <Bar
+                  key={memberName}
+                  dataKey={memberName}
+                  fill={chartConfig[memberName]?.color}
+                  radius={[4, 4, 0, 0]}
+                />
+              ))}
+            </BarChart>
+          </ChartContainer>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }

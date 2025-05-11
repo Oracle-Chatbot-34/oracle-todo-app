@@ -6,8 +6,6 @@ import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
 import CompletedTasksBySprint from '@/components/kpis/CompletedTasksBySprint';
 import HoursByTeam from '@/components/kpis/HoursByTeam';
 import HoursByDeveloperPerSprint from '@/components/kpis/HoursByDeveloperPerSprint';
-import HoursBySprints from '@/components/kpis/HoursBySprint';
-import CountLegend from '@/components/kpis/CountLegend';
 import TaskInformationBySprint from '@/components/kpis/TaskInformationBySprint';
 
 // Services
@@ -15,7 +13,6 @@ import sprintService from '@/services/sprintService';
 import kpiGraphQLService, {
   KpiResult,
   SprintData,
-  SprintDataForPie,
 } from '@/services/kpiGraphQLService';
 
 export default function KPI() {
@@ -28,12 +25,6 @@ export default function KPI() {
     { sprintId: number; sprintName: string }[]
   >([]);
   const [filteredSprints, setFilteredSprints] = useState<SprintData[]>([]);
-  const [filteredSprintHours, setFilteredSprintHours] = useState<
-    SprintDataForPie[]
-  >([]);
-  const [filteredSprintTasks, setFilteredSprintTasks] = useState<
-    SprintDataForPie[]
-  >([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -153,29 +144,7 @@ export default function KPI() {
           return updatedSprints;
         });
 
-        const processedHours = kpiResult.sprintHours.map((item) => {
-          const matchingSprint = processedSprintData.find(
-            (s) => s.id === item.id
-          );
-          return {
-            ...item,
-            count: Math.max(item.count || 0, matchingSprint?.totalHours || 0),
-          };
-        });
-
-        const processedTasks = kpiResult.sprintTasks.map((item) => {
-          const matchingSprint = processedSprintData.find(
-            (s) => s.id === item.id
-          );
-          return {
-            ...item,
-            count: Math.max(item.count || 0, matchingSprint?.totalTasks || 0),
-          };
-        });
-
         setFilteredSprints(processedSprintData);
-        setFilteredSprintHours(processedHours);
-        setFilteredSprintTasks(processedTasks);
         setSprintsForTasks(kpiResult.sprintsForTasks || []);
 
         if (!startSprint || startSprint.id !== startSprintId) {
@@ -284,51 +253,12 @@ export default function KPI() {
                 example={dictionaryKPI[1].example}
               />
             </div>
-
-            {/* Sprint Totals */}
-            <div className="grid grid-cols-1 gap-4">
-              <div className="bg-white rounded-xl shadow-lg border border-slate-200 h-64">
-                {filteredSprintHours.length > 1 ? (
-                  <HoursBySprints
-                    isLoading={loading}
-                    isHours={true}
-                    chartData={filteredSprintHours}
-                    definition={dictionaryKPI[3].definition}
-                    example={dictionaryKPI[3].example}
-                  />
-                ) : (
-                  <CountLegend
-                    isLoading={loading}
-                    isHours={true}
-                    count={startSprint?.totalHours || 0}
-                  />
-                )}
-              </div>
-
-              <div className="bg-white rounded-xl shadow-lg border border-slate-200 h-64">
-                {filteredSprintTasks.length > 1 ? (
-                  <HoursBySprints
-                    isLoading={loading}
-                    isHours={false}
-                    chartData={filteredSprintTasks}
-                    definition={dictionaryKPI[4].definition}
-                    example={dictionaryKPI[4].example}
-                  />
-                ) : (
-                  <CountLegend
-                    isLoading={loading}
-                    isHours={false}
-                    count={startSprint?.totalTasks || 0}
-                  />
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Center Column - Oracle DevOps Requirements */}
           <div className="xl:col-span-1 space-y-6">
             {/* Hours by Developer per Sprint - Oracle Requirement */}
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 h-96">
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200">
               <HoursByDeveloperPerSprint
                 isLoading={loading}
                 sprintData={filteredSprints}
