@@ -20,12 +20,12 @@ export const dictionaryKPI: KPIDictionary = {
   },
   3: {
     definition:
-      'This graph ilustrates the amount of worked hours across a selected range of sprints (By Sprint). It also gives the total worked hours for the whole sprint range.',
+      'This graph illustrates the amount of worked hours across a selected range of sprints (By Sprint). It also gives the total worked hours for the whole sprint range.',
     example: 'Sprint 1: 10 hours, Sprint 2: 15 hours, Total: 25 hours.',
   },
   4: {
     definition:
-      'This graph ilustrates the amount of completed tasks across a selected range of sprints (By Sprint). It also gives the total amount of completed tasks for the whole sprint range.',
+      'This graph illustrates the amount of completed tasks across a selected range of sprints (By Sprint). It also gives the total amount of completed tasks for the whole sprint range.',
     example: 'Sprint 1: 5 tasks, Sprint 2: 8 tasks, Total: 13 tasks.',
   },
   5: {
@@ -33,5 +33,11 @@ export const dictionaryKPI: KPIDictionary = {
       'Task Information by Sprints displays all tasks grouped by sprint, including details like assignee, title, status, priority, estimated hours, and actual hours.',
     example:
       'Sprint 1 includes Task A (assigned to Dev 1, High Priority, Estimated: 6h, Actual: 7h, Status: Done).',
+  },
+  6: {
+    definition:
+      'Hours Worked by Developer per Sprint provides a detailed breakdown showing exactly how many hours each developer worked in each individual sprint, with stacked bars for easy comparison.',
+    example:
+      'Sprint 1: Developer A (20h), Developer B (25h). Sprint 2: Developer A (18h), Developer B (30h). This visualization directly addresses Oracle DevOps reporting requirements.',
   },
 };
