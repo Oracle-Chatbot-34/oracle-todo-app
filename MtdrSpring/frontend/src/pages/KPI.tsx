@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import KPIScopeSelection from '@/components/kpis/KPIScopeSelection';
-import { ChartPie, TrendingUp } from 'lucide-react';
+import { BarChart3, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
 import CompletedTasksBySprint from '@/components/kpis/CompletedTasksBySprint';
@@ -193,111 +193,117 @@ export default function KPI() {
     : startSprint?.name || 'No Sprint Selected';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 p-4 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Enhanced Header Section */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-slate-200">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-                <ChartPie className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-slate-800">
-                  Key Performance Indicators
-                </h1>
-                <p className="text-slate-600 mt-1">
-                  Sprint Range: {sprintRangeText}
-                </p>
-              </div>
-            </div>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg max-w-md">
-                <div className="flex items-center">
-                  <span className="text-sm">{error}</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 overflow-y-auto">
+      {/* Main container with responsive padding that adapts to screen size */}
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+        {/* Responsive content wrapper that provides max-width constraints */}
+        <div className="max-w-8xl mx-auto space-y-6 pb-8">
+          {/* Header Section - Responsive layout that stacks on mobile */}
+          <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-slate-200">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex-shrink-0">
+                  <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 truncate">
+                    Key Performance Indicators
+                  </h1>
+                  <p className="text-sm sm:text-base text-slate-600 mt-1 truncate">
+                    Sprint Range: {sprintRangeText}
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Sprint Selection */}
-          <div className="bg-slate-50 rounded-xl p-4">
-            <div className="flex items-center space-x-4 mb-3">
-              <TrendingUp className="w-5 h-5 text-slate-600" />
-              <span className="text-lg font-semibold text-slate-700">
-                Select Sprint Range:
-              </span>
+              {/* Error display that adapts to available space */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg w-full lg:max-w-md">
+                  <div className="flex items-center">
+                    <span className="text-sm">{error}</span>
+                  </div>
+                </div>
+              )}
             </div>
-            {startSprint && (
-              <KPIScopeSelection
-                sprints={sprints}
-                startSprint={startSprint}
-                endSprint={endSprint}
-                setStartSprint={setStartSprint}
-                setEndSprint={setEndSprint}
-              />
-            )}
-          </div>
-        </div>
 
-        {/* Main Charts Grid - Redesigned for Better Organization */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          {/* Left Column - Team Overview */}
-          <div className="xl:col-span-1 space-y-6">
-            {/* Total Hours by Team Member */}
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 h-80">
-              <HoursByTeam
-                isLoading={loading}
-                sprintData={filteredSprints}
-                definition={dictionaryKPI[1].definition}
-                example={dictionaryKPI[1].example}
-              />
+            {/* Sprint Selection - Responsive design that works on all screen sizes */}
+            <div className="bg-slate-50 rounded-xl p-4">
+              <div className="flex items-center space-x-4 mb-3">
+                <TrendingUp className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                <span className="text-base sm:text-lg font-semibold text-slate-700">
+                  Select Sprint Range:
+                </span>
+              </div>
+              {startSprint && (
+                <KPIScopeSelection
+                  sprints={sprints}
+                  startSprint={startSprint}
+                  endSprint={endSprint}
+                  setStartSprint={setStartSprint}
+                  setEndSprint={setEndSprint}
+                />
+              )}
             </div>
           </div>
 
-          {/* Center Column - Oracle DevOps Requirements */}
-          <div className="xl:col-span-1 space-y-6">
-            {/* Hours by Developer per Sprint - Oracle Requirement */}
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200">
-              <HoursByDeveloperPerSprint
-                isLoading={loading}
-                sprintData={filteredSprints}
-                definition="Hours Worked by Developer per Sprint shows the actual hours logged by each developer for each sprint, allowing visualization of workload distribution and individual productivity across different sprint periods."
-                example="Sprint 1: Developer A worked 25 hours, Developer B worked 30 hours. Sprint 2: Developer A worked 28 hours, Developer B worked 35 hours."
-              />
+          {/* Main Charts Grid - Natural flowing layout that respects content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-6">
+            {/* Team Overview Column - Allow natural content sizing */}
+            <div className="lg:col-span-1 2xl:col-span-1">
+              {/* Total Hours by Team Member - Flexible container that adapts to content */}
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+                <HoursByTeam
+                  isLoading={loading}
+                  sprintData={filteredSprints}
+                  definition={dictionaryKPI[1].definition}
+                  example={dictionaryKPI[1].example}
+                />
+              </div>
             </div>
 
-            {/* Completed Tasks by Sprint */}
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 h-80">
-              <CompletedTasksBySprint
-                isLoading={loading}
-                sprintData={filteredSprints}
-                definition={dictionaryKPI[2].definition}
-                example={dictionaryKPI[2].example}
-              />
+            {/* Sprint Analytics Column - Vertical stack with natural spacing */}
+            <div className="lg:col-span-1 2xl:col-span-1 space-y-4 sm:space-y-6">
+              {/* Hours by Developer per Sprint - Let the chart determine its optimal size */}
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+                <HoursByDeveloperPerSprint
+                  isLoading={loading}
+                  sprintData={filteredSprints}
+                  definition="Hours Worked by Developer per Sprint shows the actual hours logged by each developer for each sprint, allowing visualization of workload distribution and individual productivity across different sprint periods."
+                  example="Sprint 1: Developer A worked 25 hours, Developer B worked 30 hours. Sprint 2: Developer A worked 28 hours, Developer B worked 35 hours."
+                />
+              </div>
+
+              {/* Completed Tasks by Sprint - Natural content flow */}
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+                <CompletedTasksBySprint
+                  isLoading={loading}
+                  sprintData={filteredSprints}
+                  definition={dictionaryKPI[2].definition}
+                  example={dictionaryKPI[2].example}
+                />
+              </div>
+            </div>
+
+            {/* Task Information Column - Adjust the max height to be more responsive */}
+            <div className="lg:col-span-2 2xl:col-span-1">
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200 max-h-[60vh] overflow-y-auto">
+                <TaskInformationBySprint
+                  sprints={sprintsForTasks}
+                  definition={dictionaryKPI[5].definition}
+                  example={dictionaryKPI[5].example}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Right Column - Task Details */}
-          <div className="xl:col-span-1">
-            <div className="bg-white rounded-xl shadow-lg border border-slate-200 h-full min-h-[700px]">
-              <TaskInformationBySprint
-                sprints={sprintsForTasks}
-                definition={dictionaryKPI[5].definition}
-                example={dictionaryKPI[5].example}
-              />
+          {/* Footer Information - Responsive padding and text sizing */}
+          <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4 sm:p-6">
+            <div className="text-center text-slate-600">
+              <p className="text-xs sm:text-sm">
+                This dashboard fulfills Oracle DevOps documentation requirements
+                for sprint performance visualization. Data refreshes
+                automatically when sprint range is modified.
+              </p>
             </div>
-          </div>
-        </div>
-
-        {/* Footer Information */}
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-6">
-          <div className="text-center text-slate-600">
-            <p className="text-sm">
-              This dashboard fulfills Oracle DevOps documentation requirements
-              for sprint performance visualization. Data refreshes automatically
-              when sprint range is modified.
-            </p>
           </div>
         </div>
       </div>
