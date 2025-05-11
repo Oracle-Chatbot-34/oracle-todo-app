@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import KPIScopeSelection from '@/components/kpis/KPIScopeSelection';
-import { ChartPie, TrendingUp, Users, Clock } from 'lucide-react';
+import { ChartPie, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
 import CompletedTasksBySprint from '@/components/kpis/CompletedTasksBySprint';
@@ -219,19 +219,6 @@ export default function KPI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startSprint?.id, endSprint?.id]);
 
-  // Calculate summary statistics for the overview cards
-  const totalHoursAcrossRange = filteredSprints.reduce(
-    (sum, sprint) => sum + sprint.totalHours,
-    0
-  );
-  const totalTasksAcrossRange = filteredSprints.reduce(
-    (sum, sprint) => sum + sprint.totalTasks,
-    0
-  );
-  const averageHoursPerSprint =
-    filteredSprints.length > 0
-      ? Math.round(totalHoursAcrossRange / filteredSprints.length)
-      : 0;
   const sprintRangeText = endSprint
     ? `${startSprint?.name} to ${endSprint.name}`
     : startSprint?.name || 'No Sprint Selected';
@@ -281,55 +268,6 @@ export default function KPI() {
                 setEndSprint={setEndSprint}
               />
             )}
-          </div>
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-blue-100 text-sm font-medium">Total Hours</p>
-                <p className="text-3xl font-bold">{totalHoursAcrossRange}</p>
-              </div>
-              <Clock className="w-8 h-8 text-blue-200" />
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-100 text-sm font-medium">
-                  Total Tasks
-                </p>
-                <p className="text-3xl font-bold">{totalTasksAcrossRange}</p>
-              </div>
-              <Users className="w-8 h-8 text-green-200" />
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm font-medium">
-                  Avg Hours/Sprint
-                </p>
-                <p className="text-3xl font-bold">{averageHoursPerSprint}</p>
-              </div>
-              <TrendingUp className="w-8 h-8 text-purple-200" />
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-orange-100 text-sm font-medium">
-                  Sprint Count
-                </p>
-                <p className="text-3xl font-bold">{filteredSprints.length}</p>
-              </div>
-              <ChartPie className="w-8 h-8 text-orange-200" />
-            </div>
           </div>
         </div>
 
