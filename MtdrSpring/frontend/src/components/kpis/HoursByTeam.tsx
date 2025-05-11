@@ -11,7 +11,6 @@ import {
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from '@/components/ui/chart';
 import KPITitle from './KPITtitle';
 import { useEffect, useState } from 'react';
@@ -40,6 +39,8 @@ type ChartConfig = Record<
 type ChartDataEntry = {
   member: string;
   workedHours: number;
+  // Add sprint breakdown for detailed view
+  sprintBreakdown: { [sprintName: string]: number };
 };
 
 type HoursByTeamProps = {
@@ -59,7 +60,7 @@ const generateChartConfig = (chartData: ChartDataEntry[]): ChartConfig => {
   }, {} as ChartConfig);
 };
 
-// Helper function to truncate member names
+// Helper function to truncate member names for better display
 const truncateName = (name: string): string => {
   const nameParts = name.split(' ');
   // Get only first name and first last name
@@ -76,9 +77,20 @@ export default function HoursByTeam({
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
 
   useEffect(() => {
-    // Aggregate hours by member from the passed sprint data
+    // This implementation addresses the Oracle requirement:
+    // "Total Hours worked each developer on each Sprint"
+    // by aggregating hours across all sprints while maintaining sprint-level detail
+
+    console.log('Processing sprint data for hours by team:', sprintData);
+
     const memberMap = new Map<string, string>(); // Original name to truncated name mapping
-    const memberHoursMap: Record<string, number> = {};
+    const memberHoursMap: Record<
+      string,
+      {
+        totalHours: number;
+        sprintBreakdown: { [sprintName: string]: number };
+      }
+    > = {};
 
     // First, create mappings of original to truncated names
     sprintData.forEach((sprint) => {
@@ -88,35 +100,85 @@ export default function HoursByTeam({
       });
     });
 
-    // Then aggregate hours by truncated name
+    // Then aggregate hours by truncated name and track sprint-level breakdown
     sprintData.forEach((sprint) => {
       sprint.entries.forEach(({ member, hours }) => {
         const truncatedName = memberMap.get(member) || member;
 
         if (!memberHoursMap[truncatedName]) {
-          memberHoursMap[truncatedName] = 0;
+          memberHoursMap[truncatedName] = {
+            totalHours: 0,
+            sprintBreakdown: {},
+          };
         }
-        memberHoursMap[truncatedName] += hours;
+
+        // Add to total hours
+        memberHoursMap[truncatedName].totalHours += hours;
+
+        // Track hours per sprint for detailed breakdown
+        const sprintName = sprint.name;
+        if (!memberHoursMap[truncatedName].sprintBreakdown[sprintName]) {
+          memberHoursMap[truncatedName].sprintBreakdown[sprintName] = 0;
+        }
+        memberHoursMap[truncatedName].sprintBreakdown[sprintName] += hours;
       });
     });
 
-    const formattedChartData: ChartDataEntry[] = Object.entries(
-      memberHoursMap
-    ).map(([member, workedHours]) => ({
-      member,
-      workedHours,
-    }));
+    // Convert to chart data format
+    const formattedChartData: ChartDataEntry[] = Object.entries(memberHoursMap)
+      .map(([member, data]) => ({
+        member,
+        workedHours: data.totalHours,
+        sprintBreakdown: data.sprintBreakdown,
+      }))
+      .sort((a, b) => b.workedHours - a.workedHours); // Sort by total hours descending
+
+    console.log('Formatted chart data for hours by team:', formattedChartData);
 
     setChartData(formattedChartData);
     setChartConfig(generateChartConfig(formattedChartData));
   }, [sprintData]);
+
+  // Custom tooltip to show sprint breakdown
+  type CustomTooltipProps = {
+    active?: boolean;
+    payload?: Array<{
+      value: number;
+      name: string;
+      dataKey: string;
+    }>;
+    label?: string;
+  };
+
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+    if (active && payload && payload.length) {
+      const data = chartData.find((item) => item.member === label);
+      if (data) {
+        return (
+          <div className="bg-white p-3 border rounded shadow-lg">
+            <p className="font-semibold">{label}</p>
+            <p className="text-blue-600">Total Hours: {data.workedHours}</p>
+            <div className="mt-2">
+              <p className="font-medium text-sm">Sprint Breakdown:</p>
+              {Object.entries(data.sprintBreakdown).map(([sprint, hours]) => (
+                <p key={sprint} className="text-xs text-gray-600">
+                  {sprint}: {hours} hours
+                </p>
+              ))}
+            </div>
+          </div>
+        );
+      }
+    }
+    return null;
+  };
 
   return (
     <div className="w-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
       <div className="flex flex-row text-2xl gap-4 w-full items-center">
         <Clock className="w-6 h-6" />
         <KPITitle
-          title="Worked hours by team member"
+          title="Worked hours by team member (across all sprints)"
           KPIObject={{ definition, example }}
         />
       </div>
@@ -142,10 +204,7 @@ export default function HoursByTeam({
                 tickMargin={10}
                 axisLine={false}
               />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
+              <ChartTooltip cursor={false} content={<CustomTooltip />} />
               <Bar dataKey="workedHours" radius={8}>
                 {chartData.map((entry, index) => (
                   <Cell
