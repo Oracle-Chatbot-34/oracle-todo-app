@@ -149,3 +149,7 @@ outputArtifacts:
   - name: frontend_image  
     type: DOCKER_IMAGE
     location: ${FRONTEND_IMAGE_TAG}
+
+  - name: deployment_manifest
+    type: KUBERNETES_MANIFEST
+    location: deployment.yaml
