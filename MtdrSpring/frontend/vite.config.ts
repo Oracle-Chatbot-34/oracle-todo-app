@@ -13,7 +13,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    /*
     proxy: {
       '/auth': {
         target: 'http://localhost:8080',
@@ -32,6 +31,5 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-    */
   },
 });

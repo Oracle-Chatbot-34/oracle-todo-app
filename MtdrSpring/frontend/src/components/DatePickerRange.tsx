@@ -1,54 +1,30 @@
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import { DateRangePicker } from '@mui/x-date-pickers-pro/DateRangePicker';
-import { SingleInputDateRangeField } from '@mui/x-date-pickers-pro/SingleInputDateRangeField';
-import { DemoContainer } from '@mui/x-date-pickers/internals/demo';
-import { DateRange } from '@mui/x-date-pickers-pro';
-import { Dayjs } from 'dayjs';
+import { Form } from '@/components/ui/form';
+import { UseFormReturn, FieldPath } from 'react-hook-form';
 
-interface Props {
-  dateRangeProp: DateRange<Dayjs>;
-  setDateRangeProp: (dateRange: DateRange<Dayjs>) => void;
-}
+// Filters
+import DateSelector from './DateCalendar';
 
-export default function MyDateRangePicker({ dateRangeProp, setDateRangeProp }: Props){
-
-  const handleChange = (dateRangeFunc: DateRange<Dayjs>) => {
-    setDateRangeProp(dateRangeFunc);
-    if (setDateRangeProp) {
-      setDateRangeProp(dateRangeFunc);
-    }
-  };
-
-  return (
-    <div className="w-full">
-      <p className="text-[#747276] text-[1.5625rem]">Select a time gap</p>
-      <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <DemoContainer
-          components={['DateRangePicker']}
-          sx={{
-            width: '100%',
-            '& .MuiOutlinedInput-root': {
-              borderRadius: '14px',
-            },
-          }}
-        >
-          <DateRangePicker
-            slots={{ field: SingleInputDateRangeField }}
-            slotProps={{
-              textField: {
-                fullWidth: true,
-                variant: 'outlined',
-              },
-            }}
-            value={dateRangeProp}
-            onChange={handleChange}
-            disablePast={false}
-            disableFuture={false}
-          />
-        </DemoContainer>
-      </LocalizationProvider>
-    </div>
-  );
+type SpanSelectorProps<T extends Record<string, any>> = {
+  form: UseFormReturn<T>;
 };
 
+export default function SpanSelector<T extends Record<string, any> & {
+  startDate: any;
+  endDate: any;
+}>({
+  form,
+}: SpanSelectorProps<T>) {
+
+  return (
+    <div className="w-full h-full bg-white rounded-xl shadow-lg p-4 flex flex-row">
+      <Form {...form}>
+        <form
+          className="flex flex-row gap-x-4 items-center justify-between"
+        >
+          <DateSelector name={"startDate" as FieldPath<T>} keyLabel="Start Date" form={form} />
+          <DateSelector name={"endDate" as FieldPath<T>} keyLabel="End Date" form={form} />
+        </form>
+      </Form>
+    </div>
+  );
+}

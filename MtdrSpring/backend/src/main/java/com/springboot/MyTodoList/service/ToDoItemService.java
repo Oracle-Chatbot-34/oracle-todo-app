@@ -4,9 +4,8 @@ import com.springboot.MyTodoList.model.TaskStatus;
 import com.springboot.MyTodoList.model.ToDoItem;
 import com.springboot.MyTodoList.repository.ToDoItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -19,49 +18,73 @@ public class ToDoItemService {
     private ToDoItemRepository toDoItemRepository;
 
     public List<ToDoItem> findAll() {
-        List<ToDoItem> todoItems = toDoItemRepository.findAll();
-        return todoItems;
+        return toDoItemRepository.findAll();
     }
 
-    public ResponseEntity<ToDoItem> getItemById(int id) {
-        Optional<ToDoItem> todoData = toDoItemRepository.findById(id);
-        if (todoData.isPresent()) {
-            return new ResponseEntity<>(todoData.get(), HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
+    public Optional<ToDoItem> findById(int id) {
+        return toDoItemRepository.findById(id);
     }
 
+    @Transactional
     public ToDoItem addToDoItem(ToDoItem toDoItem) {
+        // Set creation timestamp if not already set
+        if (toDoItem.getCreationTs() == null) {
+            toDoItem.setCreationTs(OffsetDateTime.now());
+        }
         return toDoItemRepository.save(toDoItem);
     }
 
+    @Transactional
     public boolean deleteToDoItem(int id) {
-        try {
-            toDoItemRepository.deleteById(id);
-            return true;
-        } catch (Exception e) {
+        if (!toDoItemRepository.existsById(id)) {
             return false;
         }
+        toDoItemRepository.deleteById(id);
+        return true;
     }
 
-    public ToDoItem updateToDoItem(int id, ToDoItem td) {
-        Optional<ToDoItem> toDoItemData = toDoItemRepository.findById(id);
-        if (toDoItemData.isPresent()) {
-            ToDoItem toDoItem = toDoItemData.get();
-            toDoItem.setID(id);
-            toDoItem.setCreation_ts(td.getCreation_ts());
-            toDoItem.setDescription(td.getDescription());
-            toDoItem.setDone(td.isDone());
-            return toDoItemRepository.save(toDoItem);
-        } else {
-            return null;
-        }
+    @Transactional
+    public ToDoItem updateToDoItem(int id, ToDoItem updatedItem) {
+        return toDoItemRepository.findById(id)
+                .map(existingItem -> {
+                    // Only update non-null fields to prevent unintended overwrites
+                    if (updatedItem.getTitle() != null) {
+                        existingItem.setTitle(updatedItem.getTitle());
+                    }
+                    if (updatedItem.getDescription() != null) {
+                        existingItem.setDescription(updatedItem.getDescription());
+                    }
+                    if (updatedItem.getDueDate() != null) {
+                        existingItem.setDueDate(updatedItem.getDueDate());
+                    }
+                    if (updatedItem.getStatus() != null) {
+                        existingItem.setStatus(updatedItem.getStatus());
+                    }
+                    if (updatedItem.getPriority() != null) {
+                        existingItem.setPriority(updatedItem.getPriority());
+                    }
+                    // Only update numerical fields if they are not null
+                    if (updatedItem.getAssigneeId() != null) {
+                        existingItem.setAssigneeId(updatedItem.getAssigneeId());
+                    }
+                    if (updatedItem.getTeamId() != null) {
+                        existingItem.setTeamId(updatedItem.getTeamId());
+                    }
+                    if (updatedItem.getEstimatedHours() != null) {
+                        existingItem.setEstimatedHours(updatedItem.getEstimatedHours());
+                    }
+                    if (updatedItem.getActualHours() != null) {
+                        existingItem.setActualHours(updatedItem.getActualHours());
+                    }
+                    if (updatedItem.getSprintId() != null) {
+                        existingItem.setSprintId(updatedItem.getSprintId());
+                    }
+                    return toDoItemRepository.save(existingItem);
+                })
+                .orElse(null);
     }
 
-    /**
-     * Add a task with validation of estimated hours
-     */
+    @Transactional
     public ToDoItem addTaskWithEstimation(ToDoItem toDoItem) throws IllegalArgumentException {
         // Validate estimated hours
         if (toDoItem.getEstimatedHours() == null) {
@@ -74,7 +97,7 @@ public class ToDoItemService {
         }
 
         // Set default values
-        toDoItem.setCreation_ts(OffsetDateTime.now());
+        toDoItem.setCreationTs(OffsetDateTime.now());
         if (toDoItem.getStatus() == null) {
             toDoItem.setStatus(TaskStatus.BACKLOG.name());
         }
@@ -82,72 +105,68 @@ public class ToDoItemService {
         return toDoItemRepository.save(toDoItem);
     }
 
-    /**
-     * Assign a task to a sprint
-     */
+    @Transactional
     public ToDoItem assignTaskToSprint(int taskId, Long sprintId) {
-        Optional<ToDoItem> taskOpt = toDoItemRepository.findById(taskId);
-        if (taskOpt.isPresent()) {
-            ToDoItem task = taskOpt.get();
-            task.setSprintId(sprintId);
-            task.setStatus(TaskStatus.IN_SPRINT.name());
-            return toDoItemRepository.save(task);
-        } else {
-            throw new IllegalArgumentException("Task not found with ID: " + taskId);
-        }
+        return toDoItemRepository.findById(taskId)
+                .map(task -> {
+                    task.setSprintId(sprintId);
+                    task.setStatus(TaskStatus.IN_SPRINT.name());
+                    return toDoItemRepository.save(task);
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Task not found with ID: " + taskId));
     }
 
-    /**
-     * Start a task (developer working on it)
-     */
+    @Transactional
     public ToDoItem startTask(int taskId, Long userId) {
-        Optional<ToDoItem> taskOpt = toDoItemRepository.findById(taskId);
-        if (taskOpt.isPresent()) {
-            ToDoItem task = taskOpt.get();
-            task.setAssigneeId(userId);
-            task.setStatus(TaskStatus.IN_PROGRESS.name());
-            return toDoItemRepository.save(task);
-        } else {
-            throw new IllegalArgumentException("Task not found with ID: " + taskId);
-        }
+        return toDoItemRepository.findById(taskId)
+                .map(task -> {
+                    task.setAssigneeId(userId);
+                    task.setStatus(TaskStatus.IN_PROGRESS.name());
+                    return toDoItemRepository.save(task);
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Task not found with ID: " + taskId));
     }
 
-    /**
-     * Complete a task with actual hours spent
-     */
+    @Transactional
     public ToDoItem completeTask(int taskId, Double actualHours, String comments) {
-        Optional<ToDoItem> taskOpt = toDoItemRepository.findById(taskId);
-        if (taskOpt.isPresent()) {
-            ToDoItem task = taskOpt.get();
-            task.setActualHours(actualHours);
-            task.setStatus(TaskStatus.COMPLETED.name());
-            task.setDescription(task.getDescription() + "\n\nCompletion Notes: " + comments);
-            task.setCompletedAt(OffsetDateTime.now());
-            return toDoItemRepository.save(task);
-        } else {
-            throw new IllegalArgumentException("Task not found with ID: " + taskId);
-        }
+        return toDoItemRepository.findById(taskId)
+                .map(task -> {
+                    task.setActualHours(actualHours);
+                    task.setStatus(TaskStatus.COMPLETED.name());
+
+                    // Append comments to description if provided
+                    if (comments != null && !comments.trim().isEmpty()) {
+                        String currentDescription = task.getDescription() != null ? task.getDescription() : "";
+                        task.setDescription(currentDescription + "\n\nCompletion Notes: " + comments);
+                    }
+
+                    task.setCompletedAt(OffsetDateTime.now());
+                    return toDoItemRepository.save(task);
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Task not found with ID: " + taskId));
     }
 
-    /**
-     * Find all tasks in a sprint
-     */
     public List<ToDoItem> findTasksBySprintId(Long sprintId) {
         return toDoItemRepository.findBySprintId(sprintId);
     }
 
-    /**
-     * Find all active tasks for a user
-     */
     public List<ToDoItem> findActiveTasksByAssigneeId(Long assigneeId) {
         return toDoItemRepository.findByAssigneeIdAndStatusNot(assigneeId, TaskStatus.COMPLETED.name());
     }
 
-    /**
-     * Find all tasks for a specific assignee
-     */
     public List<ToDoItem> findByAssigneeId(Long assigneeId) {
         return toDoItemRepository.findByAssigneeId(assigneeId);
     }
 
+    public List<ToDoItem> findTasksByTeamId(Long teamId) {
+        return toDoItemRepository.findByTeamId(teamId);
+    }
+
+    public List<ToDoItem> findTasksByDateRange(OffsetDateTime startDate, OffsetDateTime endDate) {
+        return toDoItemRepository.findByCreationTsBetween(startDate, endDate);
+    }
+
+    public List<ToDoItem> findTasksByTeamIdAndDateRange(Long teamId, OffsetDateTime startDate, OffsetDateTime endDate) {
+        return toDoItemRepository.findByTeamIdAndCreationTsBetween(teamId, startDate, endDate);
+    }
 }

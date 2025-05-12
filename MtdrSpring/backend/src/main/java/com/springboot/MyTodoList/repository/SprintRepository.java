@@ -21,4 +21,9 @@ public interface SprintRepository extends JpaRepository<Sprint, Long> {
      * Find active sprint for a team
      */
     Optional<Sprint> findByTeamIdAndStatus(Long teamId, String status);
+
+    /**
+     * Find all sprints for a user
+     */
+    List<Sprint> findByIdBetweenOrderById(Long startId, Long endId);
 }

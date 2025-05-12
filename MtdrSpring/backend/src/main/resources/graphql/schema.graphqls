@@ -1,0 +1,110 @@
+scalar DateTime
+
+type Query {
+    # KPI query with sprint range selection
+    getKpiData(startSprintId: ID!, endSprintId: ID): KpiResult
+}
+
+# Main KPI result structure
+type KpiResult {
+    data: KpiData
+    sprintData: [SprintData]
+    sprintHours: [SprintDataForPie]
+    sprintTasks: [SprintDataForPie]
+    sprintsForTasks: [SprintForTask]
+}
+
+# Core KPI calculations
+type KpiData {
+    taskCompletionRate: Float
+    taskCompletionTrend: [Float]
+    trendLabels: [String]
+    onTimeCompletionRate: Float
+    overdueTasksRate: Float
+    inProgressRate: Float
+    ociResourcesUtilization: Float
+    tasksCompletedPerWeek: Float
+    workedHours: Float
+    plannedHours: Float
+    hoursUtilizationPercent: Float
+    averageTasksPerEmployee: Float
+    startDate: DateTime
+    endDate: DateTime
+    userId: ID
+    teamId: ID
+}
+
+# Simplified format for pie charts
+type SprintDataForPie {
+    id: Int
+    name: String
+    count: Int
+}
+
+# Sprint data with member entries
+type SprintData {
+    id: Int
+    name: String
+    entries: [MemberEntry]
+    totalHours: Int
+    totalTasks: Int
+}
+
+# Individual member data
+type MemberEntry {
+    member: String
+    hours: Int
+    tasksCompleted: Int
+}
+
+# Sprint reference for task information
+type SprintForTask {
+    sprintId: Int
+    sprintName: String
+}
+
+# Chart data for frontend rendering
+type ChartData {
+    hoursByDeveloper: [DeveloperMetric]
+    tasksByDeveloper: [DeveloperMetric]
+    hoursBySprint: [SprintMetric]
+    tasksBySprint: [SprintMetric]
+    taskInformation: [SprintTaskInfo]
+}
+
+# Developer-specific metrics
+type DeveloperMetric {
+    developerId: ID
+    developerName: String
+    values: [Float]
+    sprints: [String]
+}
+
+# Sprint-specific metrics
+type SprintMetric {
+    sprintId: ID
+    sprintName: String
+    value: Float
+}
+
+# Task information by sprint
+type SprintTaskInfo {
+    sprintId: ID
+    sprintName: String
+    tasks: [TaskInfo]
+}
+
+# Individual task data
+type TaskInfo {
+    id: ID
+    title: String
+    description: String
+    status: String
+    priority: String
+    estimatedHours: Float
+    actualHours: Float
+    assigneeId: ID
+    assigneeName: String
+    dueDate: DateTime
+    completedAt: DateTime
+}

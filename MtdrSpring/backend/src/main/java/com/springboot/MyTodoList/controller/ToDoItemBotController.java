@@ -310,7 +310,8 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                         Integer id = Integer.valueOf(delete);
                         logger.debug("Deleting task ID {} for chat ID {}", id, chatId);
 
-                        boolean deleted = deleteToDoItem(id).getBody();
+                        Boolean deletedObj = deleteToDoItem(id).getBody();
+                        boolean deleted = deletedObj != null && deletedObj;
                         if (deleted) {
                             logger.info("Task ID {} successfully deleted", id);
                             BotHelper.sendMessageToTelegram(chatId, BotMessages.ITEM_DELETED.getMessage(), this);
@@ -488,7 +489,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                             ToDoItem newItem = new ToDoItem();
                             newItem.setDescription(messageText);
                             newItem.setTitle(messageText.length() > 50 ? messageText.substring(0, 50) : messageText);
-                            newItem.setCreation_ts(OffsetDateTime.now());
+                            newItem.setCreationTs(OffsetDateTime.now());
                             newItem.setDone(false);
                             logger.debug("Created new item with title: {}", newItem.getTitle());
 
@@ -664,10 +665,11 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     public ResponseEntity<ToDoItem> getToDoItemById(@PathVariable int id) {
         logger.info("Fetching todo item by ID: {}", id);
         try {
-            ResponseEntity<ToDoItem> responseEntity = toDoItemService.getItemById(id);
-            if (responseEntity.getBody() != null) {
-                logger.info("Successfully fetched todo item with ID {}: {}", id, responseEntity.getBody().getTitle());
-                return new ResponseEntity<ToDoItem>(responseEntity.getBody(), HttpStatus.OK);
+            Optional<ToDoItem> itemOpt = toDoItemService.findById(id);
+            if (itemOpt.isPresent()) {
+                ToDoItem item = itemOpt.get();
+                logger.info("Successfully fetched todo item with ID {}: {}", id, item.getTitle());
+                return new ResponseEntity<ToDoItem>(item, HttpStatus.OK);
             } else {
                 logger.warn("Todo item with ID {} not found", id);
                 return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -712,7 +714,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             return new ResponseEntity<>(toDoItem1, HttpStatus.OK);
         } catch (Exception e) {
             logger.error("Error updating todo item with ID: {}", id, e);
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+            return ResponseEntity.notFound().build();
         }
     }
 
@@ -1652,7 +1654,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     task.setDescription(state.getTempTaskDescription());
                     task.setEstimatedHours(state.getTempEstimatedHours());
                     task.setPriority(state.getTempPriority());
-                    task.setCreation_ts(OffsetDateTime.now());
+                    task.setCreationTs(OffsetDateTime.now());
 
                     // Set assignee (from temp state or current user)
                     if (state.getTempAssigneeId() != null) {
@@ -1934,7 +1936,7 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                 }
 
                 ToDoItem task = response.getBody();
-                if (!task.getAssigneeId().equals(state.getUser().getId())) {
+                if (task == null || !task.getAssigneeId().equals(state.getUser().getId())) {
                     logger.warn("Task {} is not assigned to user {}", taskId, state.getUser().getId());
                     SendMessage message = new SendMessage();
                     message.setChatId(chatId);
