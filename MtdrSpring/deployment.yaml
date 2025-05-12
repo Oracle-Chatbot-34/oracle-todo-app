@@ -6,13 +6,12 @@ metadata:
 stringData:
   # Store sensitive information as Kubernetes secrets
   # Replace these placeholder values with actual credentials in a production environment
-  # Consider using a secrets management solution in production
-  TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN}" # Replace with actual token when deploying
-  DB_PASSWORD: "${DB_PASSWORD}" # Replace with actual password when deploying
-  DB_URL: "${DB_URL}" # Database connection string from environment variable
-  DB_USERNAME: "${DB_USERNAME}" # Database username from environment variable
-  TNS_ADMIN_PATH: "src/main/resources/Wallet_javadev" # Path to wallet
-  DRIVER_CLASS_NAME: "oracle.jdbc.OracleDriver" # Database driver class name
+  TELEGRAM_BOT_TOKEN: "7818362029:AAHjytZcyWk66nNzI3-KIDBbSuonVAymORA"
+  DB_PASSWORD: "Spring-boot103"
+  DB_URL: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=src/main/resources/Wallet_javadev"
+  DB_USERNAME: "JAVADEV103"
+  TNS_ADMIN_PATH: "src/main/resources/Wallet_javadev"
+  DRIVER_CLASS_NAME: "oracle.jdbc.OracleDriver"
 type: Opaque
 ---
 apiVersion: apps/v1
@@ -67,6 +66,30 @@ spec:
             secretKeyRef:
               name: dashmaster-secrets
               key: TNS_ADMIN_PATH
+        # Additional environment variables for Spring Boot
+        - name: SPRING_PROFILES_ACTIVE
+          value: "production"
+        - name: JAVA_OPTS
+          value: "-Xms256m -Xmx512m"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 120
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
       imagePullSecrets:
       - name: ocir-secret
 ---
@@ -93,6 +116,29 @@ spec:
         # API base URL for frontend to communicate with backend
         - name: VITE_API_BASE_URL
           value: "/api"
+        - name: NGINX_HOST
+          value: "0.0.0.0"
+        - name: NGINX_PORT
+          value: "3000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
       imagePullSecrets:
       - name: ocir-secret
 ---
@@ -106,6 +152,7 @@ spec:
   ports:
   - port: 8080
     targetPort: 8080
+    protocol: TCP
   type: ClusterIP # Internal service not exposed directly outside the cluster
 ---
 apiVersion: v1
@@ -118,6 +165,7 @@ spec:
   ports:
   - port: 3000
     targetPort: 3000
+    protocol: TCP
   type: ClusterIP # Internal service accessed through Ingress
 ---
 apiVersion: networking.k8s.io/v1
@@ -128,8 +176,13 @@ metadata:
     # Specifies NGINX as the ingress controller implementation
     kubernetes.io/ingress.class: "nginx"
     # Rewrites request paths for proper routing
-    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/use-regex: "true"
+    # Enable CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
 spec:
   rules:
   - http:
@@ -158,3 +211,27 @@ spec:
             name: dashmaster-frontend-service
             port:
               number: 3000
+---
+# LoadBalancer service for external access (alternativa al Ingress)
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashmaster-loadbalancer
+  annotations:
+    oci.oraclecloud.com/load-balancer-type: "lb"
+    service.beta.kubernetes.io/oci-load-balancer-shape: "flexible"
+    service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "10"
+    service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "100"
+spec:
+  type: LoadBalancer
+  selector:
+    app: dashmaster-frontend
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: api

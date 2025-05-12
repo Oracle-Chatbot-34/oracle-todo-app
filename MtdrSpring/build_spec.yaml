@@ -1,16 +1,18 @@
 version: 0.1
 component: build
-timeoutInSeconds: 1800
+timeoutInSeconds: 6000
+runAs: root
 shell: bash
+
 env:
   variables:
-    # Información del Docker Registry
-    DOCKER_REGISTRY: "${region-code}.ocir.io"
-    NAMESPACE: "${namespace}"
+    # Configuración del registro Docker
+    DOCKER_REGISTRY: "${OCI_RESOURCE_PRINCIPAL_REGION}.ocir.io"
+    NAMESPACE: "${OCI_PRIMARY_SOURCE_DIR}"
     
     # Información del repositorio
-    BACKEND_REPO: "${namespace}/dashmaster-backend"
-    FRONTEND_REPO: "${namespace}/dashmaster-frontend"
+    BACKEND_REPO: "dashmaster-backend" 
+    FRONTEND_REPO: "dashmaster-frontend"
     
     # Rutas a los Dockerfiles
     BACKEND_DOCKERFILE_PATH: "MtdrSpring/backend/Dockerfile"
@@ -25,97 +27,125 @@ env:
     - FRONTEND_IMAGE_TAG
 
 steps:
-  # Paso 1: Iniciar sesión en OCIR
+  # Paso 1: Obtener información del tenancy namespace
   - type: Command
-    name: "Iniciar sesión en OCIR"
+    name: "Get tenancy namespace"
     timeoutInSeconds: 60
     command: |
-      echo "Iniciando sesión en OCIR..."
-      echo "${OCIR_PASSWORD}" | docker login ${DOCKER_REGISTRY} -u "${NAMESPACE}/oracleidentitycloudservice/${OCIR_USER}" --password-stdin
-    onFailure:
-      - type: Command
-        command: |
-          echo "Error al iniciar sesión en OCIR"
-          exit 1
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      echo "Tenancy namespace: ${TENANCY_NAMESPACE}"
 
-  # Paso 2: Construir y publicar imagen de Backend
+  # Paso 2: Construir imagen de Backend  
   - type: Command
-    name: "Construir y publicar imagen de Backend"
-    timeoutInSeconds: 600
+    name: "Build backend image"
+    timeoutInSeconds: 1800
     command: |
-      echo "Construyendo imagen de backend..."
+      echo "Building backend image..."
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # Generar tag único para la imagen de backend
-      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
-      echo "Tag para la imagen de backend: ${BACKEND_IMAGE_TAG}"
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Backend image tag: ${BACKEND_IMAGE_TAG}"
       
       # Construir la imagen
       docker build -t ${BACKEND_IMAGE_TAG} -f ${BACKEND_DOCKERFILE_PATH} ${BACKEND_CONTEXT}
       
-      # Publicar la imagen
-      docker push ${BACKEND_IMAGE_TAG}
-      echo "Imagen de backend publicada: ${BACKEND_IMAGE_TAG}"
-    onFailure:
-      - type: Command
-        command: |
-          echo "Error al construir o publicar la imagen de backend"
-          exit 1
+      # Verificar que la imagen se construyó correctamente
+      docker images | grep ${BACKEND_REPO}
+      
+      echo "Backend image built successfully: ${BACKEND_IMAGE_TAG}"
 
-  # Paso 3: Construir y publicar imagen de Frontend
+  # Paso 3: Construir imagen de Frontend
   - type: Command
-    name: "Construir y publicar imagen de Frontend"
-    timeoutInSeconds: 600
+    name: "Build frontend image"
+    timeoutInSeconds: 1800
     command: |
-      echo "Construyendo imagen de frontend..."
+      echo "Building frontend image..."
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # Generar tag único para la imagen de frontend
-      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
-      echo "Tag para la imagen de frontend: ${FRONTEND_IMAGE_TAG}"
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Frontend image tag: ${FRONTEND_IMAGE_TAG}"
       
       # Crear nginx.conf si no existe
       NGINX_CONF_PATH="${FRONTEND_CONTEXT}/nginx.conf"
       if [ ! -f "${NGINX_CONF_PATH}" ]; then
-        echo "Creando nginx.conf..."
+        echo "Creating nginx.conf..."
         cp MtdrSpring/frontend/nginx.conf "${NGINX_CONF_PATH}"
       fi
       
       # Construir la imagen
       docker build -t ${FRONTEND_IMAGE_TAG} -f ${FRONTEND_DOCKERFILE_PATH} ${FRONTEND_CONTEXT}
       
-      # Publicar la imagen
-      docker push ${FRONTEND_IMAGE_TAG}
-      echo "Imagen de frontend publicada: ${FRONTEND_IMAGE_TAG}"
-    onFailure:
-      - type: Command
-        command: |
-          echo "Error al construir o publicar la imagen de frontend"
-          exit 1
+      # Verificar que la imagen se construyó correctamente
+      docker images | grep ${FRONTEND_REPO}
+      
+      echo "Frontend image built successfully: ${FRONTEND_IMAGE_TAG}"
 
-  # Paso 4: Preparar archivo de despliegue de Kubernetes
+  # Paso 4: Hacer login a OCIR  
   - type: Command
-    name: "Preparar archivo de despliegue"
+    name: "Login to OCIR"
     timeoutInSeconds: 300
     command: |
-      echo "Preparando archivo de despliegue..."
-      cd ${OCI_PRIMARY_SOURCE_DIR}
+      echo "Logging into OCIR..."
       
-      # Copiar el archivo de despliegue
-      cp MtdrSpring/deployment.yaml deployment.yaml
+      # Login a OCIR usando la región de la instancia
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      echo ${OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM} | docker login ${DOCKER_REGISTRY} --username ${TENANCY_NAMESPACE}/oracleidentitycloudservice/${OCI_PRINCIPAL_ID} --password-stdin
       
-      # Reemplazar los placeholders con las imágenes construidas
-      sed -i "s|\${BACKEND_IMAGE}|${BACKEND_IMAGE_TAG}|g" deployment.yaml
-      sed -i "s|\${FRONTEND_IMAGE}|${FRONTEND_IMAGE_TAG}|g" deployment.yaml
+      echo "Successfully logged into OCIR"
+
+  # Paso 5: Push backend image
+  - type: Command
+    name: "Push backend image"
+    timeoutInSeconds: 1200
+    command: |
+      echo "Pushing backend image to OCIR..."
       
-      echo "Archivo de despliegue preparado"
-    onFailure:
-      - type: Command
-        command: |
-          echo "Error al preparar el archivo de despliegue"
-          exit 1
+      # Push de la imagen de backend
+      docker push ${BACKEND_IMAGE_TAG}
+      
+      echo "Backend image pushed successfully: ${BACKEND_IMAGE_TAG}"
+
+  # Paso 6: Push frontend image
+  - type: Command
+    name: "Push frontend image"
+    timeoutInSeconds: 1200
+    command: |
+      echo "Pushing frontend image to OCIR..."
+      
+      # Push de la imagen de frontend
+      docker push ${FRONTEND_IMAGE_TAG}
+      
+      echo "Frontend image pushed successfully: ${FRONTEND_IMAGE_TAG}"
+
+  # Paso 7: Verificar imágenes en OCIR
+  - type: Command
+    name: "Verify images in OCIR"
+    timeoutInSeconds: 300
+    command: |
+      echo "Verifying images in OCIR..."
+      
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      
+      # Verificar imagen de backend
+      echo "Checking backend repository..."
+      oci artifacts container image list --compartment-id ${OCI_PRIMARY_SOURCE_DIR} --repository-name ${BACKEND_REPO} || echo "Backend repository verification failed"
+      
+      # Verificar imagen de frontend  
+      echo "Checking frontend repository..."
+      oci artifacts container image list --compartment-id ${OCI_PRIMARY_SOURCE_DIR} --repository-name ${FRONTEND_REPO} || echo "Frontend repository verification failed"
+      
+      echo "Build process completed successfully!"
 
 outputArtifacts:
-  - name: deployment-manifest
-    type: KUBERNETES_MANIFEST
-    location: deployment.yaml
+  # Definir los artefactos de salida que serán utilizados en el deployment
+  - name: backend_image
+    type: DOCKER_IMAGE
+    location: ${BACKEND_IMAGE_TAG}
+    
+  - name: frontend_image  
+    type: DOCKER_IMAGE
+    location: ${FRONTEND_IMAGE_TAG}
