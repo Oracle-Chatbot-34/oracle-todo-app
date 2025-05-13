@@ -16,6 +16,7 @@ import {
 import KPITitle from './KPITtitle';
 import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type MemberEntry = {
   member: string;
@@ -42,6 +43,7 @@ type ChartDataEntree = {
 };
 
 type HoursByTeamProps = {
+  isLoading: boolean;
   sprintData: SprintData[];
   definition: string;
   example: string;
@@ -58,6 +60,7 @@ const generateChartConfig = (chartData: ChartDataEntree[]): ChartConfig => {
 };
 
 export default function HoursByTeam({
+  isLoading,
   sprintData,
   definition,
   example,
@@ -98,38 +101,46 @@ export default function HoursByTeam({
           KPIObject={{ definition, example }}
         />
       </div>
-      <ResponsiveContainer height="100%">
-        <ChartContainer config={chartConfig}>
-          <BarChart data={chartData}>
-            <CartesianGrid vertical={false} />
-            <YAxis />
-            <XAxis
-              dataKey="member"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Bar dataKey="workedHours" radius={8}>
-              {chartData.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={chartConfig[entry.member]?.color || '#ccc'}
-                />
-              ))}
-              <LabelList
-                position="top"
-                offset={12}
-                className="fill-foreground"
-                fontSize={12}
+      {isLoading ? (
+        <div className="flex items-center justify-center">
+          <div className='h-28/50 w-28/50'>
+            <LoadingSpinner />
+          </div>
+        </div>
+      ) : (
+        <ResponsiveContainer height="100%">
+          <ChartContainer config={chartConfig}>
+            <BarChart data={chartData}>
+              <CartesianGrid vertical={false} />
+              <YAxis />
+              <XAxis
+                dataKey="member"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
               />
-            </Bar>
-          </BarChart>
-        </ChartContainer>
-      </ResponsiveContainer>
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent hideLabel />}
+              />
+              <Bar dataKey="workedHours" radius={8}>
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={chartConfig[entry.member]?.color || '#ccc'}
+                  />
+                ))}
+                <LabelList
+                  position="top"
+                  offset={12}
+                  className="fill-foreground"
+                  fontSize={12}
+                />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import KPITitle from './KPITtitle';
 import api from '@/services/api';
 import { config } from '@/lib/config';
 import userService from '@/services/userService';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type Task = {
   id: number;
@@ -59,6 +60,8 @@ export default function TaskInformationBySprint({
 
   // Fetch all users first to have their names available
   useEffect(() => {
+    setLoading(true);
+
     const fetchUsers = async () => {
       try {
         const allUsers = await userService.getAllUsers();
@@ -85,6 +88,7 @@ export default function TaskInformationBySprint({
 
     const fetchTasksForSprints = async () => {
       setLoading(true);
+
       try {
         const formattedSprintsData: FormattedSprint[] = [];
 
@@ -96,7 +100,7 @@ export default function TaskInformationBySprint({
             );
 
             const tasksData = response.data?.data || response.data || [];
-            
+
             // Map the tasks data to our Task type
             const tasks = tasksData.map((task: ApiTask) => ({
               id: task.id,
@@ -145,7 +149,14 @@ export default function TaskInformationBySprint({
 
   // Helper function to get user name
   const getUserName = (assigneeId: number) => {
-    return users[assigneeId] || `User ${assigneeId}`;
+    const fullName = users[assigneeId] || `User ${assigneeId}`;
+    const nameParts = fullName.split(' ');
+
+    // Fallbacks if second name or last name are missing
+    const secondName = nameParts[0] || nameParts[1];
+    const firstLastName = nameParts[2] || '';
+
+    return `${secondName} ${firstLastName}`.trim();
   };
 
   return (
@@ -158,10 +169,12 @@ export default function TaskInformationBySprint({
         />
       </div>
 
-      <div className="max-w-full max-h-[65vh] flex flex-col gap-2 p-4 overflow-y-auto">
+      <div className="max-w-full max-h-[65vh] flex flex-col gap-2 p-4 overflow-y-auto ">
         {loading ? (
-          <div className="flex items-center justify-center h-48">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900"></div>
+          <div className="">
+            <div className="h-28/50 w-28/50">
+              <LoadingSpinner />
+            </div>
           </div>
         ) : formattedSprints.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
@@ -196,8 +209,34 @@ export default function TaskInformationBySprint({
                           </div>
                         </div>
                         <div className="flex flex-row gap-4">
-                          <p>{task.status}</p>
-                          <p>{task.priority}</p>
+                          {/* Status with colored dot */}
+                          <p className="flex items-center gap-2">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                task.status === 'DONE' ||
+                                task.status === 'COMPLETED'
+                                  ? 'bg-green-500'
+                                  : task.status === 'IN_PROGRESS'
+                                  ? 'bg-yellow-500'
+                                  : 'bg-red-500'
+                              }`}
+                            ></span>
+                            {task.status}
+                          </p>
+
+                          {/* Priority with colored dot */}
+                          <p className="flex items-center gap-2">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                task.priority === 'HIGH'
+                                  ? 'bg-red-500'
+                                  : task.priority === 'MEDIUM'
+                                  ? 'bg-yellow-500'
+                                  : 'bg-gray-400'
+                              }`}
+                            ></span>
+                            {task.priority}
+                          </p>
                         </div>
                       </div>
                       <div className="flex flex-col gap-1">

@@ -10,6 +10,7 @@ import { ChartContainer, ChartTooltip } from '@/components/ui/chart';
 import { useEffect, useState } from 'react';
 import { SquareCheckBig } from 'lucide-react';
 import KPITitle from './KPITtitle';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 type ChartConfig = Record<
   string,
@@ -36,6 +37,7 @@ type SprintData = {
 };
 
 type CompletedTasksBySprintProps = {
+  isLoading: boolean;
   sprintData: SprintData[];
   definition: string;
   example: string;
@@ -52,9 +54,10 @@ const generateChartConfig = (members: string[]): ChartConfig => {
 };
 
 export default function CompletedTasksBySprint({
+  isLoading,
   sprintData,
   definition,
-  example
+  example,
 }: CompletedTasksBySprintProps) {
   const [chartData, setChartData] = useState<ChartDataEntry[]>([]);
   const [chartConfig, setChartConfig] = useState<ChartConfig>({});
@@ -85,41 +88,47 @@ export default function CompletedTasksBySprint({
     <div className="w-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
       <div className="flex flex-row text-2xl gap-4 w-full items-center">
         <SquareCheckBig className="w-6 h-6" />
-        <KPITitle 
-          title='Completed tasks by team members'
+        <KPITitle
+          title="Completed tasks by team members"
           KPIObject={{ definition, example }}
-
         />
       </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center">
+          <div className="h-28/50 w-28/50">
+            <LoadingSpinner />
+          </div>
+        </div>
+      ) : (
+        <ResponsiveContainer height="100%" width="100%">
+          <ChartContainer config={chartConfig}>
+            <BarChart data={chartData}>
+              <CartesianGrid vertical={false} />
+              <YAxis />
+              <XAxis
+                dataKey="sprint"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tickFormatter={(value) => value}
+              />
+              <ChartTooltip cursor={true} />
 
-      <ResponsiveContainer height="100%" width="100%">
-        <ChartContainer config={chartConfig}>
-          <BarChart data={chartData}>
-            <CartesianGrid vertical={false} />
-            <YAxis />
-            <XAxis
-              dataKey="sprint"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              tickFormatter={(value) => value}
-            />
-            <ChartTooltip cursor={true} />
-
-            {chartData.length > 0 &&
-              Object.keys(chartData[0])
-                .filter((key) => key !== 'sprint')
-                .map((memberName) => (
-                  <Bar
-                    key={memberName}
-                    dataKey={memberName}
-                    fill={chartConfig[memberName]?.color}
-                    radius={[4, 4, 0, 0]}
-                  />
-                ))}
-          </BarChart>
-        </ChartContainer>
-      </ResponsiveContainer>
+              {chartData.length > 0 &&
+                Object.keys(chartData[0])
+                  .filter((key) => key !== 'sprint')
+                  .map((memberName) => (
+                    <Bar
+                      key={memberName}
+                      dataKey={memberName}
+                      fill={chartConfig[memberName]?.color}
+                      radius={[4, 4, 0, 0]}
+                    />
+                  ))}
+            </BarChart>
+          </ChartContainer>
+        </ResponsiveContainer>
+      )}
     </div>
   );
 }
