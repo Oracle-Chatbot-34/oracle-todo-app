@@ -9,37 +9,6 @@ import { AlarmClockCheck, ListChecks } from 'lucide-react';
 import React from 'react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 
-/*
-This component could receive two types of data:
-1. Sprint data with total hours for each sprint:
-[
-  {
-    id: 1,
-    name: "Sprint 1",
-    totalHours: 100,
-  },
-  {
-    id: 2,
-    name: "Sprint 2",
-    totalHours: 150,
-  },
-  // Add more sprints as needed
-]
-2. Sprint data with total tasks for each sprint:
-[
-  {
-    id: 1,
-    name: "Sprint 1",
-    totalTasks: 10,
-  },
-  {
-    id: 2,
-    name: "Sprint 2",
-    totalTasks: 15,
-  },
-  // Add more sprints as needed
- */
-
 type SprintData = {
   id: number;
   name: string;
@@ -78,13 +47,32 @@ export default function HoursBySprints({
   definition,
   example,
 }: HoursBySprintProps) {
+  // Log the incoming data
+  console.log(
+    `HoursBySprints received ${isHours ? 'hours' : 'tasks'} chartData:`,
+    chartData
+  );
+
   // Calculate the total count from chartData
   const totalCount = React.useMemo(() => {
-    return chartData.reduce((acc, entry) => acc + entry.count, 0);
-  }, []);
+    const sum = chartData.reduce((acc, entry) => acc + (entry.count || 0), 0);
+    console.log(`Total ${isHours ? 'hours' : 'tasks'} calculated:`, sum);
+    return sum;
+  }, [chartData, isHours]);
 
-  console.log('chartData', chartData, isHours);
-  const chartConfig = generateChartConfig(chartData.map((s) => s.name));
+  // Ensure we don't have zero values showing (but keep entries if that's all we have)
+  const filteredChartData = React.useMemo(() => {
+    // If all entries are zero, keep them
+    if (chartData.every((entry) => !entry.count)) {
+      return chartData;
+    }
+
+    // Otherwise filter out zero entries
+    return chartData.filter((entry) => entry.count > 0);
+  }, [chartData]);
+
+  const chartConfig = generateChartConfig(filteredChartData.map((s) => s.name));
+
   return (
     <div className="w-2/3 h-full flex flex-col gap-4 p-5 bg-white rounded-xl shadow-lg">
       <div className="flex flex-row text-2xl gap-4 w-full items-center">
@@ -104,6 +92,12 @@ export default function HoursBySprints({
             <LoadingSpinner />
           </div>
         </div>
+      ) : filteredChartData.length === 0 ? (
+        <div className="flex items-center justify-center h-40">
+          <p className="text-xl">
+            No {isHours ? 'hours' : 'completed tasks'} data available
+          </p>
+        </div>
       ) : (
         <ResponsiveContainer height="100%" width="100%">
           <ChartContainer config={chartConfig}>
@@ -113,7 +107,7 @@ export default function HoursBySprints({
                 content={<ChartTooltipContent hideLabel />}
               />
               <Pie
-                data={chartData}
+                data={filteredChartData}
                 dataKey="count"
                 nameKey="name"
                 innerRadius={60}
@@ -148,7 +142,7 @@ export default function HoursBySprints({
                     }
                   }}
                 />
-                {chartData.map((entry) => (
+                {filteredChartData.map((entry) => (
                   <Cell
                     key={entry.id}
                     fill={chartConfig[entry.name]?.color || '#ccc'}
