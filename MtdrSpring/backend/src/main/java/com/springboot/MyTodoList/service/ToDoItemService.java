@@ -169,4 +169,15 @@ public class ToDoItemService {
     public List<ToDoItem> findTasksByTeamIdAndDateRange(Long teamId, OffsetDateTime startDate, OffsetDateTime endDate) {
         return toDoItemRepository.findByTeamIdAndCreationTsBetween(teamId, startDate, endDate);
     }
+
+    /**
+     * Find tasks by sprint ID and assignee ID
+     */
+    public List<ToDoItem> findBySprintIdAndAssigneeId(Long sprintId, Long assigneeId) {
+        // This method is not implemented yet, so we need to create it
+        // For now, let's implement a simple filter on findTasksBySprintId
+        return findTasksBySprintId(sprintId).stream()
+                .filter(task -> assigneeId.equals(task.getAssigneeId()))
+                .toList();
+    }
 }

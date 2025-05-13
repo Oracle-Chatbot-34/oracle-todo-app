@@ -3,206 +3,57 @@ package com.springboot.MyTodoList.model.bot;
 import com.springboot.MyTodoList.model.User;
 
 /**
- * Represents the state of a user's interaction with the Telegram bot.
+ * Class to track user state in the Telegram bot
  */
 public class UserBotState {
 
-    // Authentication state
+    // User information
+    private User user;
     private boolean authenticated = false;
-    private String employeeId = null;
-    private User user = null;
 
-    // Task creation state
+    // Task creation
     private boolean newTaskMode = false;
-    private String taskCreationStage = null;
-    private String tempTaskTitle = null;
-    private String tempTaskDescription = null;
-    private Double tempEstimatedHours = null;
-    private String tempPriority = null;
-    private Long tempAssigneeId = null;
+    private String taskCreationStage;
+    private String tempTaskTitle;
+    private String tempTaskDescription;
+    private Double tempEstimatedHours;
+    private Long tempAssigneeId;
+    private String tempPriority;
 
-    // Sprint creation state
+    // Task completion
+    private boolean taskCompletionMode = false;
+    private String taskCompletionStage;
+    private int tempTaskId;
+    private double tempActualHours;
+
+    // Sprint mode
+    private boolean sprintMode = false;
+    private String sprintModeStage;
+
+    // Legacy sprint states (for backward compatibility)
     private boolean sprintCreationMode = false;
-    private String sprintCreationStage = null;
-    private String tempSprintName = null;
-    private String tempSprintDescription = null;
-    private String tempSprintStartDate = null;
-    private String tempSprintEndDate = null;
-
-    // End sprint state
+    private String sprintCreationStage;
     private boolean endSprintMode = false;
 
-    // Task completion state
-    private boolean taskCompletionMode = false;
-    private String taskCompletionStage = null;
-    private int tempTaskId = 0;
-    private Double tempActualHours = null;
+    // Shared sprint fields
+    private String tempSprintName;
+    private String tempSprintDescription;
+    private String tempSprintStartDate;
+    private String tempSprintEndDate;
+    private Long tempSprintId;
 
-    // Assign to sprint state
+    // Task to sprint assignment
     private boolean assignToSprintMode = false;
-    private String assignToSprintStage = null;
-    private Long tempSprintId = null;
+    private String assignToSprintStage;
 
-    // Start task work state
-    private boolean startTaskWorkMode = false;
-    private String startTaskWorkStage = null;
+    // Getters and setters
 
-    // General state
-    private boolean viewingTaskMode = false;
-    private Long currentTaskId = null;
-
-    /**
-     * Resets the user's state to unauthenticated with no active operations.
-     */
-    public void reset() {
-        this.authenticated = false;
-        this.employeeId = null;
-        this.user = null;
-        resetTaskCreation();
-        resetTaskCompletion();
-        resetAssignToSprint();
-        resetStartTaskWork();
-        resetSprintCreation();
-        this.endSprintMode = false;
-        this.viewingTaskMode = false;
-        this.currentTaskId = null;
+    public User getUser() {
+        return user;
     }
 
-    /**
-     * Reset task creation state
-     */
-    public void resetTaskCreation() {
-        this.newTaskMode = false;
-        this.taskCreationStage = null;
-        this.tempTaskTitle = null;
-        this.tempTaskDescription = null;
-        this.tempEstimatedHours = null;
-        this.tempPriority = null;
-        this.tempAssigneeId = null;
-    }
-
-    /**
-     * Reset sprint creation state
-     */
-    public void resetSprintCreation() {
-        this.sprintCreationMode = false;
-        this.sprintCreationStage = null;
-        this.tempSprintName = null;
-        this.tempSprintDescription = null;
-        this.tempSprintStartDate = null;
-        this.tempSprintEndDate = null;
-    }
-
-    /**
-     * Reset task completion state
-     */
-    public void resetTaskCompletion() {
-        this.taskCompletionMode = false;
-        this.taskCompletionStage = null;
-        this.tempTaskId = 0;
-        this.tempActualHours = null;
-    }
-
-    /**
-     * Reset assign to sprint state
-     */
-    public void resetAssignToSprint() {
-        this.assignToSprintMode = false;
-        this.assignToSprintStage = null;
-        this.tempSprintId = null;
-    }
-
-    /**
-     * Reset start task work state
-     */
-    public void resetStartTaskWork() {
-        this.startTaskWorkMode = false;
-        this.startTaskWorkStage = null;
-    }
-
-    // Getters and setters for all fields
-
-    public boolean isSprintCreationMode() {
-        return sprintCreationMode;
-    }
-
-    public void setSprintCreationMode(boolean sprintCreationMode) {
-        this.sprintCreationMode = sprintCreationMode;
-        if (sprintCreationMode) {
-            this.newTaskMode = false;
-            this.taskCompletionMode = false;
-            this.assignToSprintMode = false;
-            this.startTaskWorkMode = false;
-            this.viewingTaskMode = false;
-            this.endSprintMode = false;
-        }
-    }
-
-    public String getSprintCreationStage() {
-        return sprintCreationStage;
-    }
-
-    public void setSprintCreationStage(String sprintCreationStage) {
-        this.sprintCreationStage = sprintCreationStage;
-        if (sprintCreationStage != null) {
-            this.sprintCreationMode = true;
-        }
-    }
-
-    public String getTempSprintName() {
-        return tempSprintName;
-    }
-
-    public void setTempSprintName(String tempSprintName) {
-        this.tempSprintName = tempSprintName;
-    }
-
-    public String getTempSprintDescription() {
-        return tempSprintDescription;
-    }
-
-    public void setTempSprintDescription(String tempSprintDescription) {
-        this.tempSprintDescription = tempSprintDescription;
-    }
-
-    public String getTempSprintStartDate() {
-        return tempSprintStartDate;
-    }
-
-    public void setTempSprintStartDate(String tempSprintStartDate) {
-        this.tempSprintStartDate = tempSprintStartDate;
-    }
-
-    public String getTempSprintEndDate() {
-        return tempSprintEndDate;
-    }
-
-    public void setTempSprintEndDate(String tempSprintEndDate) {
-        this.tempSprintEndDate = tempSprintEndDate;
-    }
-
-    public boolean isEndSprintMode() {
-        return endSprintMode;
-    }
-
-    public void setEndSprintMode(boolean endSprintMode) {
-        this.endSprintMode = endSprintMode;
-        if (endSprintMode) {
-            this.newTaskMode = false;
-            this.taskCompletionMode = false;
-            this.assignToSprintMode = false;
-            this.startTaskWorkMode = false;
-            this.viewingTaskMode = false;
-            this.sprintCreationMode = false;
-        }
-    }
-
-    public Long getTempAssigneeId() {
-        return tempAssigneeId;
-    }
-
-    public void setTempAssigneeId(Long tempAssigneeId) {
-        this.tempAssigneeId = tempAssigneeId;
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public boolean isAuthenticated() {
@@ -213,24 +64,7 @@ public class UserBotState {
         this.authenticated = authenticated;
     }
 
-    public String getEmployeeId() {
-        return employeeId;
-    }
-
-    public void setEmployeeId(String employeeId) {
-        this.employeeId = employeeId;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-        if (user != null) {
-            this.employeeId = user.getEmployeeId();
-        }
-    }
+    // Task creation getters and setters
 
     public boolean isNewTaskMode() {
         return newTaskMode;
@@ -238,12 +72,6 @@ public class UserBotState {
 
     public void setNewTaskMode(boolean newTaskMode) {
         this.newTaskMode = newTaskMode;
-        if (newTaskMode) {
-            this.taskCompletionMode = false;
-            this.assignToSprintMode = false;
-            this.startTaskWorkMode = false;
-            this.viewingTaskMode = false;
-        }
     }
 
     public String getTaskCreationStage() {
@@ -278,6 +106,14 @@ public class UserBotState {
         this.tempEstimatedHours = tempEstimatedHours;
     }
 
+    public Long getTempAssigneeId() {
+        return tempAssigneeId;
+    }
+
+    public void setTempAssigneeId(Long tempAssigneeId) {
+        this.tempAssigneeId = tempAssigneeId;
+    }
+
     public String getTempPriority() {
         return tempPriority;
     }
@@ -286,18 +122,14 @@ public class UserBotState {
         this.tempPriority = tempPriority;
     }
 
+    // Task completion getters and setters
+
     public boolean isTaskCompletionMode() {
         return taskCompletionMode;
     }
 
     public void setTaskCompletionMode(boolean taskCompletionMode) {
         this.taskCompletionMode = taskCompletionMode;
-        if (taskCompletionMode) {
-            this.newTaskMode = false;
-            this.assignToSprintMode = false;
-            this.startTaskWorkMode = false;
-            this.viewingTaskMode = false;
-        }
     }
 
     public String getTaskCompletionStage() {
@@ -306,9 +138,6 @@ public class UserBotState {
 
     public void setTaskCompletionStage(String taskCompletionStage) {
         this.taskCompletionStage = taskCompletionStage;
-        if (taskCompletionStage != null) {
-            this.taskCompletionMode = true;
-        }
     }
 
     public int getTempTaskId() {
@@ -319,37 +148,90 @@ public class UserBotState {
         this.tempTaskId = tempTaskId;
     }
 
-    public Double getTempActualHours() {
+    public double getTempActualHours() {
         return tempActualHours;
     }
 
-    public void setTempActualHours(Double tempActualHours) {
+    public void setTempActualHours(double tempActualHours) {
         this.tempActualHours = tempActualHours;
     }
 
-    public boolean isAssignToSprintMode() {
-        return assignToSprintMode;
+    // Sprint mode getters and setters
+
+    public boolean isSprintMode() {
+        return sprintMode;
     }
 
-    public void setAssignToSprintMode(boolean assignToSprintMode) {
-        this.assignToSprintMode = assignToSprintMode;
-        if (assignToSprintMode) {
-            this.newTaskMode = false;
-            this.taskCompletionMode = false;
-            this.startTaskWorkMode = false;
-            this.viewingTaskMode = false;
-        }
+    public void setSprintMode(boolean sprintMode) {
+        this.sprintMode = sprintMode;
     }
 
-    public String getAssignToSprintStage() {
-        return assignToSprintStage;
+    public String getSprintModeStage() {
+        return sprintModeStage;
     }
 
-    public void setAssignToSprintStage(String assignToSprintStage) {
-        this.assignToSprintStage = assignToSprintStage;
-        if (assignToSprintStage != null) {
-            this.assignToSprintMode = true;
-        }
+    public void setSprintModeStage(String sprintModeStage) {
+        this.sprintModeStage = sprintModeStage;
+    }
+
+    // Legacy sprint getters and setters
+
+    public boolean isSprintCreationMode() {
+        return sprintCreationMode;
+    }
+
+    public void setSprintCreationMode(boolean sprintCreationMode) {
+        this.sprintCreationMode = sprintCreationMode;
+    }
+
+    public String getSprintCreationStage() {
+        return sprintCreationStage;
+    }
+
+    public void setSprintCreationStage(String sprintCreationStage) {
+        this.sprintCreationStage = sprintCreationStage;
+    }
+
+    public boolean isEndSprintMode() {
+        return endSprintMode;
+    }
+
+    public void setEndSprintMode(boolean endSprintMode) {
+        this.endSprintMode = endSprintMode;
+    }
+
+    // Shared sprint fields getters and setters
+
+    public String getTempSprintName() {
+        return tempSprintName;
+    }
+
+    public void setTempSprintName(String tempSprintName) {
+        this.tempSprintName = tempSprintName;
+    }
+
+    public String getTempSprintDescription() {
+        return tempSprintDescription;
+    }
+
+    public void setTempSprintDescription(String tempSprintDescription) {
+        this.tempSprintDescription = tempSprintDescription;
+    }
+
+    public String getTempSprintStartDate() {
+        return tempSprintStartDate;
+    }
+
+    public void setTempSprintStartDate(String tempSprintStartDate) {
+        this.tempSprintStartDate = tempSprintStartDate;
+    }
+
+    public String getTempSprintEndDate() {
+        return tempSprintEndDate;
+    }
+
+    public void setTempSprintEndDate(String tempSprintEndDate) {
+        this.tempSprintEndDate = tempSprintEndDate;
     }
 
     public Long getTempSprintId() {
@@ -360,53 +242,55 @@ public class UserBotState {
         this.tempSprintId = tempSprintId;
     }
 
-    public boolean isStartTaskWorkMode() {
-        return startTaskWorkMode;
+    // Task to sprint assignment getters and setters
+
+    public boolean isAssignToSprintMode() {
+        return assignToSprintMode;
     }
 
-    public void setStartTaskWorkMode(boolean startTaskWorkMode) {
-        this.startTaskWorkMode = startTaskWorkMode;
-        if (startTaskWorkMode) {
-            this.newTaskMode = false;
-            this.taskCompletionMode = false;
-            this.assignToSprintMode = false;
-            this.viewingTaskMode = false;
-        }
+    public void setAssignToSprintMode(boolean assignToSprintMode) {
+        this.assignToSprintMode = assignToSprintMode;
     }
 
-    public String getStartTaskWorkStage() {
-        return startTaskWorkStage;
+    public String getAssignToSprintStage() {
+        return assignToSprintStage;
     }
 
-    public void setStartTaskWorkStage(String startTaskWorkStage) {
-        this.startTaskWorkStage = startTaskWorkStage;
-        if (startTaskWorkStage != null) {
-            this.startTaskWorkMode = true;
-        }
+    public void setAssignToSprintStage(String assignToSprintStage) {
+        this.assignToSprintStage = assignToSprintStage;
     }
 
-    public boolean isViewingTaskMode() {
-        return viewingTaskMode;
+    // Reset methods
+
+    public void resetTaskCreation() {
+        this.newTaskMode = false;
+        this.taskCreationStage = null;
+        this.tempTaskTitle = null;
+        this.tempTaskDescription = null;
+        this.tempEstimatedHours = null;
+        this.tempAssigneeId = null;
+        this.tempPriority = null;
     }
 
-    public void setViewingTaskMode(boolean viewingTaskMode) {
-        this.viewingTaskMode = viewingTaskMode;
-        if (viewingTaskMode) {
-            this.newTaskMode = false;
-            this.taskCompletionMode = false;
-            this.assignToSprintMode = false;
-            this.startTaskWorkMode = false;
-        }
+    public void resetTaskCompletion() {
+        this.taskCompletionMode = false;
+        this.taskCompletionStage = null;
+        this.tempTaskId = 0;
+        this.tempActualHours = 0;
     }
 
-    public Long getCurrentTaskId() {
-        return currentTaskId;
+    public void resetSprintCreation() {
+        this.sprintCreationMode = false;
+        this.sprintCreationStage = null;
+        this.tempSprintName = null;
+        this.tempSprintDescription = null;
+        this.tempSprintStartDate = null;
+        this.tempSprintEndDate = null;
     }
 
-    public void setCurrentTaskId(Long currentTaskId) {
-        this.currentTaskId = currentTaskId;
-        if (currentTaskId != null) {
-            this.viewingTaskMode = true;
-        }
+    public void resetAssignToSprint() {
+        this.assignToSprintMode = false;
+        this.assignToSprintStage = null;
+        this.tempSprintId = null;
     }
 }
