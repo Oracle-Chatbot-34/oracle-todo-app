@@ -26,7 +26,10 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="flex flex-row bg-background shrink-0 min-h-16 items-center justify-between px-10 shadow-md z-50">
+    <nav
+      id="navbar"
+      className="flex flex-row bg-background shrink-0 min-h-16 items-center justify-between px-10 shadow-md z-50"
+    >
       {/* Logo and Title */}
       <a href="/" className="text-4xl font-semibold ml-2 flex flex-row items-center gap-2 justify-center"> 
         <img src={logo} className="h-14 aspect-square" alt="Logo" />
@@ -71,7 +74,9 @@ const Navbar = () => {
       <div className="flex flex-row items-center gap-4">
         {isAuthenticated ? (
           <div className="flex items-center gap-4">
-            <span className="text-lg">Welcome, {fullName}</span>
+            <span id="user-display-name" className="text-lg">
+              Welcome, {fullName}
+            </span>
             <button
               onClick={handleLogout}
               className="bg-greenie text-white px-4 py-2 rounded-lg hover:opacity-90"

@@ -125,7 +125,7 @@ export default function Tasks() {
   }, [refreshTasks]);
 
   return (
-    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
+    <div id='tasks-page' className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
       <div className="flex flex-col justify-start items-start p-6 lg:p-10 gap-y-6 bg-whitie w-full h-full rounded-lg shadow-xl">
         {/* Title */}
         <div className="flex flex-row items-center justify-between w-full">
