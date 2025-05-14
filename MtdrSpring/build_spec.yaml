@@ -1,123 +1,121 @@
-# MtdrSpring/build_spec.yaml
-version: 1.0
-stages:
-  # Stage 1: Build and Test Backend and Frontend
-  - stage: build_and_test
-    displayName: "Build & Test Backend & Frontend"
-    steps:
-      # Step 1.1: Maven Build and Test (Backend)
+version: 0.1
+component: build
+timeoutInSeconds: 1800
+shell: bash
+env:
+  variables:
+    # Información del Docker Registry
+    DOCKER_REGISTRY: "${region-code}.ocir.io"
+    NAMESPACE: "${namespace}"
+    
+    # Información del repositorio
+    BACKEND_REPO: "${namespace}/dashmaster-backend"
+    FRONTEND_REPO: "${namespace}/dashmaster-frontend"
+    
+    # Rutas a los Dockerfiles
+    BACKEND_DOCKERFILE_PATH: "MtdrSpring/backend/Dockerfile"
+    FRONTEND_DOCKERFILE_PATH: "MtdrSpring/frontend/Dockerfile"
+    
+    # Rutas a los directorios de construcción
+    BACKEND_CONTEXT: "MtdrSpring/backend"
+    FRONTEND_CONTEXT: "MtdrSpring/frontend"
+    
+  exportedVariables:
+    - BACKEND_IMAGE_TAG
+    - FRONTEND_IMAGE_TAG
+
+steps:
+  # Paso 1: Iniciar sesión en OCIR
+  - type: Command
+    name: "Iniciar sesión en OCIR"
+    timeoutInSeconds: 60
+    command: |
+      echo "Iniciando sesión en OCIR..."
+      echo "${OCIR_PASSWORD}" | docker login ${DOCKER_REGISTRY} -u "${NAMESPACE}/oracleidentitycloudservice/${OCIR_USER}" --password-stdin
+    onFailure:
       - type: Command
-        name: "Maven Build & Test"
-        timeoutInSeconds: 600
-        command: "cd MtdrSpring/backend && ./mvnw clean package" # This runs tests by default
-        onFailure:
-          - type: Command
-            name: "Handle Maven Test Failure"
-            command: |
-              echo "Maven tests failed!"
-              exit 1 # Fail the build run
+        command: |
+          echo "Error al iniciar sesión en OCIR"
+          exit 1
 
-      # Step 1.2: Bun Install (Frontend)
+  # Paso 2: Construir y publicar imagen de Backend
+  - type: Command
+    name: "Construir y publicar imagen de Backend"
+    timeoutInSeconds: 600
+    command: |
+      echo "Construyendo imagen de backend..."
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      
+      # Generar tag único para la imagen de backend
+      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Tag para la imagen de backend: ${BACKEND_IMAGE_TAG}"
+      
+      # Construir la imagen
+      docker build -t ${BACKEND_IMAGE_TAG} -f ${BACKEND_DOCKERFILE_PATH} ${BACKEND_CONTEXT}
+      
+      # Publicar la imagen
+      docker push ${BACKEND_IMAGE_TAG}
+      echo "Imagen de backend publicada: ${BACKEND_IMAGE_TAG}"
+    onFailure:
       - type: Command
-        name: "Bun Install"
-        timeoutInSeconds: 300
-        command: "cd MtdrSpring/frontend && bun install"
-        onFailure:
-          - type: Command
-            name: "Handle Bun Install Failure"
-            command: |
-              echo "Bun install failed!"
-              exit 1
+        command: |
+          echo "Error al construir o publicar la imagen de backend"
+          exit 1
 
-      # Step 1.3: Bun Test (Frontend)
+  # Paso 3: Construir y publicar imagen de Frontend
+  - type: Command
+    name: "Construir y publicar imagen de Frontend"
+    timeoutInSeconds: 600
+    command: |
+      echo "Construyendo imagen de frontend..."
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      
+      # Generar tag único para la imagen de frontend
+      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Tag para la imagen de frontend: ${FRONTEND_IMAGE_TAG}"
+      
+      # Crear nginx.conf si no existe
+      NGINX_CONF_PATH="${FRONTEND_CONTEXT}/nginx.conf"
+      if [ ! -f "${NGINX_CONF_PATH}" ]; then
+        echo "Creando nginx.conf..."
+        cp MtdrSpring/frontend/nginx.conf "${NGINX_CONF_PATH}"
+      fi
+      
+      # Construir la imagen
+      docker build -t ${FRONTEND_IMAGE_TAG} -f ${FRONTEND_DOCKERFILE_PATH} ${FRONTEND_CONTEXT}
+      
+      # Publicar la imagen
+      docker push ${FRONTEND_IMAGE_TAG}
+      echo "Imagen de frontend publicada: ${FRONTEND_IMAGE_TAG}"
+    onFailure:
       - type: Command
-        name: "Bun Test"
-        timeoutInSeconds: 300
-        command: "cd MtdrSpring/frontend && bun test" # Assuming you have tests configured with Bun/Jest
-        onFailure:
-          - type: Command
-            name: "Handle Bun Test Failure"
-            command: |
-              echo "Bun tests failed!"
-              exit 1
+        command: |
+          echo "Error al construir o publicar la imagen de frontend"
+          exit 1
 
-      # Step 1.4: Bun Build (Frontend)
+  # Paso 4: Preparar archivo de despliegue de Kubernetes
+  - type: Command
+    name: "Preparar archivo de despliegue"
+    timeoutInSeconds: 300
+    command: |
+      echo "Preparando archivo de despliegue..."
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      
+      # Copiar el archivo de despliegue
+      cp MtdrSpring/deployment.yaml deployment.yaml
+      
+      # Reemplazar los placeholders con las imágenes construidas
+      sed -i "s|\${BACKEND_IMAGE}|${BACKEND_IMAGE_TAG}|g" deployment.yaml
+      sed -i "s|\${FRONTEND_IMAGE}|${FRONTEND_IMAGE_TAG}|g" deployment.yaml
+      
+      echo "Archivo de despliegue preparado"
+    onFailure:
       - type: Command
-        name: "Bun Build"
-        timeoutInSeconds: 300
-        command: "cd MtdrSpring/frontend && bun run build" # Builds the static files in ./frontend/dist
-        onFailure:
-          - type: Command
-            name: "Handle Bun Build Failure"
-            command: |
-              echo "Bun build failed!"
-              exit 1
+        command: |
+          echo "Error al preparar el archivo de despliegue"
+          exit 1
 
-  # Stage 2: Build and Push Docker Images
-  - stage: build_and_push_images
-    displayName: "Build & Push Docker Images"
-    steps:
-      # Step 2.1: Build and Push Backend Image
-      - type: BuildAndPushDockerImage
-        name: "Build and Push Backend Image to OCIR"
-        timeoutInSeconds: 600
-        # Image name will be <region>.ocir.io/<tenancy-namespace>/<repo-name>:<tag>
-        # We use variables for repository and tag (Build Run ID)
-        imageName: "${OCIR_BACKEND_REPO}/${BUILD_RUN_ID}" # Variables configured in OCI DevOps Build Pipeline
-        dockerFileLocation: "MtdrSpring/backend/Dockerfile"
-        # The build context is the directory containing the Dockerfile and files to copy
-        dockerBuildContext: "MtdrSpring/backend"
-        # You need to configure the OCIR Repository Name and Compartment ID in the Build Pipeline UI
-        repositoryName: "${OCIR_BACKEND_REPO}"
-        containerRegistry: OCIR
-        # Compartment where OCIR repo is located. Use variable.
-        compartmentId: "${OCI_COMPARTMENT_ID}" # Variable configured in OCI DevOps Build Pipeline
-        outputs:
-          # Define the output artifact representing the built Docker image
-          artifacts:
-            - name: backend_image # Name this artifact for later use
-              type: DOCKER_IMAGE
-              uri: "${OCIR_BACKEND_REPO}/${BUILD_RUN_ID}" # The full URI of the image in OCIR
-              # Path is not typically used for DOCKER_IMAGE type in this context
-
-      # Step 2.2: Build and Push Frontend Image
-      - type: BuildAndPushDockerImage
-        name: "Build and Push Frontend Image to OCIR"
-        timeoutInSeconds: 600
-        imageName: "${OCIR_FRONTEND_REPO}/${BUILD_RUN_ID}"
-        dockerFileLocation: "MtdrSpring/frontend/Dockerfile"
-        dockerBuildContext: "MtdrSpring/frontend"
-        repositoryName: "${OCIR_FRONTEND_REPO}"
-        containerRegistry: OCIR
-        compartmentId: "${OCI_COMPARTMENT_ID}"
-        outputs:
-          artifacts:
-            - name: frontend_image # Name this artifact for later use
-              type: DOCKER_IMAGE
-              uri: "${OCIR_FRONTEND_REPO}/${BUILD_RUN_ID}"
-              # Path is not typically used for DOCKER_IMAGE type in this context
-
-  # Stage 3: Create Kubernetes Deployment Artifact
-  - stage: create_deployment_artifact
-    displayName: "Create K8s Deployment Artifact"
-    steps:
-      # Step 3.1: Create Manifest Artifact with Image Overrides
-      - type: CreateArtifact
-        name: "Create K8s Manifest for Deployment"
-        timeoutInSeconds: 60
-        # Source the deployment.yaml file from your repository
-        artifactSource:
-          type: BASELINE_COMMIT_FILE # Use the file from the commit that triggered the build
-          repositoryName: "your-github-repo-name" # Replace with your actual GitHub repo name (e.g., username/repo)
-          path: "MtdrSpring/deployment.yaml"
-        outputs:
-          # Define the output artifact representing the modified K8s manifest
-          artifacts:
-            - name: k8s_manifest # Name this artifact for use in the Deploy Pipeline
-              type: KUBERNETES_MANIFEST
-              # Use overrideParameters to replace placeholders in the deployment.yaml
-              overrideParameters:
-                - name: __BACKEND_IMAGE__ # Placeholder name in deployment.yaml
-                  value: "${backend_image}" # Value comes from the output artifact of the previous stage
-                - name: __FRONTEND_IMAGE__ # Placeholder name in deployment.yaml
-                  value: "${frontend_image}" # Value comes from the output artifact of the previous stage
+outputArtifacts:
+  - name: deployment-manifest
+    type: KUBERNETES_MANIFEST
+    location: deployment.yaml

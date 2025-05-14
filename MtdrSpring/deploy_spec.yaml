@@ -1,0 +1,102 @@
+version: 0.1
+component: deploy
+timeoutInSeconds: 1200
+shell: bash
+
+files:
+  - source: ${OCI_KUBERNETES_MANIFEST_FILE}
+    name: dashmaster-manifest
+
+steps:
+  # Paso 1: Conectar al cluster de Kubernetes
+  - type: Command
+    name: "Conectar al cluster de Kubernetes"
+    timeoutInSeconds: 120
+    command: |
+      echo "Conectando al cluster de Kubernetes..."
+      mkdir -p $HOME/.kube
+      oci ce cluster create-kubeconfig --cluster-id ${OKE_CLUSTER_OCID} --file $HOME/.kube/config --region ${OCI_REGION} --token-version 2.0.0
+      export KUBECONFIG=$HOME/.kube/config
+      
+      # Verificar la conexión
+      kubectl get nodes
+
+  # Paso 2: Verificar namespace y crear si no existe
+  - type: Command
+    name: "Verificar namespace"
+    timeoutInSeconds: 30
+    command: |
+      echo "Verificando namespace..."
+      if ! kubectl get namespace ${KUBERNETES_NAMESPACE} > /dev/null 2>&1; then
+        echo "Creando namespace ${KUBERNETES_NAMESPACE}..."
+        kubectl create namespace ${KUBERNETES_NAMESPACE}
+      fi
+      kubectl config set-context --current --namespace=${KUBERNETES_NAMESPACE}
+
+  # Paso 3: Crear secretos de Kubernetes
+  - type: Command
+    name: "Crear secretos para la aplicación"
+    timeoutInSeconds: 60
+    command: |
+      echo "Creando secretos..."
+      
+      # Crear registry secret si no existe
+      if ! kubectl get secret ocir-secret -n ${KUBERNETES_NAMESPACE} > /dev/null 2>&1; then
+        kubectl create secret docker-registry ocir-secret \
+          --docker-server=${DOCKER_REGISTRY} \
+          --docker-username="${NAMESPACE}/oracleidentitycloudservice/${OCIR_USER}" \
+          --docker-password="${OCIR_PASSWORD}" \
+          --docker-email="${OCIR_EMAIL}" \
+          -n ${KUBERNETES_NAMESPACE}
+      fi
+      
+      # Crear secret para las credenciales de la aplicación
+      kubectl create secret generic dashmaster-secrets \
+        --from-literal=TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}" \
+        --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+        --from-literal=DB_URL="${DB_URL}" \
+        --from-literal=DB_USERNAME="${DB_USERNAME}" \
+        --from-literal=TNS_ADMIN_PATH="src/main/resources/Wallet_javadev" \
+        --from-literal=DRIVER_CLASS_NAME="oracle.jdbc.OracleDriver" \
+        -n ${KUBERNETES_NAMESPACE} \
+        --dry-run=client -o yaml | kubectl apply -f -
+
+  # Paso 4: Aplicar el manifiesto de Kubernetes
+  - type: Command
+    name: "Desplegar la aplicación"
+    timeoutInSeconds: 600
+    command: |
+      echo "Desplegando la aplicación..."
+      
+      # Aplicar el manifiesto
+      kubectl apply -f ${OCI_WORKSPACE_DIR}/dashmaster-manifest -n ${KUBERNETES_NAMESPACE}
+      
+      # Esperar a que los pods estén listos
+      kubectl rollout status deployment/dashmaster-backend -n ${KUBERNETES_NAMESPACE} --timeout=300s
+      kubectl rollout status deployment/dashmaster-frontend -n ${KUBERNETES_NAMESPACE} --timeout=300s
+      
+      echo "Despliegue completado con éxito"
+
+  # Paso 5: Verificar el despliegue
+  - type: Command
+    name: "Verificar el despliegue"
+    timeoutInSeconds: 120
+    command: |
+      echo "Verificando el despliegue..."
+      
+      # Verificar los pods
+      kubectl get pods -n ${KUBERNETES_NAMESPACE}
+      
+      # Verificar los servicios
+      kubectl get services -n ${KUBERNETES_NAMESPACE}
+      
+      # Verificar los ingress
+      kubectl get ingress -n ${KUBERNETES_NAMESPACE}
+      
+      # Obtener la URL de acceso
+      INGRESS_IP=$(kubectl get ingress dashmaster-ingress -n ${KUBERNETES_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+      if [ -n "${INGRESS_IP}" ]; then
+        echo "La aplicación está disponible en: http://${INGRESS_IP}"
+      else
+        echo "La dirección del ingress aún no está disponible, verifica en unos minutos"
+      fi

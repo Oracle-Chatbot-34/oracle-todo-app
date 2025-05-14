@@ -31,9 +31,7 @@ spec:
     spec:
       containers:
       - name: dashmaster-backend
-        # Container image will be replaced by OCI DevOps artifact
-        # Use a placeholder that OCI DevOps will override
-        image: __BACKEND_IMAGE__ # <<-- MODIFICADO
+        image: ${BACKEND_IMAGE}
         ports:
         - containerPort: 8080
         env:
@@ -68,10 +66,9 @@ spec:
           valueFrom:
             secretKeyRef:
               name: dashmaster-secrets
-              key: TNS_ADMIN_PATH # This key's value in the K8s secret should be "/app/src/main/resources/Wallet_javadev"
-      # For private registries, uncomment and configure imagePullSecrets
-      # imagePullSecrets:
-      # - name: your-registry-secret-name
+              key: TNS_ADMIN_PATH
+      imagePullSecrets:
+      - name: ocir-secret
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -89,15 +86,15 @@ spec:
     spec:
       containers:
       - name: dashmaster-frontend
-        # Frontend container image will be replaced by OCI DevOps artifact
-        # Use a placeholder that OCI DevOps will override
-        image: __FRONTEND_IMAGE__ # <<-- MODIFICADO
+        image: ${FRONTEND_IMAGE}
         ports:
         - containerPort: 3000
         env:
         # API base URL for frontend to communicate with backend
         - name: VITE_API_BASE_URL
           value: "/api"
+      imagePullSecrets:
+      - name: ocir-secret
 ---
 apiVersion: v1
 kind: Service
@@ -139,6 +136,14 @@ spec:
       paths:
       # Route /api requests to the backend service
       - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: dashmaster-backend-service
+            port:
+              number: 8080
+      # Route /auth requests to the backend service
+      - path: /auth(/|$)(.*)
         pathType: Prefix
         backend:
           service:
