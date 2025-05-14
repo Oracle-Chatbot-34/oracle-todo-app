@@ -15,39 +15,46 @@ import java.util.List;
 public class KeyboardFactory {
 
     /**
-     * Create the main menu keyboard
+     * Enhanced keyboard for main menu with better layout and organization
      */
     public static ReplyKeyboardMarkup createMainMenuKeyboard(User user) {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-        keyboardMarkup.setResizeKeyboard(true);
+        keyboardMarkup.setResizeKeyboard(true); // More compact keys
+        keyboardMarkup.setSelective(true); // Only certain users see it
         List<KeyboardRow> keyboard = new ArrayList<>();
 
-        // First row with main actions
-        KeyboardRow row = new KeyboardRow();
-        row.add("📝 List All Tasks");
-        row.add("📝 Create New Task");
-        keyboard.add(row);
+        // First row - Task Management
+        KeyboardRow taskRow = new KeyboardRow();
+        taskRow.add("📝 My Tasks");
+        taskRow.add("📝 Create Task");
+        keyboard.add(taskRow);
 
-        // Second row depends on user role
+        // Second row - Sprint Management (for developers and managers)
         if (user.isDeveloper() || user.isManager()) {
-            row = new KeyboardRow();
-            row.add("🔄 My Active Tasks");
-            row.add("📊 Sprint Board");
-            keyboard.add(row);
+            KeyboardRow sprintRow = new KeyboardRow();
+            sprintRow.add("🏃‍♂️ Sprint Management");
+            sprintRow.add("🔄 My Active Tasks");
+            keyboard.add(sprintRow);
         }
 
-        // Third row with additional options for managers
+        // Third row - Management options (for managers)
         if (user.isManager()) {
-            row = new KeyboardRow();
-            row.add("👥 Team Management");
-            row.add("📅 Sprint Management");
-            keyboard.add(row);
+            KeyboardRow managerRow = new KeyboardRow();
+            managerRow.add("👥 Team Management");
+            managerRow.add("📊 KPI Dashboard");
+            keyboard.add(managerRow);
+        } else if (user.isDeveloper()) {
+            // Developers get access to KPI dashboard
+            KeyboardRow developerRow = new KeyboardRow();
+            developerRow.add("📊 KPI Dashboard");
+            keyboard.add(developerRow);
         }
 
-        // Last row with hide option
-        row = new KeyboardRow();
-        row.add("❌ Hide Keyboard");
-        keyboard.add(row);
+        // Last row - Help and hide
+        KeyboardRow helpRow = new KeyboardRow();
+        helpRow.add("❓ Help");
+        helpRow.add("❌ Hide Keyboard");
+        keyboard.add(helpRow);
 
         keyboardMarkup.setKeyboard(keyboard);
         return keyboardMarkup;
@@ -82,6 +89,10 @@ public class KeyboardFactory {
         row.add("High");
         row.add("Medium");
         row.add("Low");
+        keyboard.add(row);
+
+        row = new KeyboardRow();
+        row.add("Cancel");
         keyboard.add(row);
 
         keyboardMarkup.setKeyboard(keyboard);
@@ -134,77 +145,81 @@ public class KeyboardFactory {
 
         KeyboardRow addRow = new KeyboardRow();
         addRow.add("📝 Create New Task");
+        addRow.add("🔄 My Active Tasks");
         keyboard.add(addRow);
 
-        KeyboardRow titleRow = new KeyboardRow();
-        titleRow.add("MY TASK LIST");
-        keyboard.add(titleRow);
+        KeyboardRow sprintRow = new KeyboardRow();
+        sprintRow.add("🏃‍♂️ Sprint Management");
+        sprintRow.add("✅ Mark Task Complete");
+        keyboard.add(sprintRow);
 
-        // Active tasks
-        List<ToDoItem> activeTasks = new ArrayList<>();
-        List<ToDoItem> completedTasks = new ArrayList<>();
+        // Task action rows - only show if there are tasks
+        if (!tasks.isEmpty()) {
+            // First, show active tasks for quick completion
+            List<ToDoItem> activeTasks = new ArrayList<>();
+            for (ToDoItem task : tasks) {
+                if (!task.isDone()) {
+                    activeTasks.add(task);
+                    if (activeTasks.size() >= 3) { // Limit to 3 tasks for keyboard
+                        break;
+                    }
+                }
+            }
 
-        for (ToDoItem task : tasks) {
-            if (task.isDone()) {
-                completedTasks.add(task);
-            } else {
-                activeTasks.add(task);
+            // Add task completion shortcuts for active tasks
+            for (ToDoItem task : activeTasks) {
+                KeyboardRow row = new KeyboardRow();
+                String taskText = task.getID() + "-DONE: " + task.getTitle();
+                if (taskText.length() > 30) {
+                    taskText = taskText.substring(0, 27) + "...";
+                }
+                row.add(taskText);
+                keyboard.add(row);
             }
         }
-
-        // Add active tasks
-        for (ToDoItem task : activeTasks) {
-            KeyboardRow row = new KeyboardRow();
-            row.add(task.getTitle());
-            row.add(task.getID() + "-DONE");
-            keyboard.add(row);
-        }
-
-        // Add completed tasks
-        for (ToDoItem task : completedTasks) {
-            KeyboardRow row = new KeyboardRow();
-            row.add(task.getTitle());
-            row.add(task.getID() + "-UNDO");
-            row.add(task.getID() + "-DELETE");
-            keyboard.add(row);
-        }
-
-        // Add footer row
-        KeyboardRow footerRow = new KeyboardRow();
-        footerRow.add("🏠 Main Menu");
-        keyboard.add(footerRow);
 
         keyboardMarkup.setKeyboard(keyboard);
         return keyboardMarkup;
     }
 
     /**
-     * Create keyboard for sprint management
+     * Enhanced keyboard for sprint management
      */
     public static ReplyKeyboardMarkup createSprintManagementKeyboard(boolean hasActiveSprint, boolean isManager) {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         keyboardMarkup.setResizeKeyboard(true);
         List<KeyboardRow> keyboard = new ArrayList<>();
 
-        KeyboardRow row = new KeyboardRow();
-        row.add("📊 View Sprint Board");
-        row.add("🔍 View All Sprints");
-        keyboard.add(row);
+        // First row - Basic sprint views
+        KeyboardRow row1 = new KeyboardRow();
+        row1.add("📊 Sprint Board");
+        row1.add("📋 My Tasks");
+        keyboard.add(row1);
 
+        // Second row - Task management
+        KeyboardRow row2 = new KeyboardRow();
+        row2.add("➕ Add Task to Sprint");
+        row2.add("✅ Complete Task");
+        keyboard.add(row2);
+
+        // Third row - Manager options
         if (isManager) {
-            row = new KeyboardRow();
-            row.add("🆕 Create New Sprint");
+            KeyboardRow row3 = new KeyboardRow();
 
             if (hasActiveSprint) {
-                row.add("⏹️ End Active Sprint");
+                row3.add("⏹️ End Active Sprint");
+            } else {
+                row3.add("🆕 Create New Sprint");
             }
 
-            keyboard.add(row);
+            row3.add("📜 Sprint History");
+            keyboard.add(row3);
         }
 
-        row = new KeyboardRow();
-        row.add("🏠 Main Menu");
-        keyboard.add(row);
+        // Last row - Return to main menu
+        KeyboardRow lastRow = new KeyboardRow();
+        lastRow.add("🏠 Main Menu");
+        keyboard.add(lastRow);
 
         keyboardMarkup.setKeyboard(keyboard);
         return keyboardMarkup;
@@ -237,7 +252,11 @@ public class KeyboardFactory {
 
         for (ToDoItem task : tasks) {
             KeyboardRow row = new KeyboardRow();
-            row.add("ID: " + task.getID() + " - " + task.getTitle());
+            String taskText = "ID: " + task.getID() + " - " + task.getTitle();
+            if (taskText.length() > 30) {
+                taskText = taskText.substring(0, 27) + "...";
+            }
+            row.add(taskText);
             keyboard.add(row);
         }
 
@@ -283,21 +302,29 @@ public class KeyboardFactory {
     }
 
     /**
-     * Create keyboard for after task completion
+     * Enhanced keyboard after task completion
      */
     public static ReplyKeyboardMarkup createAfterTaskCompletionKeyboard() {
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         keyboardMarkup.setResizeKeyboard(true);
         List<KeyboardRow> keyboard = new ArrayList<>();
 
-        KeyboardRow row = new KeyboardRow();
-        row.add("🔄 My Active Tasks");
-        row.add("📊 Sprint Board");
-        keyboard.add(row);
+        // First row - Next logical actions
+        KeyboardRow row1 = new KeyboardRow();
+        row1.add("🔄 My Active Tasks");
+        row1.add("📝 Create New Task");
+        keyboard.add(row1);
 
-        row = new KeyboardRow();
-        row.add("🏠 Main Menu");
-        keyboard.add(row);
+        // Second row - Sprint options
+        KeyboardRow row2 = new KeyboardRow();
+        row2.add("🏃‍♂️ Sprint Management");
+        row2.add("📊 Sprint Board");
+        keyboard.add(row2);
+
+        // Third row - Return to main menu
+        KeyboardRow row3 = new KeyboardRow();
+        row3.add("🏠 Main Menu");
+        keyboard.add(row3);
 
         keyboardMarkup.setKeyboard(keyboard);
         return keyboardMarkup;
@@ -308,5 +335,88 @@ public class KeyboardFactory {
      */
     public static ReplyKeyboardRemove createEmptyKeyboard() {
         return new ReplyKeyboardRemove(true);
+    }
+
+    /**
+     * Create keyboard for developer task menu
+     */
+    public static ReplyKeyboardMarkup createDeveloperTaskMenu() {
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+        keyboardMarkup.setResizeKeyboard(true);
+        List<KeyboardRow> keyboard = new ArrayList<>();
+
+        KeyboardRow row1 = new KeyboardRow();
+        row1.add("📝 Create New Task");
+        row1.add("🔄 My Active Tasks");
+        keyboard.add(row1);
+
+        KeyboardRow row2 = new KeyboardRow();
+        row2.add("🏃‍♂️ Sprint Management");
+        row2.add("✅ Mark Task Complete");
+        keyboard.add(row2);
+
+        KeyboardRow row3 = new KeyboardRow();
+        row3.add("🏠 Main Menu");
+        keyboard.add(row3);
+
+        keyboardMarkup.setKeyboard(keyboard);
+        return keyboardMarkup;
+    }
+
+    /**
+     * Create keyboard for manager task menu
+     */
+    public static ReplyKeyboardMarkup createManagerTaskMenu() {
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+        keyboardMarkup.setResizeKeyboard(true);
+        List<KeyboardRow> keyboard = new ArrayList<>();
+
+        KeyboardRow row1 = new KeyboardRow();
+        row1.add("📝 Create New Task");
+        row1.add("🔄 My Active Tasks");
+        keyboard.add(row1);
+
+        KeyboardRow row2 = new KeyboardRow();
+        row2.add("🏃‍♂️ Sprint Management");
+        row2.add("👥 Team Management");
+        keyboard.add(row2);
+
+        KeyboardRow row3 = new KeyboardRow();
+        row3.add("📊 KPI Dashboard");
+        row3.add("📋 List All Tasks");
+        keyboard.add(row3);
+
+        KeyboardRow row4 = new KeyboardRow();
+        row4.add("🏠 Main Menu");
+        keyboard.add(row4);
+
+        keyboardMarkup.setKeyboard(keyboard);
+        return keyboardMarkup;
+    }
+
+    /**
+     * Create keyboard for employee task menu
+     */
+    public static ReplyKeyboardMarkup createEmployeeTaskMenu() {
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+        keyboardMarkup.setResizeKeyboard(true);
+        List<KeyboardRow> keyboard = new ArrayList<>();
+
+        KeyboardRow row1 = new KeyboardRow();
+        row1.add("📝 Create New Task");
+        row1.add("🔄 My Active Tasks");
+        keyboard.add(row1);
+
+        KeyboardRow row2 = new KeyboardRow();
+        row2.add("✅ Mark Task Complete");
+        row2.add("📋 List All Tasks");
+        keyboard.add(row2);
+
+        KeyboardRow row3 = new KeyboardRow();
+        row3.add("🏠 Main Menu");
+        keyboard.add(row3);
+
+        keyboardMarkup.setKeyboard(keyboard);
+        return keyboardMarkup;
     }
 }

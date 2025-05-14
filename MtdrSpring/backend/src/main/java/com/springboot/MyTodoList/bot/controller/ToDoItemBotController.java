@@ -1,12 +1,11 @@
 package com.springboot.MyTodoList.bot.controller;
 
-import com.springboot.MyTodoList.bot.handler.AuthenticationHandler;
-import com.springboot.MyTodoList.bot.handler.MessageHandler;
-import com.springboot.MyTodoList.bot.handler.SprintHandler;
-import com.springboot.MyTodoList.bot.handler.TaskCompletionHandler;
-import com.springboot.MyTodoList.bot.handler.TaskCreationHandler;
+import com.springboot.MyTodoList.bot.handler.*;
 import com.springboot.MyTodoList.bot.service.BotService;
 import com.springboot.MyTodoList.bot.util.BotLogger;
+import com.springboot.MyTodoList.model.Sprint;
+import com.springboot.MyTodoList.model.ToDoItem;
+import com.springboot.MyTodoList.model.User;
 import com.springboot.MyTodoList.model.bot.UserBotState;
 import com.springboot.MyTodoList.service.SprintService;
 import com.springboot.MyTodoList.service.ToDoItemService;
@@ -16,7 +15,16 @@ import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -58,6 +66,11 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     @Override
+    public String getBotUsername() {
+        return botName;
+    }
+
+    @Override
     public void onUpdateReceived(Update update) {
         long chatId = 0;
 
@@ -83,9 +96,19 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                 // Handle callback based on prefix
                 if (callbackData.startsWith("sprint_")) {
+                    // Reset all modes except sprint mode to avoid state issues
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(true);
+
                     // Sprint management callbacks
                     sprintHandler.processSprintModeCallback(chatId, callbackData, state, message.getMessageId());
                 } else if (callbackData.startsWith("main_")) {
+                    // Reset all modes to avoid state issues
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(false);
+
                     // Main menu callbacks
                     processMainMenuCallback(chatId, callbackData, state);
                 } else if (callbackData.startsWith("date_")) {
@@ -97,6 +120,29 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                             sprintHandler.processSprintModeInput(chatId, callbackData, state);
                         }
                     }
+                } else if (callbackData.startsWith("task_")) {
+                    // Reset all modes except task completion
+                    state.resetTaskCreation();
+                    state.setSprintMode(false);
+
+                    // Task management callbacks
+                    processTaskCallback(chatId, callbackData, state, message.getMessageId());
+                } else if (callbackData.startsWith("team_")) {
+                    // Reset all modes
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(false);
+
+                    // Team management callbacks
+                    processTeamCallback(chatId, callbackData, state, message.getMessageId());
+                } else if (callbackData.startsWith("kpi_")) {
+                    // Reset all modes
+                    state.resetTaskCreation();
+                    state.resetTaskCompletion();
+                    state.setSprintMode(false);
+
+                    // KPI Dashboard callbacks
+                    processKpiCallback(chatId, callbackData, state, message.getMessageId());
                 } else {
                     logger.warn(chatId, "Unknown callback data: {}", callbackData);
                 }
@@ -126,31 +172,67 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
 
                 // Handle active modes
                 if (state.isSprintMode()) {
+                    // If it's a main menu command, prioritize it over sprint mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.setSprintMode(false);
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processSprintModeInput(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isNewTaskMode()) {
+                    // If it's a main menu command, prioritize it over task creation mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetTaskCreation();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     taskCreationHandler.processTaskCreation(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isTaskCompletionMode()) {
+                    // If it's a main menu command, prioritize it over task completion mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetTaskCompletion();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     taskCompletionHandler.processTaskCompletion(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isAssignToSprintMode()) {
+                    // If it's a main menu command, prioritize it over task assignment mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetAssignToSprint();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processAssignTaskToSprint(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isSprintCreationMode()) {
+                    // If it's a main menu command, prioritize it over sprint creation mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.resetSprintCreation();
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processSprintCreation(chatId, messageText, state);
                     return;
                 }
 
                 if (state.isEndSprintMode()) {
+                    // If it's a main menu command, prioritize it over sprint end mode
+                    if (messageText.equals("🏠 Main Menu") || messageText.equals("/start")) {
+                        state.setEndSprintMode(false);
+                        MessageHandler.showMainScreen(chatId, state, this);
+                        return;
+                    }
                     sprintHandler.processEndActiveSprint(chatId, messageText, state);
                     return;
                 }
@@ -212,17 +294,496 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
                     // Show help information
                     MessageHandler.showHelpInformation(chatId, this);
                     break;
+                case "main_team":
+                    // Show team management options (for managers)
+                    if (state.getUser().isManager()) {
+                        showTeamManagement(chatId, state);
+                    } else {
+                        MessageHandler.sendErrorMessage(chatId, "You don't have access to team management features.",
+                                this);
+                        MessageHandler.showMainScreen(chatId, state, this);
+                    }
+                    break;
+                case "main_kpi":
+                    // Show KPI dashboard
+                    showKpiDashboard(chatId, state);
+                    break;
                 default:
                     logger.warn(chatId, "Unknown main menu callback: {}", callbackData);
+                    MessageHandler.showMainScreen(chatId, state, this);
             }
         } catch (Exception e) {
             logger.error(chatId, "Error processing main menu callback", e);
             MessageHandler.sendErrorMessage(chatId, "Failed to process your request. Please try again.", this);
+            MessageHandler.showMainScreen(chatId, state, this);
         }
     }
 
     /**
-     * Handle standard commands from authenticated users
+     * Process task callbacks
+     */
+    private void processTaskCallback(long chatId, String callbackData, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Processing task callback: {}", callbackData);
+        try {
+            if (callbackData.startsWith("task_complete_")) {
+                // Extract task ID from callback data
+                int taskId = Integer.parseInt(callbackData.substring("task_complete_".length()));
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, "DONE", taskId);
+            } else if (callbackData.startsWith("task_undo_")) {
+                int taskId = Integer.parseInt(callbackData.substring("task_undo_".length()));
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, "UNDO", taskId);
+            } else if (callbackData.startsWith("task_delete_")) {
+                int taskId = Integer.parseInt(callbackData.substring("task_delete_".length()));
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, "DELETE", taskId);
+            } else if (callbackData.equals("task_create_new")) {
+                taskCreationHandler.startTaskCreation(chatId, state);
+            } else if (callbackData.equals("task_view_active")) {
+                showActiveTasksForUser(chatId, state);
+            } else if (callbackData.equals("task_view_all")) {
+                MessageHandler.showTaskList(chatId, botService.getAllToDoItems(state.getUser().getId()), state, this);
+            } else if (callbackData.equals("task_back_to_menu")) {
+                MessageHandler.showMainScreen(chatId, state, this);
+            } else if (callbackData.startsWith("task_assign_to_sprint_")) {
+                int taskId = Integer.parseInt(callbackData.substring("task_assign_to_sprint_".length()));
+                startAssignTaskToSprint(chatId, taskId, state);
+            } else {
+                logger.warn(chatId, "Unknown task callback: {}", callbackData);
+                MessageHandler.showDeveloperTaskMenu(chatId, state, this);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing task callback", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to process task action. Please try again.", this);
+            MessageHandler.showDeveloperTaskMenu(chatId, state, this);
+        }
+    }
+
+    /**
+     * Start process to assign a task to a sprint
+     */
+    private void startAssignTaskToSprint(long chatId, int taskId, UserBotState state) {
+        logger.info(chatId, "Starting process to assign task {} to a sprint", taskId);
+        try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading active sprints...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = execute(loadingMessage);
+
+            // Animation frames
+            String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+            for (String frame : frames) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading active sprints...\n" + frame);
+                updateMessage.enableHtml(true);
+                execute(updateMessage);
+            }
+
+            // Get active sprints
+            List<Sprint> activeSprints = botService.findAllSprints().stream()
+                    .filter(sprint -> "ACTIVE".equals(sprint.getStatus()))
+                    .toList();
+
+            if (activeSprints.isEmpty()) {
+                EditMessageText noSprintsMessage = new EditMessageText();
+                noSprintsMessage.setChatId(chatId);
+                noSprintsMessage.setMessageId(sentMessage.getMessageId());
+                noSprintsMessage.setText("No active sprints found. Please create a sprint first.");
+                noSprintsMessage.enableHtml(true);
+                execute(noSprintsMessage);
+                return;
+            }
+
+            // Save task ID in state
+            state.setTempTaskId(taskId);
+            state.setAssignToSprintMode(true);
+            state.setAssignToSprintStage("SELECT_SPRINT");
+
+            // Show sprint options
+            StringBuilder message = new StringBuilder();
+            message.append("Please select a sprint to assign task #").append(taskId).append(" to:\n\n");
+
+            for (Sprint sprint : activeSprints) {
+                message.append("• Sprint ID: ").append(sprint.getId())
+                        .append(" - ").append(sprint.getName()).append("\n");
+            }
+
+            message.append("\nReply with the Sprint ID to assign the task.");
+
+            EditMessageText sprintSelectionMessage = new EditMessageText();
+            sprintSelectionMessage.setChatId(chatId);
+            sprintSelectionMessage.setMessageId(sentMessage.getMessageId());
+            sprintSelectionMessage.setText(message.toString());
+            sprintSelectionMessage.enableHtml(true);
+
+            execute(sprintSelectionMessage);
+        } catch (Exception e) {
+            logger.error(chatId, "Error starting task assignment to sprint", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to start task assignment process. Please try again.", this);
+            state.resetAssignToSprint();
+        }
+    }
+
+    /**
+     * Process team management callbacks
+     */
+    private void processTeamCallback(long chatId, String callbackData, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Processing team callback: {}", callbackData);
+        try {
+            if (callbackData.equals("team_members")) {
+                showTeamMembers(chatId, state, messageId);
+            } else if (callbackData.equals("team_add_member")) {
+                // Start process to add team member
+                MessageHandler.sendAnimatedMessage(chatId, messageId,
+                        "This feature is available in the web interface. Team membership management requires additional inputs and permissions.",
+                        this, true);
+            } else if (callbackData.equals("team_back_to_menu")) {
+                MessageHandler.showMainScreen(chatId, state, this);
+            } else {
+                logger.warn(chatId, "Unknown team callback: {}", callbackData);
+                showTeamManagement(chatId, state);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing team callback", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to process team action. Please try again.", this);
+            MessageHandler.showMainScreen(chatId, state, this);
+        }
+    }
+
+    /**
+     * Process KPI dashboard callbacks
+     */
+    private void processKpiCallback(long chatId, String callbackData, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Processing KPI callback: {}", callbackData);
+        try {
+            if (callbackData.equals("kpi_view")) {
+                // Show basic KPI information
+                showKpiSummary(chatId, state, messageId);
+            } else if (callbackData.equals("kpi_back_to_menu")) {
+                MessageHandler.showMainScreen(chatId, state, this);
+            } else {
+                logger.warn(chatId, "Unknown KPI callback: {}", callbackData);
+                showKpiDashboard(chatId, state);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing KPI callback", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to process KPI action. Please try again.", this);
+            MessageHandler.showMainScreen(chatId, state, this);
+        }
+    }
+
+    /**
+     * Show KPI summary information with animation
+     */
+    private void showKpiSummary(long chatId, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Showing KPI summary for user: {}", state.getUser().getFullName());
+        try {
+            // Show animated loading
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Loading KPI data...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            execute(loadingMessage);
+
+            // Animation frames
+            String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+            for (String frame : frames) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText("Loading KPI data...\n" + frame);
+                updateMessage.enableHtml(true);
+                execute(updateMessage);
+            }
+
+            // Get active sprint if any
+            List<Sprint> activeSprintList = botService.findAllSprints().stream()
+                    .filter(sprint -> "ACTIVE".equals(sprint.getStatus()))
+                    .toList();
+
+            // Build appropriate KPI summary based on user role
+            StringBuilder kpiText = new StringBuilder();
+            kpiText.append("<b>KPI Dashboard</b>\n\n");
+
+            if (state.getUser().isManager()) {
+                // Manager view - show team statistics
+                kpiText.append("Team Performance Dashboard\n\n");
+
+                // Get active sprint data
+                if (!activeSprintList.isEmpty()) {
+                    Sprint activeSprint = activeSprintList.get(0);
+                    kpiText.append("• Active Sprint: ").append(activeSprint.getName()).append("\n");
+                    kpiText.append("• Sprint End Date: ").append(formatDate(activeSprint.getEndDate())).append("\n\n");
+
+                    // Get tasks for this sprint
+                    List<ToDoItem> sprintTasks = botService.findTasksBySprintId(activeSprint.getId());
+
+                    if (!sprintTasks.isEmpty()) {
+                        // Calculate completion statistics
+                        long completedTasks = sprintTasks.stream().filter(ToDoItem::isDone).count();
+                        double completionRate = (double) completedTasks / sprintTasks.size() * 100;
+
+                        kpiText.append("<b>Sprint Statistics:</b>\n");
+                        kpiText.append("• Total Tasks: ").append(sprintTasks.size()).append("\n");
+                        kpiText.append("• Completed Tasks: ").append(completedTasks).append("\n");
+                        kpiText.append("• Completion Rate: ").append(String.format("%.1f", completionRate))
+                                .append("%\n\n");
+
+                        // Get team members if user has a team
+                        if (state.getUser().getTeam() != null) {
+                            List<User> teamMembers = botService.findUsersByTeamId(state.getUser().getTeam().getId());
+
+                            kpiText.append("<b>Team Member Performance:</b>\n");
+
+                            // Calculate tasks per team member
+                            for (User member : teamMembers) {
+                                long memberTasks = sprintTasks.stream()
+                                        .filter(task -> member.getId().equals(task.getAssigneeId()))
+                                        .count();
+
+                                long memberCompletedTasks = sprintTasks.stream()
+                                        .filter(task -> member.getId().equals(task.getAssigneeId()) && task.isDone())
+                                        .count();
+
+                                if (memberTasks > 0) {
+                                    double memberCompletionRate = (double) memberCompletedTasks / memberTasks * 100;
+                                    kpiText.append("• ").append(member.getFullName()).append(": ")
+                                            .append(memberCompletedTasks).append("/").append(memberTasks)
+                                            .append(" (").append(String.format("%.1f", memberCompletionRate))
+                                            .append("%)\n");
+                                }
+                            }
+                        }
+                    } else {
+                        kpiText.append("No tasks assigned to the current sprint.\n");
+                    }
+                } else {
+                    kpiText.append("• No active sprint\n\n");
+                    kpiText.append("Create a sprint to start tracking team performance metrics.\n");
+                }
+            } else {
+                // Developer/Employee view - show personal statistics
+                kpiText.append("Personal Performance Dashboard\n\n");
+
+                // Get all tasks assigned to this user
+                List<ToDoItem> userTasks = botService.findByAssigneeId(state.getUser().getId());
+
+                if (!userTasks.isEmpty()) {
+                    long completedTasks = userTasks.stream().filter(ToDoItem::isDone).count();
+                    double completionRate = (double) completedTasks / userTasks.size() * 100;
+
+                    kpiText.append("<b>Your Statistics:</b>\n");
+                    kpiText.append("• Total Tasks: ").append(userTasks.size()).append("\n");
+                    kpiText.append("• Completed Tasks: ").append(completedTasks).append("\n");
+                    kpiText.append("• Completion Rate: ").append(String.format("%.1f", completionRate)).append("%\n\n");
+
+                    // Add active sprint info if any
+                    if (!activeSprintList.isEmpty()) {
+                        Sprint activeSprint = activeSprintList.get(0);
+                        kpiText.append("<b>Active Sprint:</b> ").append(activeSprint.getName()).append("\n");
+                        kpiText.append("• Sprint End Date: ").append(formatDate(activeSprint.getEndDate()))
+                                .append("\n\n");
+
+                        // Get user's tasks in this sprint
+                        List<ToDoItem> userSprintTasks = botService.findBySprintIdAndAssigneeId(
+                                activeSprint.getId(), state.getUser().getId());
+
+                        if (!userSprintTasks.isEmpty()) {
+                            long sprintCompletedTasks = userSprintTasks.stream().filter(ToDoItem::isDone).count();
+                            double sprintCompletionRate = (double) sprintCompletedTasks / userSprintTasks.size() * 100;
+
+                            kpiText.append("<b>Your Sprint Tasks:</b>\n");
+                            kpiText.append("• Sprint Tasks: ").append(userSprintTasks.size()).append("\n");
+                            kpiText.append("• Completed: ").append(sprintCompletedTasks).append("\n");
+                            kpiText.append("• Sprint Completion Rate: ")
+                                    .append(String.format("%.1f", sprintCompletionRate)).append("%\n");
+                        } else {
+                            kpiText.append("You have no tasks assigned in the current sprint.\n");
+                        }
+                    }
+                } else {
+                    kpiText.append("You currently have no tasks assigned to you.\n");
+                }
+            }
+
+            EditMessageText kpiMessage = new EditMessageText();
+            kpiMessage.setChatId(chatId);
+            kpiMessage.setMessageId(messageId);
+            kpiMessage.setText(kpiText.toString());
+            kpiMessage.enableHtml(true);
+
+            // Add back button
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            List<InlineKeyboardButton> row = new ArrayList<>();
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton();
+            backButton.setText("🔙 Back to Menu");
+            backButton.setCallbackData("kpi_back_to_menu");
+            row.add(backButton);
+            rows.add(row);
+
+            markup.setKeyboard(rows);
+            kpiMessage.setReplyMarkup(markup);
+
+            execute(kpiMessage);
+        } catch (Exception e) {
+            logger.error(chatId, "Error showing KPI summary", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("There was an error accessing the KPI information. Please try again later.");
+                errorMessage.enableHtml(true);
+                execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Failed to send error message", ex);
+            }
+        }
+    }
+
+    /**
+     * Format date for display
+     */
+    private String formatDate(OffsetDateTime dateTime) {
+        if (dateTime == null) {
+            return "N/A";
+        }
+        return dateTime.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+    }
+
+    /**
+     * Show team members with animation
+     */
+    private void showTeamMembers(long chatId, UserBotState state, Integer messageId) {
+        logger.info(chatId, "Showing team members for user: {}", state.getUser().getFullName());
+        try {
+            // Show animated loading
+            EditMessageText loadingMessage = new EditMessageText();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setMessageId(messageId);
+            loadingMessage.setText("Loading team members...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+            execute(loadingMessage);
+
+            // Animation frames
+            String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+            for (String frame : frames) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(messageId);
+                updateMessage.setText("Loading team members...\n" + frame);
+                updateMessage.enableHtml(true);
+                execute(updateMessage);
+            }
+
+            // Check if user has a team
+            if (state.getUser().getTeam() == null) {
+                EditMessageText noTeamMessage = new EditMessageText();
+                noTeamMessage.setChatId(chatId);
+                noTeamMessage.setMessageId(messageId);
+                noTeamMessage.setText("You are not currently associated with any team.");
+                noTeamMessage.enableHtml(true);
+                execute(noTeamMessage);
+                return;
+            }
+
+            // Get team members
+            List<User> teamMembers = botService.findUsersByTeamId(state.getUser().getTeam().getId());
+
+            StringBuilder message = new StringBuilder();
+            message.append("<b>Team: ").append(state.getUser().getTeam().getName()).append("</b>\n\n");
+            message.append("<b>Team Members:</b>\n");
+
+            for (User member : teamMembers) {
+                message.append("• ")
+                        .append(member.getFullName())
+                        .append(" (").append(member.getRole()).append(")\n");
+            }
+
+            // Add back button
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+            List<InlineKeyboardButton> row = new ArrayList<>();
+
+            InlineKeyboardButton backButton = new InlineKeyboardButton();
+            backButton.setText("🔙 Back to Team Management");
+            backButton.setCallbackData("team_back_to_menu");
+            row.add(backButton);
+            rows.add(row);
+
+            markup.setKeyboard(rows);
+
+            EditMessageText teamMessage = new EditMessageText();
+            teamMessage.setChatId(chatId);
+            teamMessage.setMessageId(messageId);
+            teamMessage.setText(message.toString());
+            teamMessage.enableHtml(true);
+            teamMessage.setReplyMarkup(markup);
+
+            execute(teamMessage);
+        } catch (Exception e) {
+            logger.error(chatId, "Error showing team members", e);
+            try {
+                EditMessageText errorMessage = new EditMessageText();
+                errorMessage.setChatId(chatId);
+                errorMessage.setMessageId(messageId);
+                errorMessage.setText("There was an error retrieving team members. Please try again later.");
+                errorMessage.enableHtml(true);
+                execute(errorMessage);
+            } catch (TelegramApiException ex) {
+                logger.error(chatId, "Failed to send error message", ex);
+            }
+        }
+    }
+
+    /**
+     * Show active tasks for the current user
+     */
+    private void showActiveTasksForUser(long chatId, UserBotState state) {
+        logger.info(chatId, "Showing active tasks for user");
+        try {
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading your active tasks...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = execute(loadingMessage);
+
+            // Animation frames
+            String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+            for (String frame : frames) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading your active tasks...\n" + frame);
+                updateMessage.enableHtml(true);
+                execute(updateMessage);
+            }
+
+            // Get active tasks for the user
+            MessageHandler.showActiveTasksList(
+                    chatId,
+                    botService.getActiveToDoItems(state.getUser().getId()),
+                    state,
+                    this);
+        } catch (Exception e) {
+            logger.error(chatId, "Error showing active tasks", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to retrieve active tasks. Please try again.", this);
+        }
+    }
+
+    /**
+     * Improved command handling with better flow and feedback
      */
     private void handleCommands(long chatId, String messageText, UserBotState state) {
         logger.info(chatId, "Processing command: '{}'", messageText);
@@ -233,38 +794,168 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
             return;
         }
 
-        // Handle standard commands and button presses
+        // Handle standard commands and button presses with clearer feedback
         switch (messageText) {
             case "/start":
             case "🏠 Main Menu":
-                MessageHandler.showMainScreen(chatId, state, this);
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
+
+                // Show loading animation
+                Message loadingMessage = MessageHandler.sendAnimatedLoadingMessage(chatId, "Loading main menu...", this);
+                if (loadingMessage != null) {
+                    // Animation steps
+                    for (int i = 1; i <= 3; i++) {
+                        MessageHandler.updateLoadingAnimation(chatId, loadingMessage.getMessageId(),
+                                "Loading main menu...", i, this);
+                    }
+
+                    // Show main menu in a new message after animation completes
+                    MessageHandler.showMainScreen(chatId, state, this);
+                } else {
+                    // Fallback if animation fails
+                    MessageHandler.showMainScreen(chatId, state, this);
+                }
                 break;
 
             case "/sprint":
             case "🏃‍♂️ Sprint Management":
+                // Reset other modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
                 sprintHandler.enterSprintMode(chatId, state);
                 break;
 
             case "/todolist":
             case "📝 List All Tasks":
+            case "📝 My Tasks":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 MessageHandler.showTaskList(chatId, botService.getAllToDoItems(state.getUser().getId()), state, this);
                 break;
 
             case "/additem":
             case "📝 Create New Task":
+            case "📝 Create Task":
+                // Reset other modes
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 taskCreationHandler.startTaskCreation(chatId, state);
                 break;
 
             case "/help":
-                MessageHandler.showHelpInformation(chatId, this);
+            case "❓ Help":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
+
+                // Show help information with animation
+                Message helpLoadingMessage = MessageHandler.sendAnimatedLoadingMessage(chatId, "Loading help...", this);
+                if (helpLoadingMessage != null) {
+                    // Animation steps
+                    for (int i = 1; i <= 3; i++) {
+                        MessageHandler.updateLoadingAnimation(chatId, helpLoadingMessage.getMessageId(),
+                                "Loading help...", i, this);
+                    }
+
+                    // Update message with help information
+                    StringBuilder helpText = new StringBuilder();
+                    helpText.append("📋 <b>DashMaster Bot Commands</b>\n\n");
+                    helpText.append("• <code>/start</code> - Show the main menu\n");
+                    helpText.append("• <code>/todolist</code> - View your task list\n");
+                    helpText.append("• <code>/additem</code> - Add a new task\n");
+                    helpText.append("• <code>/sprint</code> - Access sprint management\n");
+                    helpText.append("• <code>/hide</code> - Hide the keyboard\n");
+                    helpText.append("• <code>/help</code> - Show this help message\n\n");
+                    helpText.append("<b>Task Management:</b>\n");
+                    helpText.append("• To mark a task as done: <code>[ID]-DONE</code>\n");
+                    helpText.append("• To undo a task: <code>[ID]-UNDO</code>\n");
+                    helpText.append("• To delete a task: <code>[ID]-DELETE</code>\n\n");
+                    helpText.append("You can use the buttons on the keyboard for easier navigation.\n\n");
+                    helpText.append("<b>Sprints:</b>\n");
+                    helpText.append("• Create and manage sprints from the Sprint Management menu\n");
+                    helpText.append("• Add tasks to sprints to organize your work\n");
+                    helpText.append("• View sprint progress and tasks assigned to the sprint\n\n");
+                    helpText.append("<b>KPI Dashboard:</b>\n");
+                    helpText.append("• View your performance metrics and task completion statistics\n");
+
+                    // Update the message with help content
+                    EditMessageText helpMessage = new EditMessageText();
+                    helpMessage.setChatId(chatId);
+                    helpMessage.setMessageId(helpLoadingMessage.getMessageId());
+                    helpMessage.setText(helpText.toString());
+                    helpMessage.enableHtml(true);
+
+                    // Add inline keyboard for actions
+                    InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+                    List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+                    List<InlineKeyboardButton> row = new ArrayList<>();
+                    InlineKeyboardButton mainMenuButton = new InlineKeyboardButton();
+                    mainMenuButton.setText("🔙 Back to Main Menu");
+                    mainMenuButton.setCallbackData("main_menu");
+                    row.add(mainMenuButton);
+                    rows.add(row);
+
+                    markup.setKeyboard(rows);
+                    helpMessage.setReplyMarkup(markup);
+
+                    try {
+                        execute(helpMessage);
+                    } catch (TelegramApiException e) {
+                        logger.error(chatId, "Error sending help message", e);
+                        MessageHandler.sendErrorMessage(chatId,
+                                "Failed to load help information. Please try again later.", this);
+                    }
+                } else {
+                    // Fallback if animation fails
+                    MessageHandler.showHelpInformation(chatId, this);
+                }
                 break;
 
             case "🔄 My Active Tasks":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
                 showActiveTasksForUser(chatId, state);
                 break;
 
             case "✅ Mark Task Complete":
+            case "✅ Complete Task":
+                // Reset other modes
+                state.resetTaskCreation();
+                state.setSprintMode(false);
                 taskCompletionHandler.startTaskCompletion(chatId, state);
+                break;
+
+            case "❌ Hide Keyboard":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
+                MessageHandler.hideKeyboard(chatId, this);
+                break;
+
+            case "👥 Team Management":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
+                showTeamManagement(chatId, state);
+                break;
+
+            case "📊 KPI Dashboard":
+                // Reset all modes
+                state.resetTaskCreation();
+                state.resetTaskCompletion();
+                state.setSprintMode(false);
+                showKpiDashboard(chatId, state);
                 break;
 
             default:
@@ -276,55 +967,234 @@ public class ToDoItemBotController extends TelegramLongPollingBot {
     }
 
     /**
-     * Handle task status update commands (DONE/UNDO/DELETE)
+     * Show team management with interactive inline keyboard
      */
-    private void handleTaskStatusCommand(long chatId, String messageText, UserBotState state) {
+    private void showTeamManagement(long chatId, UserBotState state) {
+        logger.info(chatId, "Showing team management options");
         try {
-            String command = null;
-            int taskId;
-
-            if (messageText.contains("-DONE")) {
-                command = "DONE";
-                taskId = Integer.parseInt(messageText.substring(0, messageText.indexOf("-DONE")));
-            } else if (messageText.contains("-UNDO")) {
-                command = "UNDO";
-                taskId = Integer.parseInt(messageText.substring(0, messageText.indexOf("-UNDO")));
-            } else if (messageText.contains("-DELETE")) {
-                command = "DELETE";
-                taskId = Integer.parseInt(messageText.substring(0, messageText.indexOf("-DELETE")));
-            } else {
-                logger.warn(chatId, "Invalid task command format: '{}'", messageText);
+            // Only managers can access team management
+            if (!state.getUser().isManager()) {
+                MessageHandler.sendErrorMessage(chatId,
+                        "You don't have permission to access team management. Only managers can access this feature.",
+                        this);
+                MessageHandler.showMainScreen(chatId, state, this);
                 return;
             }
 
-            logger.info(chatId, "Processing task command: {} for task ID: {}", command, taskId);
-            taskCompletionHandler.handleTaskStatusUpdate(chatId, state, command, taskId);
-        } catch (NumberFormatException e) {
-            logger.error(chatId, "Invalid task ID format in message: '{}'", messageText, e);
-            MessageHandler.sendErrorMessage(chatId, "Invalid task ID format. Please try again.", this);
+            // Show loading animation
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading team management...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = execute(loadingMessage);
+
+            // Animation frames
+            String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+            for (String frame : frames) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading team management...\n" + frame);
+                updateMessage.enableHtml(true);
+                execute(updateMessage);
+            }
+
+            // Get the team info if user has a team
+            if (state.getUser().getTeam() == null) {
+                EditMessageText noTeamMessage = new EditMessageText();
+                noTeamMessage.setChatId(chatId);
+                noTeamMessage.setMessageId(sentMessage.getMessageId());
+                noTeamMessage.setText(
+                        "You are not currently associated with any team. Please contact the system administrator.");
+                noTeamMessage.enableHtml(true);
+                execute(noTeamMessage);
+                return;
+            }
+
+            // Display team information
+            StringBuilder messageText = new StringBuilder();
+            messageText.append("<b>Team Management</b>\n\n");
+            messageText.append("<b>Team:</b> ").append(state.getUser().getTeam().getName()).append("\n");
+
+            if (state.getUser().getTeam().getDescription() != null) {
+                messageText.append("<b>Description:</b> ").append(state.getUser().getTeam().getDescription())
+                        .append("\n");
+            }
+
+            // Display team members count
+            List<User> teamMembers = botService.findUsersByTeamId(state.getUser().getTeam().getId());
+            messageText.append("\n<b>Team Members:</b> ").append(teamMembers.size()).append(" total\n");
+            messageText.append("\nSelect an option to manage your team:");
+
+            // Create inline keyboard with options
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+            // First row - View team members
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton viewMembersButton = new InlineKeyboardButton();
+            viewMembersButton.setText("👥 View Team Members");
+            viewMembersButton.setCallbackData("team_members");
+            row1.add(viewMembersButton);
+            rows.add(row1);
+
+            // Second row - Main menu
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton mainMenuButton = new InlineKeyboardButton();
+            mainMenuButton.setText("🔙 Back to Main Menu");
+            mainMenuButton.setCallbackData("team_back_to_menu");
+            row2.add(mainMenuButton);
+            rows.add(row2);
+
+            markup.setKeyboard(rows);
+
+            // Update the previously sent loading message
+            EditMessageText teamMessage = new EditMessageText();
+            teamMessage.setChatId(chatId);
+            teamMessage.setMessageId(sentMessage.getMessageId());
+            teamMessage.setText(messageText.toString());
+            teamMessage.enableHtml(true);
+            teamMessage.setReplyMarkup(markup);
+
+            execute(teamMessage);
+            logger.info(chatId, "Team management information sent successfully");
         } catch (Exception e) {
-            logger.error(chatId, "Error processing task status update", e);
-            MessageHandler.sendErrorMessage(chatId, "Failed to update task. Please try again later.", this);
+            logger.error(chatId, "Error showing team management", e);
+            MessageHandler.sendErrorMessage(chatId,
+                    "There was an error accessing team management. Please try again later.",
+                    this);
+            MessageHandler.showMainScreen(chatId, state, this);
         }
     }
 
     /**
-     * Show active tasks for the user
+     * Show KPI Dashboard for the user
      */
-    private void showActiveTasksForUser(long chatId, UserBotState state) {
-        logger.info(chatId, "Showing active tasks for user: {}", state.getUser().getFullName());
+    private void showKpiDashboard(long chatId, UserBotState state) {
+        logger.info(chatId, "Showing KPI dashboard");
         try {
-            MessageHandler.showActiveTasksList(chatId,
-                    botService.findActiveTasksByAssigneeId(state.getUser().getId()), state, this);
+            // Show loading animation first
+            SendMessage loadingMessage = new SendMessage();
+            loadingMessage.setChatId(chatId);
+            loadingMessage.setText("Loading KPI dashboard...\n⬜⬜⬜");
+            loadingMessage.enableHtml(true);
+
+            Message sentMessage = execute(loadingMessage);
+
+            // Animation frames
+            String[] frames = { "⬛⬜⬜", "⬛⬛⬜", "⬛⬛⬛", "✅" };
+            for (String frame : frames) {
+                Thread.sleep(300);
+                EditMessageText updateMessage = new EditMessageText();
+                updateMessage.setChatId(chatId);
+                updateMessage.setMessageId(sentMessage.getMessageId());
+                updateMessage.setText("Loading KPI dashboard...\n" + frame);
+                updateMessage.enableHtml(true);
+                execute(updateMessage);
+            }
+
+            // Check if user can access KPI data
+            if (!state.getUser().isManager() && !state.getUser().isDeveloper()) {
+                EditMessageText noAccessMessage = new EditMessageText();
+                noAccessMessage.setChatId(chatId);
+                noAccessMessage.setMessageId(sentMessage.getMessageId());
+                noAccessMessage.setText("You don't have permission to access the KPI dashboard. " +
+                        "This feature is available to Managers and Developers only.");
+                noAccessMessage.enableHtml(true);
+                execute(noAccessMessage);
+                return;
+            }
+
+            // Create the KPI dashboard message
+            StringBuilder kpiText = new StringBuilder();
+            kpiText.append("<b>📊 KPI Dashboard</b>\n\n");
+
+            if (state.getUser().isManager()) {
+                kpiText.append(
+                        "The KPI dashboard provides insights into your team's performance and productivity.\n\n");
+                kpiText.append("Click below to view your team's performance metrics.");
+            } else {
+                kpiText.append(
+                        "The KPI dashboard provides insights into your personal performance and productivity.\n\n");
+                kpiText.append("Click below to view your personal performance metrics.");
+            }
+
+            // Create inline keyboard with KPI options
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> rows = new ArrayList<>();
+
+            // First row - View KPI summary
+            List<InlineKeyboardButton> row1 = new ArrayList<>();
+            InlineKeyboardButton viewKpiButton = new InlineKeyboardButton();
+            viewKpiButton.setText("📈 View KPI Summary");
+            viewKpiButton.setCallbackData("kpi_view");
+            row1.add(viewKpiButton);
+            rows.add(row1);
+
+            // Second row - Back to main menu
+            List<InlineKeyboardButton> row2 = new ArrayList<>();
+            InlineKeyboardButton mainMenuButton = new InlineKeyboardButton();
+            mainMenuButton.setText("🔙 Back to Main Menu");
+            mainMenuButton.setCallbackData("kpi_back_to_menu");
+            row2.add(mainMenuButton);
+            rows.add(row2);
+
+            markup.setKeyboard(rows);
+
+            // Update the previously sent loading message
+            EditMessageText kpiMessage = new EditMessageText();
+            kpiMessage.setChatId(chatId);
+            kpiMessage.setMessageId(sentMessage.getMessageId());
+            kpiMessage.setText(kpiText.toString());
+            kpiMessage.enableHtml(true);
+            kpiMessage.setReplyMarkup(markup);
+
+            execute(kpiMessage);
+            logger.info(chatId, "KPI dashboard sent successfully");
         } catch (Exception e) {
-            logger.error(chatId, "Error showing active tasks", e);
+            logger.error(chatId, "Error showing KPI dashboard", e);
             MessageHandler.sendErrorMessage(chatId,
-                    "There was an error retrieving your active tasks. Please try again later.", this);
+                    "There was an error accessing the KPI dashboard. Please try again later.",
+                    this);
+            MessageHandler.showMainScreen(chatId, state, this);
         }
     }
 
-    @Override
-    public String getBotUsername() {
-        return botName;
+    /**
+     * Handle task status update commands in format "TaskID-ACTION"
+     * e.g., "123-DONE", "456-UNDO", "789-DELETE"
+     */
+    private void handleTaskStatusCommand(long chatId, String messageText, UserBotState state) {
+        logger.info(chatId, "Processing task status command: '{}'", messageText);
+        try {
+            // Parse the command format: TaskID-ACTION
+            String[] parts = messageText.split("-");
+            if (parts.length != 2) {
+                MessageHandler.sendErrorMessage(chatId,
+                        "Invalid command format. Use 'TaskID-ACTION' (e.g., '123-DONE').", this);
+                return;
+            }
+
+            int taskId;
+            try {
+                taskId = Integer.parseInt(parts[0].trim());
+            } catch (NumberFormatException e) {
+                MessageHandler.sendErrorMessage(chatId, "Invalid task ID. Please provide a valid number.", this);
+                return;
+            }
+
+            String action = parts[1].trim().toUpperCase();
+            if (action.equals("DONE") || action.equals("UNDO") || action.equals("DELETE")) {
+                taskCompletionHandler.handleTaskStatusUpdate(chatId, state, action, taskId);
+            } else {
+                MessageHandler.sendErrorMessage(chatId, "Invalid action. Valid actions are DONE, UNDO, and DELETE.",
+                        this);
+            }
+        } catch (Exception e) {
+            logger.error(chatId, "Error processing task status command", e);
+            MessageHandler.sendErrorMessage(chatId, "Failed to update task status. Please try again.", this);
+        }
     }
 }

@@ -185,6 +185,21 @@ public class BotService {
     }
 
     /**
+     * Find all sprints
+     */
+    public List<Sprint> findAllSprints() {
+        logger.info("Finding all sprints");
+        try {
+            List<Sprint> sprints = sprintService.findAll();
+            logger.info("Found {} sprints", sprints.size());
+            return sprints;
+        } catch (Exception e) {
+            logger.error("Error finding all sprints", e);
+            throw new RuntimeException("Failed to find all sprints", e);
+        }
+    }
+
+    /**
      * Find completed sprints by team ID
      */
     public List<Sprint> findCompletedSprintsByTeamId(Long teamId) {
@@ -312,5 +327,50 @@ public class BotService {
         logger.info("Updating Telegram ID for user: {}", user.getFullName());
         user.setTelegramId(telegramId);
         return userService.updateUser(user);
+    }
+
+    /**
+     * Get Active Todo item by user ID
+     */
+    public List<ToDoItem> getActiveToDoItems(Long userId) {
+        logger.info("Fetching active todo items for user ID: {}", userId);
+        try {
+            List<ToDoItem> items = toDoItemService.findActiveTasksByAssigneeId(userId);
+            logger.info("Successfully fetched {} active todo items for user", items.size());
+            return items;
+        } catch (Exception e) {
+            logger.error("Error fetching active todo items for user: {}", userId, e);
+            throw new RuntimeException("Failed to fetch active todo items", e);
+        }
+    }
+
+    /**
+     * Find tasks by assignee ID
+     */
+    public List<ToDoItem> findByAssigneeId(Long assigneeId) {
+        logger.info("Finding tasks for assignee ID: {}", assigneeId);
+        try {
+            List<ToDoItem> tasks = toDoItemService.findByAssigneeId(assigneeId);
+            logger.info("Found {} tasks for assignee", tasks.size());
+            return tasks;
+        } catch (Exception e) {
+            logger.error("Error finding tasks for assignee ID: {}", assigneeId, e);
+            throw new RuntimeException("Failed to find tasks for assignee", e);
+        }
+    }
+
+    /**
+     * Find tasks by sprint ID and assignee ID
+     */
+    public List<ToDoItem> findBySprintIdAndAssigneeId(Long sprintId, Long assigneeId) {
+        logger.info("Finding tasks for sprint ID: {} and assignee ID: {}", sprintId, assigneeId);
+        try {
+            List<ToDoItem> tasks = toDoItemService.findBySprintIdAndAssigneeId(sprintId, assigneeId);
+            logger.info("Found {} tasks for sprint and assignee", tasks.size());
+            return tasks;
+        } catch (Exception e) {
+            logger.error("Error finding tasks for sprint ID: {} and assignee ID: {}", sprintId, assigneeId, e);
+            throw new RuntimeException("Failed to find tasks for sprint and assignee", e);
+        }
     }
 }

@@ -33,11 +33,20 @@ public class AuthenticationHandler {
             Optional<User> userByTelegramId = botService.findUserByTelegramId(chatId);
             logger.debug(chatId, "User lookup by Telegram ID: present={}", userByTelegramId.isPresent());
 
-            if (userByTelegramId.isPresent()) {
-                // User already registered with this Telegram ID
+            // Always look up by employeeId first (this is the key fix - prioritize the
+            // current employeeId)
+            Optional<User> userByEmployeeId = botService.findUserByEmployeeId(employeeId);
+            logger.debug(chatId, "User lookup by employee ID: present={}", userByEmployeeId.isPresent());
+
+            if (userByEmployeeId.isPresent()) {
+                // User found by employee ID - prioritize this over existing Telegram ID
+                handleNewAuthentication(chatId, employeeId, state);
+            } else if (userByTelegramId.isPresent()) {
+                // User already registered with this Telegram ID and no match on employeeId
                 handleExistingUser(chatId, userByTelegramId.get(), state);
             } else {
-                // Try to find user by employee ID
+                // Try to find user by employee ID (should already be covered but keep as
+                // fallback)
                 handleNewAuthentication(chatId, employeeId, state);
             }
         } catch (Exception e) {
@@ -50,13 +59,15 @@ public class AuthenticationHandler {
      * Handle existing user (already authenticated by Telegram ID)
      */
     private void handleExistingUser(long chatId, User user, UserBotState state) {
-        logger.info(chatId, "User already registered: {}, {}", user.getFullName(), user.getEmployeeId());
+        logger.info(chatId, "User already registered: {}, {}, role={}", user.getFullName(), user.getEmployeeId(),
+                user.getRole());
         state.setAuthenticated(true);
         state.setUser(user);
 
         SendMessage message = new SendMessage();
         message.setChatId(chatId);
         message.setText("Welcome back, " + user.getFullName() + "!");
+        message.enableHtml(true);
 
         try {
             bot.execute(message);
@@ -77,11 +88,14 @@ public class AuthenticationHandler {
         Optional<User> userOpt = botService.findUserByEmployeeId(employeeId);
         logger.debug(chatId, "User lookup by employee ID: present={}", userOpt.isPresent());
 
-        if (userOpt.isPresent() &&
-                (userOpt.get().isEmployee() || userOpt.get().isDeveloper() || userOpt.get().isManager())) {
+        if (userOpt.isPresent()) {
             User user = userOpt.get();
             logger.info(chatId, "User found: {}, role: employee={}, developer={}, manager={}",
                     user.getFullName(), user.isEmployee(), user.isDeveloper(), user.isManager());
+
+            // Print detailed role information for debugging
+            logger.debug(chatId, "User role details - ID: {}, Username: {}, Role: {}, isManager(): {}",
+                    user.getId(), user.getUsername(), user.getRole(), user.isManager());
 
             // Associate this Telegram ID with the user
             logger.debug(chatId, "Associating Telegram ID with user {}", user.getFullName());
@@ -97,12 +111,14 @@ public class AuthenticationHandler {
             // Set authenticated state
             state.setAuthenticated(true);
             state.setUser(user);
-            logger.debug(chatId, "User state updated: authenticated=true");
+            logger.debug(chatId, "User state updated: authenticated=true, role={}", user.getRole());
 
             SendMessage message = new SendMessage();
             message.setChatId(chatId);
             message.setText("Authentication successful! Welcome, " + user.getFullName()
-                    + ". Your Telegram account is now linked to your DashMaster profile.");
+                    + ". Your Telegram account is now linked to your DashMaster profile."
+                    + "\n\nYou are logged in as: <b>" + user.getRole() + "</b>");
+            message.enableHtml(true);
 
             try {
                 bot.execute(message);
@@ -157,8 +173,8 @@ public class AuthenticationHandler {
             message.enableHtml(true);
 
             StringBuilder msgText = new StringBuilder();
-            msgText.append("<b>Welcome to the Task Management Bot!</b>\n\n");
-            msgText.append("This bot helps you manage your tasks and sprints.\n\n");
+            msgText.append("<b>Welcome to the DashMaster Task Management Bot!</b>\n\n");
+            msgText.append("This bot helps you manage your tasks and sprints with the DashMaster system.\n\n");
             msgText.append("To get started, please provide your employee ID for authentication.");
 
             message.setText(msgText.toString());
