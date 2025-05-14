@@ -32,6 +32,7 @@ frontend/.pnp
 
 # testing
 frontend/coverage
+results.xml
 
 # production
 frontend/build
