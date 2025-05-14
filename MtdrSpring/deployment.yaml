@@ -31,13 +31,13 @@ spec:
     spec:
       containers:
       - name: dashmaster-backend
-        # Container image from Docker Hub
-        # Version tag should be specific for production deployments
-        image: docker.io/danielbarreras/dashmaster-backend:v1
+        # Container image will be replaced by OCI DevOps artifact
+        # Use a placeholder that OCI DevOps will override
+        image: __BACKEND_IMAGE__ # <<-- MODIFICADO
         ports:
         - containerPort: 8080
         env:
-        # Reference secrets securely via secretKeyRef instead of hardcoding values
+        # Reference secrets securely via secretKeyRef
         - name: TELEGRAM_BOT_TOKEN
           valueFrom:
             secretKeyRef:
@@ -63,11 +63,12 @@ spec:
             secretKeyRef:
               name: dashmaster-secrets
               key: DRIVER_CLASS_NAME
+        # TNS_ADMIN points to the wallet path INSIDE the container
         - name: TNS_ADMIN
           valueFrom:
             secretKeyRef:
               name: dashmaster-secrets
-              key: TNS_ADMIN_PATH
+              key: TNS_ADMIN_PATH # This key's value in the K8s secret should be "/app/src/main/resources/Wallet_javadev"
       # For private registries, uncomment and configure imagePullSecrets
       # imagePullSecrets:
       # - name: your-registry-secret-name
@@ -88,13 +89,13 @@ spec:
     spec:
       containers:
       - name: dashmaster-frontend
-        # Frontend container image
-        image: docker.io/danielbarreras/dashmaster-frontend:v1
+        # Frontend container image will be replaced by OCI DevOps artifact
+        # Use a placeholder that OCI DevOps will override
+        image: __FRONTEND_IMAGE__ # <<-- MODIFICADO
         ports:
         - containerPort: 3000
         env:
         # API base URL for frontend to communicate with backend
-        # "/api" path will be routed through Ingress to the backend service
         - name: VITE_API_BASE_URL
           value: "/api"
 ---
