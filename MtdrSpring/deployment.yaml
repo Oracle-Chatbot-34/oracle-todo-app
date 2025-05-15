@@ -31,13 +31,11 @@ spec:
     spec:
       containers:
       - name: dashmaster-backend
-        # Container image from Docker Hub
-        # Version tag should be specific for production deployments
-        image: docker.io/danielbarreras/dashmaster-backend:v1
+        image: ${BACKEND_IMAGE}
         ports:
         - containerPort: 8080
         env:
-        # Reference secrets securely via secretKeyRef instead of hardcoding values
+        # Reference secrets securely via secretKeyRef
         - name: TELEGRAM_BOT_TOKEN
           valueFrom:
             secretKeyRef:
@@ -63,14 +61,14 @@ spec:
             secretKeyRef:
               name: dashmaster-secrets
               key: DRIVER_CLASS_NAME
+        # TNS_ADMIN points to the wallet path INSIDE the container
         - name: TNS_ADMIN
           valueFrom:
             secretKeyRef:
               name: dashmaster-secrets
               key: TNS_ADMIN_PATH
-      # For private registries, uncomment and configure imagePullSecrets
-      # imagePullSecrets:
-      # - name: your-registry-secret-name
+      imagePullSecrets:
+      - name: ocir-secret
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -88,15 +86,15 @@ spec:
     spec:
       containers:
       - name: dashmaster-frontend
-        # Frontend container image
-        image: docker.io/danielbarreras/dashmaster-frontend:v1
+        image: ${FRONTEND_IMAGE}
         ports:
         - containerPort: 3000
         env:
         # API base URL for frontend to communicate with backend
-        # "/api" path will be routed through Ingress to the backend service
         - name: VITE_API_BASE_URL
           value: "/api"
+      imagePullSecrets:
+      - name: ocir-secret
 ---
 apiVersion: v1
 kind: Service
@@ -138,6 +136,14 @@ spec:
       paths:
       # Route /api requests to the backend service
       - path: /api(/|$)(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: dashmaster-backend-service
+            port:
+              number: 8080
+      # Route /auth requests to the backend service
+      - path: /auth(/|$)(.*)
         pathType: Prefix
         backend:
           service:
