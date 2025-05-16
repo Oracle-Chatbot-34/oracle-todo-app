@@ -169,7 +169,7 @@ public class KeyboardFactory {
             // Add task completion shortcuts for active tasks
             for (ToDoItem task : activeTasks) {
                 KeyboardRow row = new KeyboardRow();
-                String taskText = task.getID() + "-DONE: " + task.getTitle();
+                String taskText = task.getId() + "-DONE: " + task.getTitle();
                 if (taskText.length() > 30) {
                     taskText = taskText.substring(0, 27) + "...";
                 }
@@ -252,7 +252,7 @@ public class KeyboardFactory {
 
         for (ToDoItem task : tasks) {
             KeyboardRow row = new KeyboardRow();
-            String taskText = "ID: " + task.getID() + " - " + task.getTitle();
+            String taskText = "ID: " + task.getId() + " - " + task.getTitle();
             if (taskText.length() > 30) {
                 taskText = taskText.substring(0, 27) + "...";
             }

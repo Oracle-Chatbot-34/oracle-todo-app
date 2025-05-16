@@ -34,7 +34,7 @@ public class ToDoItemController {
         try {
             ToDoItem task = toDoItemService.addTaskWithEstimation(todoItem);
             return ResponseEntity.status(HttpStatus.CREATED)
-                    .header("location", String.valueOf(task.getID()))
+                    .header("location", String.valueOf(task.getId()))
                     .body(task);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -47,7 +47,7 @@ public class ToDoItemController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateTask(@PathVariable int id, @RequestBody ToDoItem todoItem) {
         try {
-            todoItem.setID(id);
+            todoItem.setId(id);
             ToDoItem updatedTask = toDoItemService.updateToDoItem(id, todoItem);
             if (updatedTask == null) {
                 return ResponseEntity.notFound().build();

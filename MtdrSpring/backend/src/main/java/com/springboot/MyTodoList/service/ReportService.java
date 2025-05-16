@@ -111,7 +111,7 @@ public class ReportService {
         reportData.put("tasks", filteredTasks.stream()
                 .map(task -> {
                     Map<String, Object> taskMap = new HashMap<>();
-                    taskMap.put("id", task.getID());
+                    taskMap.put("id", task.getId());
                     taskMap.put("title", task.getTitle());
                     taskMap.put("description", task.getDescription());
                     taskMap.put("status", task.getStatus());

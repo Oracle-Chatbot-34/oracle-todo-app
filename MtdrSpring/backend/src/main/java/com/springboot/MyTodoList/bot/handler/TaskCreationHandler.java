@@ -233,7 +233,7 @@ public class TaskCreationHandler {
 
             // Add the item
             ToDoItem addedItem = botService.addToDoItem(newItem);
-            logger.info(chatId, "Successfully added new item with ID: {}", addedItem.getID());
+            logger.info(chatId, "Successfully added new item with ID: {}", addedItem.getId());
 
             // Reset state
             state.resetTaskCreation();
@@ -244,7 +244,7 @@ public class TaskCreationHandler {
             successMessage.setChatId(chatId);
             successMessage.setMessageId(sentMessage.getMessageId());
             successMessage.setText("✅ New item added successfully!" +
-                    "\n\nID: " + addedItem.getID() +
+                    "\n\nID: " + addedItem.getId() +
                     "\nTitle: " + addedItem.getTitle());
             successMessage.enableHtml(true);
 
@@ -627,7 +627,7 @@ public class TaskCreationHandler {
             }
 
             ToDoItem savedTask = botService.addToDoItem(task);
-            logger.info(chatId, "Task created successfully with ID: {}", savedTask.getID());
+            logger.info(chatId, "Task created successfully with ID: {}", savedTask.getId());
 
             // Final animation step
             MessageHandler.updateLoadingAnimation(chatId, messageId, "Creating task...\nTask created successfully!", 4,
@@ -637,7 +637,7 @@ public class TaskCreationHandler {
             // Show success message with task details
             StringBuilder successMessage = new StringBuilder();
             successMessage.append("✅ <b>Task created successfully!</b>\n\n");
-            successMessage.append("<b>ID:</b> ").append(savedTask.getID()).append("\n");
+            successMessage.append("<b>ID:</b> ").append(savedTask.getId()).append("\n");
             successMessage.append("<b>Title:</b> ").append(savedTask.getTitle()).append("\n");
 
             if (savedTask.getPriority() != null) {

@@ -203,7 +203,7 @@ public class MessageHandler {
             for (ToDoItem task : tasks) {
                 if (!task.isDone()) {
                     hasActiveTasks = true;
-                    messageText.append("• ID <code>").append(task.getID()).append("</code>: ")
+                    messageText.append("• ID <code>").append(task.getId()).append("</code>: ")
                             .append(task.getTitle());
 
                     if (task.getPriority() != null) {
@@ -234,7 +234,7 @@ public class MessageHandler {
             for (ToDoItem task : tasks) {
                 if (task.isDone()) {
                     hasCompletedTasks = true;
-                    messageText.append("• ID <code>").append(task.getID()).append("</code>: ")
+                    messageText.append("• ID <code>").append(task.getId()).append("</code>: ")
                             .append(task.getTitle()).append(" ✅\n");
 
                     if (task.getActualHours() != null) {
@@ -477,7 +477,7 @@ public class MessageHandler {
             tasksText.append("<b>Your Active Tasks:</b>\n\n");
 
             for (ToDoItem task : tasks) {
-                tasksText.append("<b>ID:</b> <code>").append(task.getID()).append("</code>\n");
+                tasksText.append("<b>ID:</b> <code>").append(task.getId()).append("</code>\n");
                 tasksText.append("<b>Title:</b> ").append(task.getTitle()).append("\n");
 
                 if (task.getStatus() != null) {

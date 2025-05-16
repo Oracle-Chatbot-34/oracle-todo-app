@@ -92,13 +92,13 @@ public class TaskCompletionHandler {
                 List<InlineKeyboardButton> row = new ArrayList<>();
                 InlineKeyboardButton taskButton = new InlineKeyboardButton();
 
-                String taskLabel = "ID " + task.getID() + ": " + task.getTitle();
+                String taskLabel = "ID " + task.getId() + ": " + task.getTitle();
                 if (taskLabel.length() > 30) {
                     taskLabel = taskLabel.substring(0, 27) + "...";
                 }
 
                 taskButton.setText(taskLabel);
-                taskButton.setCallbackData("task_complete_" + task.getID());
+                taskButton.setCallbackData("task_complete_" + task.getId());
                 row.add(taskButton);
                 rows.add(row);
             }
@@ -204,7 +204,7 @@ public class TaskCompletionHandler {
             logger.debug(chatId, "Completing task ID {} with actual hours {} and comments",
                     state.getTempTaskId(), state.getTempActualHours());
             ToDoItem task = botService.completeTask(state.getTempTaskId(), state.getTempActualHours(), comments);
-            logger.info(chatId, "Task ID {} successfully completed", task.getID());
+            logger.info(chatId, "Task ID {} successfully completed", task.getId());
 
             // Final animation frame
             MessageHandler.updateLoadingAnimation(chatId, messageId, "Completing task...", 4, bot);
@@ -213,7 +213,7 @@ public class TaskCompletionHandler {
             // Construct detailed success message
             StringBuilder successMessage = new StringBuilder();
             successMessage.append("✅ <b>Task Completed Successfully!</b>\n\n");
-            successMessage.append("<b>Task ID:</b> ").append(task.getID()).append("\n");
+            successMessage.append("<b>Task ID:</b> ").append(task.getId()).append("\n");
             successMessage.append("<b>Title:</b> ").append(task.getTitle()).append("\n");
             successMessage.append("<b>Status:</b> ").append(task.getStatus()).append("\n");
             successMessage.append("<b>Actual Hours:</b> ").append(task.getActualHours()).append("\n");
@@ -347,7 +347,7 @@ public class TaskCompletionHandler {
 
             StringBuilder detailsText = new StringBuilder();
             detailsText.append("<b>Task Details:</b>\n\n");
-            detailsText.append("<b>ID:</b> ").append(task.getID()).append("\n");
+            detailsText.append("<b>ID:</b> ").append(task.getId()).append("\n");
             detailsText.append("<b>Title:</b> ").append(task.getTitle()).append("\n");
             detailsText.append("<b>Description:</b> ").append(task.getDescription()).append("\n");
 
@@ -451,7 +451,7 @@ public class TaskCompletionHandler {
             logger.debug(chatId, "Completing task ID {} with actual hours {} and comments",
                     state.getTempTaskId(), state.getTempActualHours());
             ToDoItem task = botService.completeTask(state.getTempTaskId(), state.getTempActualHours(), comments);
-            logger.info(chatId, "Task ID {} successfully completed", task.getID());
+            logger.info(chatId, "Task ID {} successfully completed", task.getId());
 
             // Reset state
             state.resetTaskCompletion();
@@ -461,7 +461,7 @@ public class TaskCompletionHandler {
             EditMessageText successMessage = new EditMessageText();
             successMessage.setChatId(chatId);
             successMessage.setMessageId(sentMessage.getMessageId());
-            successMessage.setText("✅ Task " + task.getID() + " marked as completed successfully!" +
+            successMessage.setText("✅ Task " + task.getId() + " marked as completed successfully!" +
                     "\n\nTitle: " + task.getTitle() +
                     "\nActual Hours: " + task.getActualHours());
             successMessage.enableHtml(true);

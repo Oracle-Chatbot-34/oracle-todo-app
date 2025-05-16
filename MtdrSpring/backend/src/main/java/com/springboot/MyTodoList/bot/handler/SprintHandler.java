@@ -547,7 +547,7 @@ public class SprintHandler {
                         int displayCount = Math.min(tasks.size(), 3);
                         for (int i = 0; i < displayCount; i++) {
                             ToDoItem task = tasks.get(i);
-                            messageBuilder.append("• <i>ID ").append(task.getID()).append(":</i> ")
+                            messageBuilder.append("• <i>ID ").append(task.getId()).append(":</i> ")
                                     .append(task.getTitle()).append("\n");
                         }
 
@@ -922,7 +922,7 @@ public class SprintHandler {
                                     ? botService.findUserById(task.getAssigneeId())
                                     : Optional.empty();
 
-                            messageBuilder.append("• <i>ID ").append(task.getID()).append(":</i> ")
+                            messageBuilder.append("• <i>ID ").append(task.getId()).append(":</i> ")
                                     .append(task.getTitle());
 
                             if (assignee.isPresent()) {
@@ -1297,7 +1297,7 @@ public class SprintHandler {
                             .append(tasks.size()).append(")</b>\n");
                     
                     for (ToDoItem task : tasks) {
-                        messageBuilder.append("• <code>ID ").append(task.getID()).append("</code>: ")
+                        messageBuilder.append("• <code>ID ").append(task.getId()).append("</code>: ")
                                 .append(task.getTitle());
                         
                         if (task.getPriority() != null) {

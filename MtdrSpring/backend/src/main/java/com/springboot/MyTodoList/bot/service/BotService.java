@@ -98,7 +98,7 @@ public class BotService {
         logger.info("Adding new todo item: {}", item.getTitle());
         try {
             ToDoItem savedItem = toDoItemService.addToDoItem(item);
-            logger.info("Successfully added todo item with ID: {}", savedItem.getID());
+            logger.info("Successfully added todo item with ID: {}", savedItem.getId());
             return savedItem;
         } catch (Exception e) {
             logger.error("Error adding todo item: {}", item.getTitle(), e);
@@ -110,13 +110,13 @@ public class BotService {
      * Update an existing ToDoItem
      */
     public ToDoItem updateToDoItem(ToDoItem item) {
-        logger.info("Updating todo item with ID: {}", item.getID());
+        logger.info("Updating todo item with ID: {}", item.getId());
         try {
-            ToDoItem updatedItem = toDoItemService.updateToDoItem(item.getID(), item);
-            logger.info("Successfully updated todo item with ID: {}", updatedItem.getID());
+            ToDoItem updatedItem = toDoItemService.updateToDoItem(item.getId(), item);
+            logger.info("Successfully updated todo item with ID: {}", updatedItem.getId());
             return updatedItem;
         } catch (Exception e) {
-            logger.error("Error updating todo item with ID: {}", item.getID(), e);
+            logger.error("Error updating todo item with ID: {}", item.getId(), e);
             throw new RuntimeException("Failed to update todo item", e);
         }
     }
@@ -157,7 +157,7 @@ public class BotService {
         logger.info("Completing task with ID: {}", taskId);
         try {
             ToDoItem completedTask = toDoItemService.completeTask(taskId, actualHours, comments);
-            logger.info("Successfully completed task with ID: {}", completedTask.getID());
+            logger.info("Successfully completed task with ID: {}", completedTask.getId());
             return completedTask;
         } catch (Exception e) {
             logger.error("Error completing task with ID: {}", taskId, e);
@@ -296,7 +296,7 @@ public class BotService {
         logger.info("Assigning task {} to sprint {}", taskId, sprintId);
         try {
             ToDoItem updatedTask = toDoItemService.assignTaskToSprint(taskId, sprintId);
-            logger.info("Successfully assigned task {} to sprint {}", updatedTask.getID(), sprintId);
+            logger.info("Successfully assigned task {} to sprint {}", updatedTask.getId(), sprintId);
             return updatedTask;
         } catch (Exception e) {
             logger.error("Error assigning task {} to sprint {}", taskId, sprintId, e);
