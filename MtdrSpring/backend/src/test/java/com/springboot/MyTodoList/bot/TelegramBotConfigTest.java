@@ -31,6 +31,7 @@ import static org.mockito.Mockito.*;
 public class TelegramBotConfigTest {
 
   private TelegramBotConfig telegramBotConfig;
+  // Uncomment to test the bot controller functionality, left commented for future testing
   // private ToDoItemBotController botController;
 
   @Mock
