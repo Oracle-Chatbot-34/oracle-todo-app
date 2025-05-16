@@ -1,12 +1,21 @@
 #!/bin/bash
 # Security Testing Script using OWASP ZAP
+help () {
+    echo -e "${YELLOW}Usage: $0 [URL]${WHITE}"
+    echo -e "${YELLOW}URL: The target URL to scan. Defaults to $DEV_URL if not provided.${WHITE}"
+    echo -e "${YELLOW}Example: $0 http://localhost:5173/${WHITE}"
+}
 
 # URLS
 DEV_URL="http://localhost:5173/"
 PROD_URL="https://example.com/"  # Change to the production deployment URL
 
 # Arguments
-TARGET_URL="${:1:-$DEV_URL}"
+if [ "$#" -gt 1 ]; then
+    help
+fi
+
+TARGET_URL="${1:-$DEV_URL}"
 
 #Color variables
 WHITE='\033[0m'
@@ -46,7 +55,7 @@ if ! command -v docker &> /dev/null; then
 fi
 
 # Install OWASP ZAP container
-if docker pull ghcr.io/zaproxy/zaproxy:stable &> /dev/null; then
+if docker pull ghcr.io/zaproxy/zaproxy:stable && docker pull zaproxy/zap-stable; then
     echo -e "${YELLOW}OWASP ZAP container pulled successfully.${WHITE}"
 else
     echo -e "${RED}Failed to pull OWASP ZAP container. Please check your Docker installation.${WHITE}"
@@ -57,9 +66,8 @@ fi
 echo -e "${YELLOW}Running OWASP ZAP against $TARGET_URL...${WHITE}"
 if ! docker run -v "$PWD:/zap/wrk/:rw" -t zaproxy/zap-stable zap.sh -cmd \
     -quickurl "$TARGET_URL" \
-    -quickout /zap/wrk/result.xml \
-    -quickprogress \
-    -report /zap/wrk/report.html; then
+    -quickout ./result.xml \
+    -quickprogress; then
     echo -e "${RED}Failed to run OWASP ZAP. Please check your Docker installation and permissions.${WHITE}"
     exit 1
 fi
