@@ -959,26 +959,6 @@ kubectl get svc -n ingress-nginx
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
 ```
 
-## Notas Importantes de Seguridad para un Entorno de Producción
-
-1. **Nunca almacenes tokens, claves o credenciales en el código fuente**:
-   - Utiliza OCI Vault para almacenar secretos
-   - Configura variables de entorno en el pipeline
-
-2. **Habilita la escaneo de seguridad en el pipeline**:
-   - Añade una etapa de escaneo de seguridad con herramientas como OWASP Dependency Check
-
-3. **Configura la rotación de credenciales**:
-   - Establece políticas para rotar regularmente todos los tokens y credenciales
-
-4. **Implementa una política de red restrictiva**:
-   - Utiliza Network Security Groups de OCI para limitar el acceso
-   - Configura Network Policies de Kubernetes
-
-5. **Configura backup y recuperación**:
-   - Implementa estrategias de backup para la base de datos
-   - Configura políticas de respaldo para los volúmenes persistentes
-
 ## Ultimo paso
 
 Disfrutar y enviarlo en Canvas
