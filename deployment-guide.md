@@ -1,6 +1,10 @@
 # Guía Completa para Crear un Pipeline CI/CD en Oracle Cloud Infrastructure (OCI)
 
+# Guía de Implementación de CI/CD en Oracle Cloud Infrastructure
+
 Esta guía detallada te mostrará cómo implementar un pipeline de integración continua y despliegue continuo (CI/CD) en Oracle Cloud Infrastructure utilizando OCI DevOps Projects. El pipeline estará integrado con GitHub y desplegará tu aplicación (frontend y backend) en Oracle Kubernetes Engine (OKE) usando Oracle Container Registry (OCIR).
+
+> **Nota importante:** Esta guía está optimizada para una arquitectura modular donde se utilizan contenedores separados para Frontend y Backend. Si estás utilizando `frontend-maven-plugin` u otra configuración, puedes adaptar estos conceptos a tu arquitectura específica. Para consultas adicionales, no dudes en contactar al autor de esta guía: [Don Kbron](https://github.com/DanielBrMz)
 
 ## Índice
 1. [Prerequisitos](#prerequisitos)
