@@ -674,17 +674,8 @@ steps:
 ### Paso 1: Subir los Cambios al Repositorio GitHub (Local)
 
 ```bash
-# Configurar Git si es necesario
-git config --global user.name "Tu Nombre"
-git config --global user.email "tu@email.com"
-
 # Añadir los archivos modificados
-git add MtdrSpring/backend/Dockerfile
-git add MtdrSpring/frontend/Dockerfile
-git add MtdrSpring/frontend/nginx.conf
-git add MtdrSpring/deployment.yaml
-git add MtdrSpring/build_spec.yaml
-git add MtdrSpring/deploy_spec.yaml
+git add .
 
 # Crear un commit
 git commit -m "Configuración de CI/CD para OCI DevOps"
