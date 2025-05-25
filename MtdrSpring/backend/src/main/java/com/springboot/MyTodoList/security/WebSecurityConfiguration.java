@@ -47,6 +47,8 @@ public class WebSecurityConfiguration {
                         .requestMatchers(new AntPathRequestMatcher("/swagger-ui/**")).permitAll()
                         .requestMatchers(new AntPathRequestMatcher("/swagger-ui.html")).permitAll()
                         .requestMatchers(new AntPathRequestMatcher("/api/graphql")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/test/zap")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/test/zap/**")).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         
                         // Role-based access
