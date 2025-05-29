@@ -55,11 +55,29 @@ steps:
       echo "=== IMÁGENES CONSTRUIDAS ==="
       docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g"
       
-      # PUSH A OCIR (repositorios públicos - no requiere login)
-      echo "=== PUSHING A ORACLE CONTAINER REGISTRY (PÚBLICO) ==="
-      echo "Los repositorios son públicos, no se requiere autenticación para push"
+      # LOGIN A OCIR con credenciales correctas
+      echo "=== LOGIN A ORACLE CONTAINER REGISTRY ==="
+      echo "Registry: mx-queretaro-1.ocir.io"
+      echo "Namespace: ax6xpbwtbt9g"
       
-      # PUSH BACKEND directamente (sin login)
+      # Usar las credenciales exactas
+      echo "Intentando login con credenciales específicas..."
+      if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673@tec.mx" --password-stdin; then
+        echo "✅ Login exitoso con credenciales correctas"
+      else
+        echo "❌ Error en login. Intentando formato alternativo..."
+        # Intentar con el formato username/username
+        if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673" --password-stdin; then
+          echo "✅ Login exitoso con formato alternativo"
+        else
+          echo "❌ Ambos formatos de login fallaron"
+          echo "Username probado: ax6xpbwtbt9g/a01254673@tec.mx"
+          echo "Username alternativo: ax6xpbwtbt9g/a01254673"
+          exit 1
+        fi
+      fi
+      
+      # PUSH BACKEND
       echo "=== PUSHING BACKEND IMAGE ==="
       docker push ${BACKEND_FULL_TAG}
       
@@ -67,18 +85,10 @@ steps:
         echo "✅ Backend image subida exitosamente: ${BACKEND_FULL_TAG}"
       else
         echo "❌ Error subiendo backend image"
-        echo "Intentando con login básico..."
-        # Si falla, intentar con login simple
-        echo "guest" | docker login mx-queretaro-1.ocir.io --username guest --password-stdin 2>/dev/null || true
-        docker push ${BACKEND_FULL_TAG}
-        if [ $? -eq 0 ]; then
-          echo "✅ Backend image subida exitosamente (segundo intento)"
-        else
-          exit 1
-        fi
+        exit 1
       fi
       
-      # PUSH FRONTEND directamente (sin login)
+      # PUSH FRONTEND
       echo "=== PUSHING FRONTEND IMAGE ==="
       docker push ${FRONTEND_FULL_TAG}
       
@@ -86,15 +96,7 @@ steps:
         echo "✅ Frontend image subida exitosamente: ${FRONTEND_FULL_TAG}"
       else
         echo "❌ Error subiendo frontend image"
-        echo "Intentando con login básico..."
-        # Si falla, intentar con login simple
-        echo "guest" | docker login mx-queretaro-1.ocir.io --username guest --password-stdin 2>/dev/null || true
-        docker push ${FRONTEND_FULL_TAG}
-        if [ $? -eq 0 ]; then
-          echo "✅ Frontend image subida exitosamente (segundo intento)"
-        else
-          exit 1
-        fi
+        exit 1
       fi
       
       # PREPARAR DEPLOYMENT MANIFEST
