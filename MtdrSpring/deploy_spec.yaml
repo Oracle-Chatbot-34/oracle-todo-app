@@ -6,14 +6,14 @@ shell: bash
 
 env:
   variables:
-    # Información del repositorio
-    BACKEND_REPO: "dashmaster-backend" 
+    # Valores conocidos que funcionan basados en tus logs
+    TENANCY_NAMESPACE: "ax6xpbwtbt9g"
+    CURRENT_REGION: "mx-queretaro-1"
+    DOCKER_REGISTRY: "mx-queretaro-1.ocir.io"
+    BACKEND_REPO: "dashmaster-backend"
     FRONTEND_REPO: "dashmaster-frontend"
     
   exportedVariables:
-    - TENANCY_NAMESPACE
-    - CURRENT_REGION
-    - DOCKER_REGISTRY
     - BACKEND_IMAGE_TAG
     - FRONTEND_IMAGE_TAG
 
@@ -36,77 +36,42 @@ steps:
       echo "Checking for key files:"
       echo "- Backend Dockerfile: $(ls -la MtdrSpring/backend/Dockerfile 2>/dev/null || echo 'NOT FOUND')"
       echo "- Backend pom.xml: $(ls -la MtdrSpring/backend/pom.xml 2>/dev/null || echo 'NOT FOUND')"
-      echo "- Backend .mvn: $(ls -la MtdrSpring/backend/.mvn 2>/dev/null || echo 'NOT FOUND')"
       echo "- Frontend Dockerfile: $(ls -la MtdrSpring/frontend/Dockerfile 2>/dev/null || echo 'NOT FOUND')"
       echo "- Frontend package.json: $(ls -la MtdrSpring/frontend/package.json 2>/dev/null || echo 'NOT FOUND')"
       echo "=================================="
 
-  # Paso 2: Establecer variables globales para todo el pipeline
+  # Paso 2: Establecer tags de imagen usando valores conocidos
   - type: Command
-    name: "Setup global variables"
-    timeoutInSeconds: 120
+    name: "Setup image tags"
+    timeoutInSeconds: 60
     command: |
-      echo "=== Estableciendo variables globales para el pipeline ==="
+      echo "=== Estableciendo tags de imagen ==="
       
-      # Obtener el namespace del tenancy (esto siempre funciona)
-      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      # Usar valores hardcodeados que sabemos que funcionan
       echo "Tenancy namespace: ${TENANCY_NAMESPACE}"
-      
-      # Obtener la región actual usando múltiples métodos de fallback
-      echo "Resolviendo la región actual..."
-      
-      # Método 1: Intentar obtener de region subscriptions
-      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null)
-      
-      # Si el primer método no funciona, intentar otros métodos
-      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
-        echo "Método 1 fallido, intentando método 2..."
-        # Método 2: Obtener de la configuración de OCI
-        export CURRENT_REGION=$(oci iam region list --query "data[0].\"region-name\"" --raw-output 2>/dev/null)
-      fi
-      
-      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
-        echo "Método 2 fallido, intentando método 3..."
-        # Método 3: Parsear desde el build run ID que sabemos contiene la región
-        export CURRENT_REGION=$(echo "${OCI_BUILD_RUN_ID}" | grep -o 'mx-queretaro-1\|us-ashburn-1\|us-phoenix-1' | head -1)
-      fi
-      
-      # Si todos los métodos fallan, usar el valor conocido como último recurso
-      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
-        echo "Todos los métodos fallaron, usando región conocida como fallback"
-        export CURRENT_REGION="mx-queretaro-1"
-      fi
-      
-      echo "Región resuelta: ${CURRENT_REGION}"
-      
-      # Establecer el registro de Docker usando la región resuelta
-      export DOCKER_REGISTRY="${CURRENT_REGION}.ocir.io"
+      echo "Region: ${CURRENT_REGION}" 
       echo "Docker registry: ${DOCKER_REGISTRY}"
+      echo "Build run ID: ${OCI_BUILD_RUN_ID}"
       
-      # Generar los tags completos de las imágenes que se usarán en todo el pipeline
+      # Crear los tags usando la combinación de valores conocidos + variable dinámica
       export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
       export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
       
-      echo "Tags de imágenes generados:"
-      echo "Backend: ${BACKEND_IMAGE_TAG}"
-      echo "Frontend: ${FRONTEND_IMAGE_TAG}"
+      echo "Backend image tag: ${BACKEND_IMAGE_TAG}"
+      echo "Frontend image tag: ${FRONTEND_IMAGE_TAG}"
       
-      # Verificar información del build run para debug
-      echo "Build run ID: ${OCI_BUILD_RUN_ID}"
-      echo "Primary source dir: ${OCI_PRIMARY_SOURCE_DIR}"
-      
-      echo "=== Variables globales establecidas exitosamente ==="
+      echo "=== Tags establecidos exitosamente ==="
 
-  # Paso 3: Construir imagen de Backend usando variables globales
+  # Paso 3: Construir imagen de Backend
   - type: Command
     name: "Build backend image"
     timeoutInSeconds: 1800
     command: |
       echo "=== Starting Backend Image Build ==="
-      echo "Usando variables globales ya establecidas:"
-      echo "BACKEND_IMAGE_TAG: ${BACKEND_IMAGE_TAG}"
-      echo "DOCKER_REGISTRY: ${DOCKER_REGISTRY}"
-      echo "TENANCY_NAMESPACE: ${TENANCY_NAMESPACE}"
+      
+      # Recrear el tag usando valores conocidos (para asegurar consistencia)
+      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Backend image tag: ${BACKEND_IMAGE_TAG}"
       
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
@@ -116,28 +81,18 @@ steps:
         exit 1
       fi
       
-      # Verificar archivos críticos del backend
       if [ ! -f "MtdrSpring/backend/Dockerfile" ]; then
         echo "ERROR: Backend Dockerfile not found"
-        exit 1
-      fi
-      
-      if [ ! -f "MtdrSpring/backend/pom.xml" ]; then
-        echo "ERROR: Backend pom.xml not found"
         exit 1
       fi
       
       # Cambiar al directorio del backend para construcción
       cd MtdrSpring/backend
       
-      echo "=== Current working directory for backend build ==="
-      pwd
-      echo "Contents of current directory:"
-      ls -la
-      echo "=============================================="
+      echo "=== Building backend image ==="
+      echo "Working directory: $(pwd)"
+      echo "Building with tag: ${BACKEND_IMAGE_TAG}"
       
-      # Construir la imagen usando el tag global ya establecido
-      echo "Building backend image with tag: ${BACKEND_IMAGE_TAG}"
       docker build -t ${BACKEND_IMAGE_TAG} .
       
       # Regresar al directorio raíz
@@ -145,19 +100,19 @@ steps:
       
       # Verificar que la imagen se construyó correctamente
       echo "Verificando imagen construida:"
-      docker images | grep dashmaster-backend
-      echo "Backend image built successfully: ${BACKEND_IMAGE_TAG}"
+      docker images | grep "${TENANCY_NAMESPACE}/${BACKEND_REPO}"
+      echo "Backend image built successfully"
 
-  # Paso 4: Construir imagen de Frontend usando variables globales
+  # Paso 4: Construir imagen de Frontend
   - type: Command
     name: "Build frontend image"
     timeoutInSeconds: 1800
     command: |
       echo "=== Starting Frontend Image Build ==="
-      echo "Usando variables globales ya establecidas:"
-      echo "FRONTEND_IMAGE_TAG: ${FRONTEND_IMAGE_TAG}"
-      echo "DOCKER_REGISTRY: ${DOCKER_REGISTRY}"
-      echo "TENANCY_NAMESPACE: ${TENANCY_NAMESPACE}"
+      
+      # Recrear el tag usando valores conocidos (para asegurar consistencia)
+      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Frontend image tag: ${FRONTEND_IMAGE_TAG}"
       
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
@@ -167,28 +122,18 @@ steps:
         exit 1
       fi
       
-      # Verificar archivos críticos del frontend
       if [ ! -f "MtdrSpring/frontend/Dockerfile" ]; then
         echo "ERROR: Frontend Dockerfile not found"
-        exit 1
-      fi
-      
-      if [ ! -f "MtdrSpring/frontend/package.json" ]; then
-        echo "ERROR: Frontend package.json not found"
         exit 1
       fi
       
       # Cambiar al directorio del frontend para construcción
       cd MtdrSpring/frontend
       
-      echo "=== Current working directory for frontend build ==="
-      pwd
-      echo "Contents of current directory:"
-      ls -la
-      echo "=============================================="
+      echo "=== Building frontend image ==="
+      echo "Working directory: $(pwd)"
+      echo "Building with tag: ${FRONTEND_IMAGE_TAG}"
       
-      # Construir la imagen usando el tag global ya establecido
-      echo "Building frontend image with tag: ${FRONTEND_IMAGE_TAG}"
       docker build -t ${FRONTEND_IMAGE_TAG} .
       
       # Regresar al directorio raíz
@@ -196,10 +141,10 @@ steps:
       
       # Verificar que la imagen se construyó correctamente
       echo "Verificando imagen construida:"
-      docker images | grep dashmaster-frontend
-      echo "Frontend image built successfully: ${FRONTEND_IMAGE_TAG}"
+      docker images | grep "${TENANCY_NAMESPACE}/${FRONTEND_REPO}"
+      echo "Frontend image built successfully"
 
-  # Paso 5: Hacer login a OCIR usando variables globales
+  # Paso 5: Hacer login a OCIR
   - type: Command
     name: "Login to OCIR"
     timeoutInSeconds: 300
@@ -208,46 +153,52 @@ steps:
       echo "Docker registry: ${DOCKER_REGISTRY}"
       echo "Tenancy namespace: ${TENANCY_NAMESPACE}"
       
-      # Login a OCIR usando las variables globales ya establecidas
+      # Login a OCIR usando valores conocidos
       echo ${OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM} | docker login ${DOCKER_REGISTRY} --username ${TENANCY_NAMESPACE}/oracleidentitycloudservice/${OCI_PRINCIPAL_ID} --password-stdin
       
       echo "Successfully logged into OCIR"
 
-  # Paso 6: Push backend image usando variables globales
+  # Paso 6: Push backend image
   - type: Command
     name: "Push backend image"
     timeoutInSeconds: 1200
     command: |
       echo "Pushing backend image to OCIR..."
+      
+      # Recrear el tag usando valores conocidos
+      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
       echo "Backend image tag: ${BACKEND_IMAGE_TAG}"
       
       # Verificar que la imagen existe localmente antes de hacer push
-      if docker images ${BACKEND_IMAGE_TAG} | grep -q dashmaster-backend; then
+      if docker images | grep -q "${TENANCY_NAMESPACE}/${BACKEND_REPO}"; then
         docker push ${BACKEND_IMAGE_TAG}
         echo "Backend image pushed successfully: ${BACKEND_IMAGE_TAG}"
       else
-        echo "ERROR: Backend image ${BACKEND_IMAGE_TAG} not found locally"
+        echo "ERROR: Backend image not found locally"
         echo "Available images:"
-        docker images | grep dashmaster-backend || echo "No dashmaster-backend images found"
+        docker images
         exit 1
       fi
 
-  # Paso 7: Push frontend image usando variables globales
+  # Paso 7: Push frontend image
   - type: Command
     name: "Push frontend image"
     timeoutInSeconds: 1200
     command: |
       echo "Pushing frontend image to OCIR..."
+      
+      # Recrear el tag usando valores conocidos
+      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
       echo "Frontend image tag: ${FRONTEND_IMAGE_TAG}"
       
       # Verificar que la imagen existe localmente antes de hacer push
-      if docker images ${FRONTEND_IMAGE_TAG} | grep -q dashmaster-frontend; then
+      if docker images | grep -q "${TENANCY_NAMESPACE}/${FRONTEND_REPO}"; then
         docker push ${FRONTEND_IMAGE_TAG}
         echo "Frontend image pushed successfully: ${FRONTEND_IMAGE_TAG}"
       else
-        echo "ERROR: Frontend image ${FRONTEND_IMAGE_TAG} not found locally"
+        echo "ERROR: Frontend image not found locally"
         echo "Available images:"
-        docker images | grep dashmaster-frontend || echo "No dashmaster-frontend images found"
+        docker images
         exit 1
       fi
 
@@ -269,69 +220,59 @@ steps:
       
       echo "Found deployment.yaml in repository root"
       
-      # Verificar que el archivo tiene contenido válido
-      if [ ! -s "deployment.yaml" ]; then
-        echo "ERROR: deployment.yaml is empty"
-        exit 1
-      fi
-      
       # Mostrar información sobre el archivo
       echo "Deployment manifest file info:"
       echo "- Size: $(wc -l < deployment.yaml) lines"
       echo "- First few lines:"
       head -10 deployment.yaml
       
-      # Copiar deployment.yaml para output (esto es lo que usa el deployment pipeline)
+      # Copiar deployment.yaml para output
       cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
       
       echo "Deployment manifest prepared successfully and copied to workspace"
 
-  # Paso 9: Verificar imágenes construidas usando variables globales
+  # Paso 9: Establecer variables finales para outputArtifacts
   - type: Command
-    name: "Verify built images"
-    timeoutInSeconds: 300
+    name: "Set final variables for artifacts"
+    timeoutInSeconds: 60
     command: |
-      echo "=== Verifying Built Images ==="
-      echo "Usando variables globales ya establecidas:"
-      echo "TENANCY_NAMESPACE: ${TENANCY_NAMESPACE}"
-      echo "CURRENT_REGION: ${CURRENT_REGION}"
-      echo "DOCKER_REGISTRY: ${DOCKER_REGISTRY}"
+      echo "=== Estableciendo variables finales para outputArtifacts ==="
+      
+      # Establecer las variables finales que se usarán en outputArtifacts
+      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
+      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
+      
+      echo "Variables finales establecidas:"
       echo "BACKEND_IMAGE_TAG: ${BACKEND_IMAGE_TAG}"
       echo "FRONTEND_IMAGE_TAG: ${FRONTEND_IMAGE_TAG}"
       
-      echo "All Docker images:"
-      docker images
-      
-      echo "Backend image details:"
-      docker images | grep dashmaster-backend || echo "Backend image not found!"
-      
-      echo "Frontend image details:"
-      docker images | grep dashmaster-frontend || echo "Frontend image not found!"
-      
-      # Verificar que las imágenes fueron construidas con los tags correctos
-      if docker images | grep -q "${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-backend"; then
-        echo "✅ Backend image found with correct tag"
+      # Verificar que las imágenes existen con estos tags exactos
+      echo "Verificando imágenes con tags exactos:"
+      if docker images | grep -q "${BACKEND_IMAGE_TAG}"; then
+        echo "✅ Backend image found: ${BACKEND_IMAGE_TAG}"
       else
-        echo "❌ Backend image NOT found with expected tag"
-        echo "Expected pattern: ${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-backend"
+        echo "❌ Backend image NOT found with tag: ${BACKEND_IMAGE_TAG}"
+        echo "Available backend images:"
+        docker images | grep "${TENANCY_NAMESPACE}/${BACKEND_REPO}" || echo "No backend images found"
       fi
       
-      if docker images | grep -q "${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-frontend"; then
-        echo "✅ Frontend image found with correct tag"
+      if docker images | grep -q "${FRONTEND_IMAGE_TAG}"; then
+        echo "✅ Frontend image found: ${FRONTEND_IMAGE_TAG}"
       else
-        echo "❌ Frontend image NOT found with expected tag"
-        echo "Expected pattern: ${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-frontend"
+        echo "❌ Frontend image NOT found with tag: ${FRONTEND_IMAGE_TAG}"
+        echo "Available frontend images:"
+        docker images | grep "${TENANCY_NAMESPACE}/${FRONTEND_REPO}" || echo "No frontend images found"
       fi
       
-      echo "Build process completed successfully!"
+      echo "=== Variables finales listas para outputArtifacts ==="
 
 outputArtifacts:
   - name: backend_image
     type: DOCKER_IMAGE
-    location: ${BACKEND_IMAGE_TAG}
+    location: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}
   - name: frontend_image  
     type: DOCKER_IMAGE
-    location: ${FRONTEND_IMAGE_TAG}
+    location: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}
   - name: deployment_artifacts
     type: BINARY
     location: deployment.yaml
