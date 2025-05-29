@@ -1,23 +1,9 @@
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: dashmaster-secrets
-stringData:
-  # Store sensitive information as Kubernetes secrets
-  # Replace these placeholder values with actual credentials in a production environment
-  TELEGRAM_BOT_TOKEN: "7818362029:AAHjytZcyWk66nNzI3-KIDBbSuonVAymORA"
-  DB_PASSWORD: "Spring-boot103"
-  DB_URL: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=src/main/resources/Wallet_javadev"
-  DB_USERNAME: "JAVADEV103"
-  TNS_ADMIN_PATH: "src/main/resources/Wallet_javadev"
-  DRIVER_CLASS_NAME: "oracle.jdbc.OracleDriver"
-type: Opaque
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dashmaster-backend
+  labels:
+    app: dashmaster-backend
 spec:
   replicas: 1
   selector:
@@ -30,73 +16,44 @@ spec:
     spec:
       containers:
       - name: dashmaster-backend
-        image: ${BACKEND_IMAGE}
+        image: ${BACKEND_IMAGE_URL}
         ports:
         - containerPort: 8080
         env:
-        # Reference secrets securely via secretKeyRef
-        - name: TELEGRAM_BOT_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: dashmaster-secrets
-              key: TELEGRAM_BOT_TOKEN
-        - name: DB_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: dashmaster-secrets
-              key: DB_PASSWORD
-        - name: spring.datasource.url
-          valueFrom:
-            secretKeyRef:
-              name: dashmaster-secrets
-              key: DB_URL
-        - name: spring.datasource.username
-          valueFrom:
-            secretKeyRef:
-              name: dashmaster-secrets
-              key: DB_USERNAME
-        - name: spring.datasource.driver-class-name
-          valueFrom:
-            secretKeyRef:
-              name: dashmaster-secrets
-              key: DRIVER_CLASS_NAME
-        # TNS_ADMIN points to the wallet path INSIDE the container
-        - name: TNS_ADMIN
-          valueFrom:
-            secretKeyRef:
-              name: dashmaster-secrets
-              key: TNS_ADMIN_PATH
-        # Additional environment variables for Spring Boot
         - name: SPRING_PROFILES_ACTIVE
-          value: "production"
-        - name: JAVA_OPTS
-          value: "-Xms256m -Xmx512m"
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
+          value: "prod"
         livenessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
-          initialDelaySeconds: 120
+          initialDelaySeconds: 60
           periodSeconds: 30
         readinessProbe:
           httpGet:
             path: /actuator/health
             port: 8080
-          initialDelaySeconds: 60
+          initialDelaySeconds: 30
           periodSeconds: 10
-      imagePullSecrets:
-      - name: ocir-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dashmaster-backend-service
+spec:
+  selector:
+    app: dashmaster-backend
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: dashmaster-frontend
+  labels:
+    app: dashmaster-frontend
 spec:
   replicas: 1
   selector:
@@ -109,51 +66,12 @@ spec:
     spec:
       containers:
       - name: dashmaster-frontend
-        image: ${FRONTEND_IMAGE}
+        image: ${FRONTEND_IMAGE_URL}
         ports:
         - containerPort: 3000
         env:
-        # API base URL for frontend to communicate with backend
-        - name: VITE_API_BASE_URL
-          value: "/api"
-        - name: NGINX_HOST
-          value: "0.0.0.0"
-        - name: NGINX_PORT
-          value: "3000"
-        resources:
-          requests:
-            memory: "128Mi"
-            cpu: "100m"
-          limits:
-            memory: "256Mi"
-            cpu: "200m"
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 30
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          initialDelaySeconds: 10
-          periodSeconds: 10
-      imagePullSecrets:
-      - name: ocir-secret
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: dashmaster-backend-service
-spec:
-  selector:
-    app: dashmaster-backend
-  ports:
-  - port: 8080
-    targetPort: 8080
-    protocol: TCP
-  type: ClusterIP # Internal service not exposed directly outside the cluster
+        - name: NODE_ENV
+          value: "production"
 ---
 apiVersion: v1
 kind: Service
@@ -163,75 +81,7 @@ spec:
   selector:
     app: dashmaster-frontend
   ports:
-  - port: 3000
+  - protocol: TCP
+    port: 80
     targetPort: 3000
-    protocol: TCP
-  type: ClusterIP # Internal service accessed through Ingress
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: dashmaster-ingress
-  annotations:
-    # Specifies NGINX as the ingress controller implementation
-    kubernetes.io/ingress.class: "nginx"
-    # Rewrites request paths for proper routing
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    # Enable CORS
-    nginx.ingress.kubernetes.io/enable-cors: "true"
-    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization"
-spec:
-  rules:
-  - http:
-      paths:
-      # Route /api requests to the backend service
-      - path: /api(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: dashmaster-backend-service
-            port:
-              number: 8080
-      # Route /auth requests to the backend service
-      - path: /auth(/|$)(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: dashmaster-backend-service
-            port:
-              number: 8080
-      # Route all other requests to the frontend service
-      - path: /(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: dashmaster-frontend-service
-            port:
-              number: 3000
----
-# LoadBalancer service for external access (alternativa al Ingress)
-apiVersion: v1
-kind: Service
-metadata:
-  name: dashmaster-loadbalancer
-  annotations:
-    oci.oraclecloud.com/load-balancer-type: "lb"
-    service.beta.kubernetes.io/oci-load-balancer-shape: "flexible"
-    service.beta.kubernetes.io/oci-load-balancer-shape-flex-min: "10"
-    service.beta.kubernetes.io/oci-load-balancer-shape-flex-max: "100"
-spec:
   type: LoadBalancer
-  selector:
-    app: dashmaster-frontend
-  ports:
-  - port: 80
-    targetPort: 3000
-    protocol: TCP
-    name: http
-  - port: 8080
-    targetPort: 8080
-    protocol: TCP
-    name: api

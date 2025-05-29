@@ -1,102 +1,263 @@
 version: 0.1
-component: deploy
-timeoutInSeconds: 1200
+component: build
+timeoutInSeconds: 6000
+runAs: root
 shell: bash
 
-files:
-  - source: ${OCI_KUBERNETES_MANIFEST_FILE}
-    name: dashmaster-manifest
+env:
+  variables:
+    # Configuración del registro Docker
+    DOCKER_REGISTRY: "${OCI_RESOURCE_PRINCIPAL_REGION}.ocir.io"
+    
+    # Información del repositorio
+    BACKEND_REPO: "dashmaster-backend" 
+    FRONTEND_REPO: "dashmaster-frontend"
+    
+  exportedVariables:
+    - BACKEND_IMAGE_TAG
+    - FRONTEND_IMAGE_TAG
 
 steps:
-  # Paso 1: Conectar al cluster de Kubernetes
+  # Paso 1: Debug - Verificar estructura del repositorio
   - type: Command
-    name: "Conectar al cluster de Kubernetes"
-    timeoutInSeconds: 120
-    command: |
-      echo "Conectando al cluster de Kubernetes..."
-      mkdir -p $HOME/.kube
-      oci ce cluster create-kubeconfig --cluster-id ${OKE_CLUSTER_OCID} --file $HOME/.kube/config --region ${OCI_REGION} --token-version 2.0.0
-      export KUBECONFIG=$HOME/.kube/config
-      
-      # Verificar la conexión
-      kubectl get nodes
-
-  # Paso 2: Verificar namespace y crear si no existe
-  - type: Command
-    name: "Verificar namespace"
-    timeoutInSeconds: 30
-    command: |
-      echo "Verificando namespace..."
-      if ! kubectl get namespace ${KUBERNETES_NAMESPACE} > /dev/null 2>&1; then
-        echo "Creando namespace ${KUBERNETES_NAMESPACE}..."
-        kubectl create namespace ${KUBERNETES_NAMESPACE}
-      fi
-      kubectl config set-context --current --namespace=${KUBERNETES_NAMESPACE}
-
-  # Paso 3: Crear secretos de Kubernetes
-  - type: Command
-    name: "Crear secretos para la aplicación"
+    name: "Debug repository structure"
     timeoutInSeconds: 60
     command: |
-      echo "Creando secretos..."
+      echo "=== Repository Structure Debug ==="
+      echo "Current directory: $(pwd)"
+      echo "Directory contents:"
+      ls -la
+      echo "MtdrSpring directory:"
+      ls -la MtdrSpring/
+      echo "Backend directory:"
+      ls -la MtdrSpring/backend/
+      echo "Frontend directory:"
+      ls -la MtdrSpring/frontend/
+      echo "Checking for key files:"
+      echo "- Backend Dockerfile: $(ls -la MtdrSpring/backend/Dockerfile 2>/dev/null || echo 'NOT FOUND')"
+      echo "- Backend pom.xml: $(ls -la MtdrSpring/backend/pom.xml 2>/dev/null || echo 'NOT FOUND')"
+      echo "- Backend .mvn: $(ls -la MtdrSpring/backend/.mvn 2>/dev/null || echo 'NOT FOUND')"
+      echo "- Frontend Dockerfile: $(ls -la MtdrSpring/frontend/Dockerfile 2>/dev/null || echo 'NOT FOUND')"
+      echo "- Frontend package.json: $(ls -la MtdrSpring/frontend/package.json 2>/dev/null || echo 'NOT FOUND')"
+      echo "=================================="
+
+  # Paso 2: Obtener información del tenancy namespace
+  - type: Command
+    name: "Get tenancy namespace"
+    timeoutInSeconds: 60
+    command: |
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      echo "Tenancy namespace: ${TENANCY_NAMESPACE}"
+
+  # Paso 3: Construir imagen de Backend con contexto correcto
+  - type: Command
+    name: "Build backend image"
+    timeoutInSeconds: 1800
+    command: |
+      echo "=== Starting Backend Image Build ==="
+      cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # Crear registry secret si no existe
-      if ! kubectl get secret ocir-secret -n ${KUBERNETES_NAMESPACE} > /dev/null 2>&1; then
-        kubectl create secret docker-registry ocir-secret \
-          --docker-server=${DOCKER_REGISTRY} \
-          --docker-username="${NAMESPACE}/oracleidentitycloudservice/${OCIR_USER}" \
-          --docker-password="${OCIR_PASSWORD}" \
-          --docker-email="${OCIR_EMAIL}" \
-          -n ${KUBERNETES_NAMESPACE}
+      # Verificar que existe el directorio del backend
+      if [ ! -d "MtdrSpring/backend" ]; then
+        echo "ERROR: Backend directory 'MtdrSpring/backend' not found"
+        exit 1
       fi
       
-      # Crear secret para las credenciales de la aplicación
-      kubectl create secret generic dashmaster-secrets \
-        --from-literal=TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}" \
-        --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
-        --from-literal=DB_URL="${DB_URL}" \
-        --from-literal=DB_USERNAME="${DB_USERNAME}" \
-        --from-literal=TNS_ADMIN_PATH="src/main/resources/Wallet_javadev" \
-        --from-literal=DRIVER_CLASS_NAME="oracle.jdbc.OracleDriver" \
-        -n ${KUBERNETES_NAMESPACE} \
-        --dry-run=client -o yaml | kubectl apply -f -
-
-  # Paso 4: Aplicar el manifiesto de Kubernetes
-  - type: Command
-    name: "Desplegar la aplicación"
-    timeoutInSeconds: 600
-    command: |
-      echo "Desplegando la aplicación..."
-      
-      # Aplicar el manifiesto
-      kubectl apply -f ${OCI_WORKSPACE_DIR}/dashmaster-manifest -n ${KUBERNETES_NAMESPACE}
-      
-      # Esperar a que los pods estén listos
-      kubectl rollout status deployment/dashmaster-backend -n ${KUBERNETES_NAMESPACE} --timeout=300s
-      kubectl rollout status deployment/dashmaster-frontend -n ${KUBERNETES_NAMESPACE} --timeout=300s
-      
-      echo "Despliegue completado con éxito"
-
-  # Paso 5: Verificar el despliegue
-  - type: Command
-    name: "Verificar el despliegue"
-    timeoutInSeconds: 120
-    command: |
-      echo "Verificando el despliegue..."
-      
-      # Verificar los pods
-      kubectl get pods -n ${KUBERNETES_NAMESPACE}
-      
-      # Verificar los servicios
-      kubectl get services -n ${KUBERNETES_NAMESPACE}
-      
-      # Verificar los ingress
-      kubectl get ingress -n ${KUBERNETES_NAMESPACE}
-      
-      # Obtener la URL de acceso
-      INGRESS_IP=$(kubectl get ingress dashmaster-ingress -n ${KUBERNETES_NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-      if [ -n "${INGRESS_IP}" ]; then
-        echo "La aplicación está disponible en: http://${INGRESS_IP}"
-      else
-        echo "La dirección del ingress aún no está disponible, verifica en unos minutos"
+      # Verificar archivos críticos del backend
+      if [ ! -f "MtdrSpring/backend/Dockerfile" ]; then
+        echo "ERROR: Backend Dockerfile not found"
+        exit 1
       fi
+      
+      if [ ! -f "MtdrSpring/backend/pom.xml" ]; then
+        echo "ERROR: Backend pom.xml not found"
+        exit 1
+      fi
+      
+      # Generar tag único para la imagen de backend
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Backend image tag: ${BACKEND_IMAGE_TAG}"
+      
+      # IMPORTANTE: Cambiar al directorio del backend antes de construir
+      # Esto hace que el contexto de Docker sea correcto para el Dockerfile
+      cd MtdrSpring/backend
+      
+      echo "=== Current working directory for backend build ==="
+      pwd
+      echo "Contents of current directory:"
+      ls -la
+      echo "=============================================="
+      
+      # Construir la imagen usando el contexto local (.)
+      # El Dockerfile está en el directorio actual, y el contexto también
+      echo "Building backend image..."
+      docker build -t ${BACKEND_IMAGE_TAG} .
+      
+      # Regresar al directorio raíz
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      
+      # Verificar que la imagen se construyó correctamente
+      docker images | grep ${BACKEND_REPO}
+      
+      echo "Backend image built successfully: ${BACKEND_IMAGE_TAG}"
+
+  # Paso 4: Construir imagen de Frontend
+  - type: Command
+    name: "Build frontend image"
+    timeoutInSeconds: 1800
+    command: |
+      echo "=== Starting Frontend Image Build ==="
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      
+      # Verificar que existe el directorio del frontend
+      if [ ! -d "MtdrSpring/frontend" ]; then
+        echo "ERROR: Frontend directory 'MtdrSpring/frontend' not found"
+        exit 1
+      fi
+      
+      # Verificar archivos críticos del frontend
+      if [ ! -f "MtdrSpring/frontend/Dockerfile" ]; then
+        echo "ERROR: Frontend Dockerfile not found"
+        exit 1
+      fi
+      
+      if [ ! -f "MtdrSpring/frontend/package.json" ]; then
+        echo "ERROR: Frontend package.json not found"
+        exit 1
+      fi
+      
+      # Generar tag único para la imagen de frontend
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
+      echo "Frontend image tag: ${FRONTEND_IMAGE_TAG}"
+      
+      # IMPORTANTE: Cambiar al directorio del frontend antes de construir
+      cd MtdrSpring/frontend
+      
+      echo "=== Current working directory for frontend build ==="
+      pwd
+      echo "Contents of current directory:"
+      ls -la
+      echo "=============================================="
+      
+      # Construir la imagen usando el contexto local (.)
+      echo "Building frontend image..."
+      docker build -t ${FRONTEND_IMAGE_TAG} .
+      
+      # Regresar al directorio raíz
+      cd ${OCI_PRIMARY_SOURCE_DIR}
+      
+      # Verificar que la imagen se construyó correctamente
+      docker images | grep ${FRONTEND_REPO}
+      
+      echo "Frontend image built successfully: ${FRONTEND_IMAGE_TAG}"
+
+  # Paso 5: Hacer login a OCIR
+  - type: Command
+    name: "Login to OCIR"
+    timeoutInSeconds: 300
+    command: |
+      echo "Logging into OCIR..."
+      
+      # Login a OCIR usando la región de la instancia
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      echo ${OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM} | docker login ${DOCKER_REGISTRY} --username ${TENANCY_NAMESPACE}/oracleidentitycloudservice/${OCI_PRINCIPAL_ID} --password-stdin
+      
+      echo "Successfully logged into OCIR"
+
+  # Paso 6: Push backend image
+  - type: Command
+    name: "Push backend image"
+    timeoutInSeconds: 1200
+    command: |
+      echo "Pushing backend image to OCIR..."
+      
+      # Push de la imagen de backend
+      docker push ${BACKEND_IMAGE_TAG}
+      
+      echo "Backend image pushed successfully: ${BACKEND_IMAGE_TAG}"
+
+  # Paso 7: Push frontend image
+  - type: Command
+    name: "Push frontend image"
+    timeoutInSeconds: 1200
+    command: |
+      echo "Pushing frontend image to OCIR..."
+      
+      # Push de la imagen de frontend
+      docker push ${FRONTEND_IMAGE_TAG}
+      
+      echo "Frontend image pushed successfully: ${FRONTEND_IMAGE_TAG}"
+
+  # Paso 8: Preparar deployment manifest
+  - type: Command
+    name: "Prepare deployment manifest"
+    timeoutInSeconds: 300
+    command: |
+      echo "Preparing deployment manifest..."
+      
+      # Verificar que deployment.yaml existe en la raíz del repositorio
+      if [ ! -f "deployment.yaml" ]; then
+        echo "ERROR: deployment.yaml not found in repository root"
+        echo "Please ensure deployment.yaml exists in the root of your repository"
+        echo "Available files in root directory:"
+        ls -la *.yaml *.yml 2>/dev/null || echo "No YAML files found"
+        exit 1
+      fi
+      
+      echo "Found deployment.yaml in repository root"
+      
+      # Verificar que el archivo tiene contenido válido
+      if [ ! -s "deployment.yaml" ]; then
+        echo "ERROR: deployment.yaml is empty"
+        exit 1
+      fi
+      
+      # Mostrar información sobre el archivo
+      echo "Deployment manifest file info:"
+      echo "- Size: $(wc -l < deployment.yaml) lines"
+      echo "- First few lines:"
+      head -10 deployment.yaml
+      
+      # Copiar deployment.yaml para output (esto es lo que usa el deployment pipeline)
+      cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
+      
+      echo "Deployment manifest prepared successfully and copied to workspace"
+
+  # Paso 9: Verificar imágenes construidas
+  - type: Command
+    name: "Verify built images"
+    timeoutInSeconds: 300
+    command: |
+      echo "=== Verifying Built Images ==="
+      
+      echo "All Docker images:"
+      docker images
+      
+      echo "Backend image details:"
+      docker images | grep ${BACKEND_REPO} || echo "Backend image not found!"
+      
+      echo "Frontend image details:"
+      docker images | grep ${FRONTEND_REPO} || echo "Frontend image not found!"
+      
+      # Verificar que las variables están exportadas correctamente
+      echo "Exported variables:"
+      echo "BACKEND_IMAGE_TAG: ${BACKEND_IMAGE_TAG}"
+      echo "FRONTEND_IMAGE_TAG: ${FRONTEND_IMAGE_TAG}"
+      
+      echo "Build process completed successfully!"
+
+outputArtifacts:
+  # Definir los artefactos de salida que serán utilizados en el deployment
+  - name: backend_image
+    type: DOCKER_IMAGE
+    location: ${BACKEND_IMAGE_TAG}
+    
+  - name: frontend_image  
+    type: DOCKER_IMAGE
+    location: ${FRONTEND_IMAGE_TAG}
+    
+  - name: deployment_artifacts
+    type: BINARY
+    location: deployment.yaml
