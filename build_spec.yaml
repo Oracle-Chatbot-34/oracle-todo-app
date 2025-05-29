@@ -55,15 +55,35 @@ steps:
       echo "=== IMÁGENES CONSTRUIDAS ==="
       docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g"
       
-      # LOGIN A OCIR
+      # LOGIN A OCIR usando Auth Token específico
       echo "=== LOGIN A ORACLE CONTAINER REGISTRY ==="
-      echo ${OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM} | docker login mx-queretaro-1.ocir.io --username ax6xpbwtbt9g/oracleidentitycloudservice/${OCI_PRINCIPAL_ID} --password-stdin
+      echo "Registry: mx-queretaro-1.ocir.io"
+      echo "Namespace: ax6xpbwtbt9g"
       
-      if [ $? -eq 0 ]; then
-        echo "✅ Login exitoso a OCIR"
+      # Método 1: Usar tu Auth Token específico
+      echo "Intentando login con Auth Token específico..."
+      if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username ax6xpbwtbt9g --password-stdin; then
+        echo "✅ Login exitoso con Auth Token"
       else
-        echo "❌ Error en login a OCIR"
-        exit 1
+        echo "⚠️  Falló Auth Token directo, intentando con formato de usuario completo..."
+        
+        # Método 2: Con formato completo de usuario
+        if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username 'ax6xpbwtbt9g/oracleidentitycloudservice' --password-stdin; then
+          echo "✅ Login exitoso con formato completo"
+        else
+          echo "⚠️  Intentando con Resource Principal como fallback..."
+          
+          # Método 3: Fallback al Resource Principal
+          if echo "${OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM}" | docker login mx-queretaro-1.ocir.io --username 'ax6xpbwtbt9g/oracleidentitycloudservice/${OCI_PRINCIPAL_ID}' --password-stdin; then
+            echo "✅ Login exitoso con Resource Principal"
+          else
+            echo "❌ Todos los métodos de login fallaron"
+            echo "Información de debug:"
+            echo "Auth Token length: 19"
+            echo "OCI_PRINCIPAL_ID: ${OCI_PRINCIPAL_ID}"
+            exit 1
+          fi
+        fi
       fi
       
       # PUSH BACKEND
