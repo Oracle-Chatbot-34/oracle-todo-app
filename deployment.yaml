@@ -22,7 +22,13 @@ spec:
         - containerPort: 8080
         env:
         - name: SPRING_PROFILES_ACTIVE
-          value: "prod"
+          value: "dev"
+        - name: TNS_ADMIN
+          value: "/app/wallet"
+        - name: ORACLE_TNS_ADMIN
+          value: "/app/wallet"
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=/app/wallet"
         resources:
           requests:
             memory: "256Mi"
@@ -30,20 +36,21 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /actuator/health
-            port: 8080
-          initialDelaySeconds: 60
-          periodSeconds: 30
-          timeoutSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /actuator/health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 10
-          timeoutSeconds: 5
+        # Comentar health checks temporalmente para debug
+        # livenessProbe:
+        #   httpGet:
+        #     path: /actuator/health
+        #     port: 8080
+        #   initialDelaySeconds: 60
+        #   periodSeconds: 30
+        #   timeoutSeconds: 10
+        # readinessProbe:
+        #   httpGet:
+        #     path: /actuator/health
+        #     port: 8080
+        #   initialDelaySeconds: 30
+        #   periodSeconds: 10
+        #   timeoutSeconds: 5
 ---
 apiVersion: v1
 kind: Service

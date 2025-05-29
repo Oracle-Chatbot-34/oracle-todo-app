@@ -18,8 +18,12 @@ WORKDIR /app
 # Copiar el JAR compilado
 COPY --from=build /app/target/MyTodoList-0.0.1-SNAPSHOT.jar app.jar
 
-# Copiar wallet Oracle si es necesario
-COPY src/main/resources/Wallet_javadev /app/Wallet_javadev
+# Copiar wallet Oracle a la ubicación correcta
+COPY src/main/resources/Wallet_javadev /app/wallet
+
+# Variables de entorno para el wallet
+ENV TNS_ADMIN=/app/wallet
+ENV ORACLE_TNS_ADMIN=/app/wallet
 
 # Exponer puerto
 EXPOSE 8080
