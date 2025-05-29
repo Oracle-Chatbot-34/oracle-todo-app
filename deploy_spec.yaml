@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: dashmaster-backend
-        image: ${BACKEND_IMAGE_URL}
+        image: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest
         ports:
         - containerPort: 8080
         env:
@@ -79,7 +79,7 @@ spec:
     spec:
       containers:
       - name: dashmaster-frontend
-        image: ${FRONTEND_IMAGE_URL}
+        image: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest
         ports:
         - containerPort: 80
         env:

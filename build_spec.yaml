@@ -83,6 +83,12 @@ steps:
       
       if [ $? -eq 0 ]; then
         echo "✅ Backend image subida exitosamente: ${BACKEND_FULL_TAG}"
+        
+        # Crear también un tag 'latest' para facilitar deployment
+        BACKEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
+        docker tag ${BACKEND_FULL_TAG} ${BACKEND_LATEST_TAG}
+        docker push ${BACKEND_LATEST_TAG}
+        echo "✅ Backend image también subida como: ${BACKEND_LATEST_TAG}"
       else
         echo "❌ Error subiendo backend image"
         exit 1
@@ -94,6 +100,12 @@ steps:
       
       if [ $? -eq 0 ]; then
         echo "✅ Frontend image subida exitosamente: ${FRONTEND_FULL_TAG}"
+        
+        # Crear también un tag 'latest' para facilitar deployment
+        FRONTEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"
+        docker tag ${FRONTEND_FULL_TAG} ${FRONTEND_LATEST_TAG}
+        docker push ${FRONTEND_LATEST_TAG}
+        echo "✅ Frontend image también subida como: ${FRONTEND_LATEST_TAG}"
       else
         echo "❌ Error subiendo frontend image"
         exit 1
