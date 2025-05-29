@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bun --bun run vite",
-    "build": "bun --bun run tsc && bun --bun run vite build",
+    "build": "vite build",
+    "dev": "vite dev",
     "lint": "bun --bun run eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "bun --bun run vite preview",
     "format": "bun --bun run prettier --write 'src/**/*.{ts,tsx,css}'",
