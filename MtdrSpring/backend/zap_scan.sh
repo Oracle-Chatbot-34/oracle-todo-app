@@ -1,10 +1,9 @@
 #!/bin/bash
-
 # OWASP ZAP Scan Script
 # This script runs a quick scan against the specified target
 
 # Set variables
-TARGET_URL=${1:-"http://localhost:8080"}
+TARGET_URL=${1:-"http://localhost:8080/api/test/zap/info?input=1"}
 OUTPUT_FILE="results.xml"
 
 echo "Starting ZAP scan against $TARGET_URL"
@@ -20,9 +19,9 @@ fi
 echo "Pulling ZAP Docker image..."
 docker pull ghcr.io/zaproxy/zaproxy:stable
 
-# Run the ZAP scan
+# Run the ZAP scan with host network and specify a different proxy port
 echo "Running ZAP scan..."
-docker run -v "$(pwd)":/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap.sh -cmd -quickurl $TARGET_URL -quickout /zap/wrk/$OUTPUT_FILE -quickprogress
+docker run --network="host" -v "$(pwd)":/zap/wrk/:rw -t ghcr.io/zaproxy/zaproxy:stable zap.sh -cmd -host 127.0.0.1 -port 8090 -quickurl $TARGET_URL -quickout /zap/wrk/$OUTPUT_FILE -quickprogress
 
 # Check if scan was successful
 if [ $? -eq 0 ]; then
