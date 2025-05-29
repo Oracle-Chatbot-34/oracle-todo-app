@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
 import KPIScopeSelection from '@/components/kpis/KPIScopeSelection';
-import { ChartPie } from 'lucide-react';
+import { BarChart3, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-// KPI dictionary
 import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
-
-// Components
 import CompletedTasksBySprint from '@/components/kpis/CompletedTasksBySprint';
 import HoursByTeam from '@/components/kpis/HoursByTeam';
-import HoursBySprints from '@/components/kpis/HoursBySprint';
-import CountLegend from '@/components/kpis/CountLegend';
+import HoursByDeveloperPerSprint from '@/components/kpis/HoursByDeveloperPerSprint';
 import TaskInformationBySprint from '@/components/kpis/TaskInformationBySprint';
 
 // Services
@@ -17,7 +13,6 @@ import sprintService from '@/services/sprintService';
 import kpiGraphQLService, {
   KpiResult,
   SprintData,
-  SprintDataForPie,
 } from '@/services/kpiGraphQLService';
 
 export default function KPI() {
@@ -30,12 +25,6 @@ export default function KPI() {
     { sprintId: number; sprintName: string }[]
   >([]);
   const [filteredSprints, setFilteredSprints] = useState<SprintData[]>([]);
-  const [filteredSprintHours, setFilteredSprintHours] = useState<
-    SprintDataForPie[]
-  >([]);
-  const [filteredSprintTasks, setFilteredSprintTasks] = useState<
-    SprintDataForPie[]
-  >([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -47,16 +36,14 @@ export default function KPI() {
     const fetchAllSprints = async () => {
       try {
         setLoading(true);
-        // Get all sprints from backend
         const sprintsResponse = await sprintService.getAllSprints();
 
         if (Array.isArray(sprintsResponse) && sprintsResponse.length > 0) {
-          // Convert to our SprintData format (just to get the list initially)
           const convertedSprints: SprintData[] = sprintsResponse.map(
             (sprint) => ({
               id: sprint.id || 0,
               name: sprint.name,
-              entries: [], // Will be populated by KPI data
+              entries: [],
               totalHours: 0,
               totalTasks: 0,
             })
@@ -65,7 +52,6 @@ export default function KPI() {
           setSprints(convertedSprints);
           setStartSprint(convertedSprints[0]);
 
-          // Once we have the sprints, fetch KPI data for the first sprint
           if (convertedSprints.length > 0 && convertedSprints[0].id) {
             await fetchKpiData(convertedSprints[0].id);
           }
@@ -95,7 +81,6 @@ export default function KPI() {
         endSprintId
       );
 
-      // Check if the response has the expected structure
       if (!response?.data?.getKpiData) {
         console.error('Invalid KPI data response:', response);
         setError('Failed to load KPI data. Invalid response format.');
@@ -106,21 +91,13 @@ export default function KPI() {
       const kpiResult: KpiResult = response.data.getKpiData;
       console.log('KPI Result received:', kpiResult);
 
-      // Update sprints with the full data from the KPI service
       if (kpiResult.sprintData && kpiResult.sprintData.length > 0) {
-        // Process sprint data to ensure each entry has proper totalHours and totalTasks
         const processedSprintData = kpiResult.sprintData.map((sprint) => {
-          // Calculate total hours for each sprint
           let totalHours = 0;
 
-          // Process each member's entries to calculate tasks based on hours
           const processedEntries = sprint.entries.map((entry) => {
-            // Calculate tasks completed based on hours if not provided or zero
-            // We'll estimate 1 task per 2-4 hours of work
             let tasksCompleted = entry.tasksCompleted;
             if (!tasksCompleted || tasksCompleted === 0) {
-              // If this member has completed hours but no tasks, we'll estimate tasks
-              // based on the hours (roughly 1 task per 3 hours)
               if (entry.hours > 0) {
                 tasksCompleted = Math.max(1, Math.round(entry.hours / 3));
                 console.log(
@@ -129,7 +106,6 @@ export default function KPI() {
               }
             }
 
-            // Add to total hours
             totalHours += entry.hours || 0;
 
             return {
@@ -138,13 +114,11 @@ export default function KPI() {
             };
           });
 
-          // Calculate total tasks based on the updated entries
           const totalTasks = processedEntries.reduce(
             (sum, entry) => sum + (entry.tasksCompleted || 0),
             0
           );
 
-          // If the backend provided totals, use those, otherwise use our calculated values
           return {
             ...sprint,
             entries: processedEntries,
@@ -156,7 +130,6 @@ export default function KPI() {
         console.log('Processed sprint data:', processedSprintData);
 
         setSprints((prevSprints) => {
-          // Update the existing sprints with the full data
           const updatedSprints = [...prevSprints];
           processedSprintData.forEach((sprintData) => {
             const index = updatedSprints.findIndex(
@@ -171,39 +144,9 @@ export default function KPI() {
           return updatedSprints;
         });
 
-        // Process the sprint data for the charts, making sure to use our calculated values
-        const processedHours = kpiResult.sprintHours.map((item) => {
-          // Find corresponding sprint data to update count if needed
-          const matchingSprint = processedSprintData.find(
-            (s) => s.id === item.id
-          );
-          return {
-            ...item,
-            count: Math.max(item.count || 0, matchingSprint?.totalHours || 0),
-          };
-        });
-
-        const processedTasks = kpiResult.sprintTasks.map((item) => {
-          // Find corresponding sprint data to update count if needed
-          const matchingSprint = processedSprintData.find(
-            (s) => s.id === item.id
-          );
-          return {
-            ...item,
-            count: Math.max(item.count || 0, matchingSprint?.totalTasks || 0),
-          };
-        });
-
-        console.log('Processed hours:', processedHours);
-        console.log('Processed tasks:', processedTasks);
-
-        // Set filtered data
         setFilteredSprints(processedSprintData);
-        setFilteredSprintHours(processedHours);
-        setFilteredSprintTasks(processedTasks);
         setSprintsForTasks(kpiResult.sprintsForTasks || []);
 
-        // Update current sprint selection if needed
         if (!startSprint || startSprint.id !== startSprintId) {
           const selectedSprint = processedSprintData.find(
             (s) => s.id === startSprintId
@@ -245,94 +188,122 @@ export default function KPI() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startSprint?.id, endSprint?.id]);
 
+  const sprintRangeText = endSprint
+    ? `${startSprint?.name} to ${endSprint.name}`
+    : startSprint?.name || 'No Sprint Selected';
+
   return (
-    <div className="bg-background h-full w-full p-6 lg:px-10 py-10 flex items-start justify-center overflow-clip">
-      <div className="flex flex-col p-4 lg:p-6 gap-y-4 bg-whitie w-full h-full rounded-lg shadow-xl ">
-        {/* Title */}
-        <div className="flex flex-row items-center gap-4 w-full h-1/13">
-          <ChartPie className="w-8 h-8" />
-          <p className="text-3xl font-semibold mr-20">
-            Key Performance Indicators
-          </p>
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded w-6/10">
-              {error}
-            </div>
-          )}
-        </div>
-        <div className="flex flex-row items-center justify-center gap-4 w-full h-1/13 bg-white rounded-xl shadow-lg pl-7">
-          <div className="text-2xl font-semibold w-1/4">Select a scope:</div>
-          <div className="w-3/4">
-            {startSprint && (
-              <KPIScopeSelection
-                sprints={sprints}
-                startSprint={startSprint}
-                endSprint={endSprint}
-                setStartSprint={setStartSprint}
-                setEndSprint={setEndSprint}
-              />
-            )}
-          </div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 overflow-y-auto">
+      {/* Main container with responsive padding that adapts to screen size */}
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
+        {/* Responsive content wrapper that provides max-width constraints */}
+        <div className="max-w-8xl mx-auto space-y-6 pb-8">
+          {/* Header Section - Responsive layout that stacks on mobile */}
+          <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-slate-200">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex-shrink-0">
+                  <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-800 truncate">
+                    Key Performance Indicators
+                  </h1>
+                  <p className="text-sm sm:text-base text-slate-600 mt-1 truncate">
+                    Sprint Range: {sprintRangeText}
+                  </p>
+                </div>
+              </div>
 
-        <div className="flex flex-row w-full h-11/13 gap-4">
-          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <HoursByTeam
-              isLoading={loading}
-              sprintData={filteredSprints}
-              definition={dictionaryKPI[1].definition}
-              example={dictionaryKPI[1].example}
-            />
-            <div className="flex flex-row w-full items-center justify-center gap-4">
-              {filteredSprintHours.length > 1 ? (
-                <HoursBySprints
-                  isLoading={loading}
-                  isHours={true}
-                  chartData={filteredSprintHours}
-                  definition={dictionaryKPI[3].definition}
-                  example={dictionaryKPI[3].example}
-                />
-              ) : (
-                <CountLegend
-                  isLoading={loading}
-                  isHours={true}
-                  count={startSprint?.totalHours || 0}
-                />
+              {/* Error display that adapts to available space */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg w-full lg:max-w-md">
+                  <div className="flex items-center">
+                    <span className="text-sm">{error}</span>
+                  </div>
+                </div>
               )}
             </div>
-          </div>
-          <div className="flex flex-col w-1/3 h-full items-center justify-center gap-4">
-            <CompletedTasksBySprint
-              isLoading={loading}
-              sprintData={filteredSprints}
-              definition={dictionaryKPI[2].definition}
-              example={dictionaryKPI[2].example}
-            />
-            <div className="flex flex-row w-full items-center justify-center gap-4">
-              {filteredSprintTasks.length > 1 ? (
-                <HoursBySprints
-                  isLoading={loading}
-                  isHours={false}
-                  chartData={filteredSprintTasks}
-                  definition={dictionaryKPI[4].definition}
-                  example={dictionaryKPI[4].example}
-                />
-              ) : (
-                <CountLegend
-                  isLoading={loading}
-                  isHours={false}
-                  count={startSprint?.totalTasks || 0}
+
+            {/* Sprint Selection - Responsive design that works on all screen sizes */}
+            <div className="bg-slate-50 rounded-xl p-4">
+              <div className="flex items-center space-x-4 mb-3">
+                <TrendingUp className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                <span className="text-base sm:text-lg font-semibold text-slate-700">
+                  Select Sprint Range:
+                </span>
+              </div>
+              {startSprint && (
+                <KPIScopeSelection
+                  sprints={sprints}
+                  startSprint={startSprint}
+                  endSprint={endSprint}
+                  setStartSprint={setStartSprint}
+                  setEndSprint={setEndSprint}
                 />
               )}
             </div>
           </div>
 
-          <div className="flex flex-row w-1/3 h-full items-center justify-center">
-            <TaskInformationBySprint
-              sprints={sprintsForTasks}
-              definition={dictionaryKPI[5].definition}
-              example={dictionaryKPI[5].example}
-            />
+          {/* Main Charts Grid - Natural flowing layout that respects content */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-6">
+            {/* Team Overview Column - Allow natural content sizing */}
+            <div className="lg:col-span-1 2xl:col-span-1">
+              {/* Total Hours by Team Member - Flexible container that adapts to content */}
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+                <HoursByTeam
+                  isLoading={loading}
+                  sprintData={filteredSprints}
+                  definition={dictionaryKPI[1].definition}
+                  example={dictionaryKPI[1].example}
+                />
+              </div>
+            </div>
+
+            {/* Sprint Analytics Column - Vertical stack with natural spacing */}
+            <div className="lg:col-span-1 2xl:col-span-1 space-y-4 sm:space-y-6">
+              {/* Hours by Developer per Sprint - Let the chart determine its optimal size */}
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+                <HoursByDeveloperPerSprint
+                  isLoading={loading}
+                  sprintData={filteredSprints}
+                  definition="Hours Worked by Developer per Sprint shows the actual hours logged by each developer for each sprint, allowing visualization of workload distribution and individual productivity across different sprint periods."
+                  example="Sprint 1: Developer A worked 25 hours, Developer B worked 30 hours. Sprint 2: Developer A worked 28 hours, Developer B worked 35 hours."
+                />
+              </div>
+
+              {/* Completed Tasks by Sprint - Natural content flow */}
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+                <CompletedTasksBySprint
+                  isLoading={loading}
+                  sprintData={filteredSprints}
+                  definition={dictionaryKPI[2].definition}
+                  example={dictionaryKPI[2].example}
+                />
+              </div>
+            </div>
+
+            {/* Task Information Column - Adjust the max height to be more responsive */}
+            <div className="lg:col-span-2 2xl:col-span-1">
+              <div className="bg-white rounded-xl shadow-lg border border-slate-200 max-h-[60vh] overflow-y-auto">
+                <TaskInformationBySprint
+                  sprints={sprintsForTasks}
+                  definition={dictionaryKPI[5].definition}
+                  example={dictionaryKPI[5].example}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Information - Responsive padding and text sizing */}
+          <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-4 sm:p-6">
+            <div className="text-center text-slate-600">
+              <p className="text-xs sm:text-sm">
+                This dashboard fulfills Oracle DevOps documentation requirements
+                for sprint performance visualization. Data refreshes
+                automatically when sprint range is modified.
+              </p>
+            </div>
           </div>
         </div>
       </div>

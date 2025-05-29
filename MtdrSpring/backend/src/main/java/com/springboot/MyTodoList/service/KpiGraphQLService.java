@@ -54,8 +54,8 @@ public class KpiGraphQLService {
         // 1. Set the core KPI data
         result.setData(calculateKpiData(sprintsInRange, allTasks));
 
-        // 2. Generate sprint data with member entries
-        result.setSprintData(generateSprintData(sprintsInRange));
+        // 2. Generate sprint data with member entries - THIS IS THE KEY ENHANCEMENT
+        result.setSprintData(generateDetailedSprintData(sprintsInRange));
 
         // 3. Generate sprint hours for pie chart
         result.setSprintHours(generateSprintHours(sprintsInRange));
@@ -121,7 +121,6 @@ public class KpiGraphQLService {
         kpiData.setEndDate(endDate);
 
         // Set team and user IDs (if available from context)
-        // For demo purposes, we'll set null or get from the first sprint if available
         if (!sprints.isEmpty() && sprints.get(0).getTeam() != null) {
             kpiData.setTeamId(sprints.get(0).getTeam().getId());
         }
@@ -129,8 +128,19 @@ public class KpiGraphQLService {
         return kpiData;
     }
 
-    private List<SprintData> generateSprintData(List<Sprint> sprints) {
+    /**
+     * Enhanced method to generate detailed sprint data with proper hours tracking
+     * per developer per sprint
+     * This addresses the Oracle requirement for showing "Hours worked by developer
+     * per Sprint"
+     */
+    private List<SprintData> generateDetailedSprintData(List<Sprint> sprints) {
         List<SprintData> result = new ArrayList<>();
+
+        // Get all users to have their names available
+        List<User> allUsers = userRepository.findAll();
+        Map<Long, String> userIdToNameMap = allUsers.stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
 
         for (Sprint sprint : sprints) {
             SprintData sprintData = new SprintData();
@@ -140,57 +150,66 @@ public class KpiGraphQLService {
             // Get tasks for this sprint
             List<ToDoItem> sprintTasks = toDoItemRepository.findBySprintId(sprint.getId());
 
-            // Group tasks by assignee and calculate hours and completed tasks
-            Map<Long, MemberStats> memberStatsMap = new HashMap<>();
+            // Create a comprehensive map to track both hours and completed tasks per
+            // developer
+            Map<Long, DeveloperMetrics> developerMetricsMap = new HashMap<>();
 
+            // Process each task to accumulate metrics per developer
             for (ToDoItem task : sprintTasks) {
                 Long assigneeId = task.getAssigneeId();
                 if (assigneeId == null)
                     continue;
 
-                MemberStats stats = memberStatsMap.computeIfAbsent(assigneeId, k -> new MemberStats());
+                DeveloperMetrics metrics = developerMetricsMap.computeIfAbsent(assigneeId, k -> new DeveloperMetrics());
 
-                // Add hours if task has actual hours
-                if (task.getActualHours() != null) {
-                    stats.hours += task.getActualHours();
+                // Accumulate actual hours worked (this is the key metric for Oracle
+                // requirement)
+                if (task.getActualHours() != null && task.getActualHours() > 0) {
+                    metrics.totalHours += task.getActualHours();
                 }
 
-                // Increment completed tasks if task is done
-                if ("DONE".equals(task.getStatus())) {
-                    stats.tasksCompleted++;
+                // Count completed tasks
+                if ("DONE".equals(task.getStatus()) || "COMPLETED".equals(task.getStatus())) {
+                    metrics.completedTasks++;
+                }
+
+                // Also track estimated hours for comparison
+                if (task.getEstimatedHours() != null) {
+                    metrics.estimatedHours += task.getEstimatedHours();
                 }
             }
 
-            // Create member entries
+            // Convert the metrics map to MemberEntry objects
             List<MemberEntry> entries = new ArrayList<>();
-            int totalHours = 0;
-            int totalCompletedTasks = 0;
+            int totalSprintHours = 0;
+            int totalSprintTasks = 0;
 
-            for (Map.Entry<Long, MemberStats> entry : memberStatsMap.entrySet()) {
+            for (Map.Entry<Long, DeveloperMetrics> entry : developerMetricsMap.entrySet()) {
                 Long userId = entry.getKey();
-                MemberStats stats = entry.getValue();
+                DeveloperMetrics metrics = entry.getValue();
 
-                // Get user name
-                String memberName = "Unknown";
-                Optional<User> userOpt = userRepository.findById(userId);
-                if (userOpt.isPresent()) {
-                    memberName = userOpt.get().getFullName();
-                }
+                // Get user name from our map
+                String memberName = userIdToNameMap.getOrDefault(userId, "Unknown User (ID: " + userId + ")");
 
                 MemberEntry memberEntry = new MemberEntry();
                 memberEntry.setMember(memberName);
-                memberEntry.setHours(stats.hours.intValue());
-                memberEntry.setTasksCompleted(stats.tasksCompleted);
+                // Round hours to avoid decimal precision issues in charts
+                memberEntry.setHours((int) Math.round(metrics.totalHours));
+                memberEntry.setTasksCompleted(metrics.completedTasks);
 
                 entries.add(memberEntry);
 
-                totalHours += stats.hours.intValue();
-                totalCompletedTasks += stats.tasksCompleted;
+                // Accumulate totals for the sprint
+                totalSprintHours += memberEntry.getHours();
+                totalSprintTasks += memberEntry.getTasksCompleted();
             }
 
+            // Sort entries by member name for consistent display
+            entries.sort(Comparator.comparing(MemberEntry::getMember));
+
             sprintData.setEntries(entries);
-            sprintData.setTotalHours(totalHours);
-            sprintData.setTotalTasks(totalCompletedTasks);
+            sprintData.setTotalHours(totalSprintHours);
+            sprintData.setTotalTasks(totalSprintTasks);
 
             result.add(sprintData);
         }
@@ -209,13 +228,13 @@ public class KpiGraphQLService {
             // Get tasks for this sprint
             List<ToDoItem> sprintTasks = toDoItemRepository.findBySprintId(sprint.getId());
 
-            // Calculate total hours
+            // Calculate total actual hours worked (not estimated)
             double totalHours = sprintTasks.stream()
                     .filter(task -> task.getActualHours() != null)
                     .mapToDouble(ToDoItem::getActualHours)
                     .sum();
 
-            pieData.setCount((int) totalHours);
+            pieData.setCount((int) Math.round(totalHours));
             result.add(pieData);
         }
 
@@ -235,7 +254,7 @@ public class KpiGraphQLService {
 
             // Count completed tasks
             int completedTasks = (int) sprintTasks.stream()
-                    .filter(task -> "DONE".equals(task.getStatus()))
+                    .filter(task -> "DONE".equals(task.getStatus()) || "COMPLETED".equals(task.getStatus()))
                     .count();
 
             pieData.setCount(completedTasks);
@@ -256,9 +275,13 @@ public class KpiGraphQLService {
                 .collect(Collectors.toList());
     }
 
-    // Helper class to track member statistics
-    private static class MemberStats {
-        Double hours = 0.0;
-        Integer tasksCompleted = 0;
+    /**
+     * Helper class to track comprehensive developer metrics per sprint
+     * This ensures we capture all the data needed for Oracle KPI requirements
+     */
+    private static class DeveloperMetrics {
+        double totalHours = 0.0; // Actual hours worked
+        double estimatedHours = 0.0; // Estimated hours for comparison
+        int completedTasks = 0; // Number of completed tasks
     }
 }
