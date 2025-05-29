@@ -121,7 +121,25 @@ steps:
       
       echo "Frontend image pushed successfully: ${FRONTEND_IMAGE_TAG}"
 
-  # Paso 7: Verificar imágenes en OCIR
+  # Paso 7: Preparar deployment manifest
+  - type: Command
+    name: "Prepare deployment manifest"
+    timeoutInSeconds: 300
+    command: |
+      echo "Preparing deployment manifest..."
+      
+      # Verificar que deployment.yaml existe
+      if [ ! -f "deployment.yaml" ]; then
+        echo "Error: deployment.yaml not found in repository root"
+        exit 1
+      fi
+      
+      # Copiar deployment.yaml para output
+      cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
+      
+      echo "Deployment manifest prepared successfully"
+
+  # Paso 8: Verificar imágenes en OCIR
   - type: Command
     name: "Verify images in OCIR"
     timeoutInSeconds: 300
@@ -149,7 +167,7 @@ outputArtifacts:
   - name: frontend_image  
     type: DOCKER_IMAGE
     location: ${FRONTEND_IMAGE_TAG}
-
-  - name: deployment_manifest
-    type: KUBERNETES_MANIFEST
+    
+  - name: deployment_artifacts
+    type: BINARY
     location: deployment.yaml
