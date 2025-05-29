@@ -4,14 +4,6 @@ timeoutInSeconds: 6000
 runAs: root
 shell: bash
 
-env:
-  variables:
-    # Usando solo valores literales - no variables que puedan fallar
-    LITERAL_REGISTRY: "mx-queretaro-1.ocir.io"
-    LITERAL_NAMESPACE: "ax6xpbwtbt9g"
-    LITERAL_BACKEND_REPO: "dashmaster-backend"
-    LITERAL_FRONTEND_REPO: "dashmaster-frontend"
-
 steps:
   # Paso único que hace todo el proceso
   - type: Command
@@ -21,49 +13,19 @@ steps:
       echo "=== PROCESO COMPLETO DE BUILD ==="
       echo "Timestamp: $(date)"
       echo "Build Run ID: ${OCI_BUILD_RUN_ID}"
-      echo "Working Directory: $(pwd)"
       
       # Construir tags usando valores literales + la única variable que funciona
       BACKEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"
       FRONTEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
       
-      echo "=== TAGS CONSTRUIDOS ==="
       echo "Backend tag: ${BACKEND_FULL_TAG}"
       echo "Frontend tag: ${FRONTEND_FULL_TAG}"
       
-      # Verificar estructura del repositorio
-      echo "=== VERIFICANDO ESTRUCTURA ==="
-      echo "Contenido del directorio actual:"
-      ls -la
-      echo "Contenido de MtdrSpring:"
-      ls -la MtdrSpring/
-      echo "Backend directory:"
-      ls -la MtdrSpring/backend/
-      echo "Frontend directory:" 
-      ls -la MtdrSpring/frontend/
-      
-      # Cambiar al directorio principal del proyecto
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # BUILD BACKEND
       echo "=== CONSTRUYENDO BACKEND ==="
-      if [ ! -d "MtdrSpring/backend" ]; then
-        echo "ERROR: No se encuentra el directorio del backend"
-        exit 1
-      fi
-      
-      if [ ! -f "MtdrSpring/backend/Dockerfile" ]; then
-        echo "ERROR: No se encuentra el Dockerfile del backend"
-        exit 1
-      fi
-      
-      echo "Cambiando al directorio del backend..."
       cd MtdrSpring/backend
-      echo "Directorio actual: $(pwd)"
-      echo "Contenido del directorio:"
-      ls -la
-      
-      echo "Construyendo imagen del backend..."
       docker build -t ${BACKEND_FULL_TAG} .
       
       if [ $? -eq 0 ]; then
@@ -73,28 +35,11 @@ steps:
         exit 1
       fi
       
-      # Regresar al directorio raíz
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # BUILD FRONTEND
       echo "=== CONSTRUYENDO FRONTEND ==="
-      if [ ! -d "MtdrSpring/frontend" ]; then
-        echo "ERROR: No se encuentra el directorio del frontend"
-        exit 1
-      fi
-      
-      if [ ! -f "MtdrSpring/frontend/Dockerfile" ]; then
-        echo "ERROR: No se encuentra el Dockerfile del frontend"
-        exit 1
-      fi
-      
-      echo "Cambiando al directorio del frontend..."
       cd MtdrSpring/frontend
-      echo "Directorio actual: $(pwd)"
-      echo "Contenido del directorio:"
-      ls -la
-      
-      echo "Construyendo imagen del frontend..."
       docker build -t ${FRONTEND_FULL_TAG} .
       
       if [ $? -eq 0 ]; then
@@ -104,41 +49,14 @@ steps:
         exit 1
       fi
       
-      # Regresar al directorio raíz
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # VERIFICAR IMÁGENES CONSTRUIDAS
-      echo "=== VERIFICANDO IMÁGENES CONSTRUIDAS ==="
-      echo "Todas las imágenes Docker:"
-      docker images
-      
-      echo "Imágenes del proyecto:"
-      docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g" || echo "No se encontraron imágenes del proyecto"
-      
-      # Verificar imágenes específicas
-      if docker images | grep -q "${BACKEND_FULL_TAG}"; then
-        echo "✅ Imagen del backend encontrada: ${BACKEND_FULL_TAG}"
-      else
-        echo "❌ Imagen del backend NO encontrada"
-        echo "Imágenes de backend disponibles:"
-        docker images | grep "dashmaster-backend" || echo "Ninguna"
-        exit 1
-      fi
-      
-      if docker images | grep -q "${FRONTEND_FULL_TAG}"; then
-        echo "✅ Imagen del frontend encontrada: ${FRONTEND_FULL_TAG}"
-      else
-        echo "❌ Imagen del frontend NO encontrada"
-        echo "Imágenes de frontend disponibles:"
-        docker images | grep "dashmaster-frontend" || echo "Ninguna"
-        exit 1
-      fi
+      # MOSTRAR IMÁGENES CONSTRUIDAS
+      echo "=== IMÁGENES CONSTRUIDAS ==="
+      docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g"
       
       # LOGIN A OCIR
       echo "=== LOGIN A ORACLE CONTAINER REGISTRY ==="
-      echo "Registry: mx-queretaro-1.ocir.io"
-      echo "Namespace: ax6xpbwtbt9g"
-      
       echo ${OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM} | docker login mx-queretaro-1.ocir.io --username ax6xpbwtbt9g/oracleidentitycloudservice/${OCI_PRINCIPAL_ID} --password-stdin
       
       if [ $? -eq 0 ]; then
@@ -150,7 +68,6 @@ steps:
       
       # PUSH BACKEND
       echo "=== PUSHING BACKEND IMAGE ==="
-      echo "Subiendo: ${BACKEND_FULL_TAG}"
       docker push ${BACKEND_FULL_TAG}
       
       if [ $? -eq 0 ]; then
@@ -162,7 +79,6 @@ steps:
       
       # PUSH FRONTEND
       echo "=== PUSHING FRONTEND IMAGE ==="
-      echo "Subiendo: ${FRONTEND_FULL_TAG}"
       docker push ${FRONTEND_FULL_TAG}
       
       if [ $? -eq 0 ]; then
@@ -175,49 +91,16 @@ steps:
       # PREPARAR DEPLOYMENT MANIFEST
       echo "=== PREPARANDO DEPLOYMENT MANIFEST ==="
       if [ ! -f "deployment.yaml" ]; then
-        echo "ERROR: deployment.yaml no encontrado en la raíz del repositorio"
-        echo "Archivos disponibles:"
-        ls -la *.yaml *.yml 2>/dev/null || echo "No hay archivos YAML"
+        echo "ERROR: deployment.yaml no encontrado"
         exit 1
       fi
       
-      echo "✅ deployment.yaml encontrado"
-      echo "Tamaño: $(wc -l < deployment.yaml) líneas"
-      
-      # Copiar deployment manifest al workspace
       cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
-      echo "✅ Deployment manifest copiado al workspace"
-      
-      # VERIFICACIÓN FINAL
-      echo "=== VERIFICACIÓN FINAL ==="
-      echo "Imágenes en OCIR (local):"
-      docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g"
-      
-      echo "Tags exactos que se usarán en outputArtifacts:"
-      echo "Backend: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"
-      echo "Frontend: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
-      
-      # Verificar que las imágenes tienen exactamente los tags que necesitamos
-      if docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"; then
-        echo "✅ Backend image verificada con tag exacto"
-      else
-        echo "❌ Backend image NO tiene el tag exacto esperado"
-        echo "Tags de backend disponibles:"
-        docker images --format "table {{.Repository}}:{{.Tag}}" | grep "dashmaster-backend"
-        exit 1
-      fi
-      
-      if docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"; then
-        echo "✅ Frontend image verificada con tag exacto"
-      else
-        echo "❌ Frontend image NO tiene el tag exacto esperado"
-        echo "Tags de frontend disponibles:"
-        docker images --format "table {{.Repository}}:{{.Tag}}" | grep "dashmaster-frontend"
-        exit 1
-      fi
+      echo "✅ Deployment manifest preparado"
       
       echo "=== PROCESO COMPLETADO EXITOSAMENTE ==="
-      echo "Las imágenes están listas para ser guardadas como artifacts"
+      echo "Backend: ${BACKEND_FULL_TAG}"
+      echo "Frontend: ${FRONTEND_FULL_TAG}"
 
 outputArtifacts:
   - name: backend_image
