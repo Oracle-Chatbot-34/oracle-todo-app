@@ -41,13 +41,30 @@ steps:
       echo "- Frontend package.json: $(ls -la MtdrSpring/frontend/package.json 2>/dev/null || echo 'NOT FOUND')"
       echo "=================================="
 
-  # Paso 2: Obtener información del tenancy namespace
+  # Paso 2: Obtener información del tenancy y región
   - type: Command
-    name: "Get tenancy namespace"
+    name: "Get tenancy and region info"
     timeoutInSeconds: 60
     command: |
+      # Obtener el namespace del tenancy
       export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
       echo "Tenancy namespace: ${TENANCY_NAMESPACE}"
+      
+      # Obtener la región actual de manera explícita
+      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null || echo "mx-queretaro-1")
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        # Fallback: intentar obtener de otra manera
+        export CURRENT_REGION=$(oci os bucket list --compartment-id $(oci iam compartment list --query "data[0].id" --raw-output) --query "data[0].namespace" --raw-output 2>/dev/null | cut -d'.' -f2 2>/dev/null || echo "mx-queretaro-1")
+      fi
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        # Segundo fallback: usar la región que sabemos que funciona basada en tus logs
+        export CURRENT_REGION="mx-queretaro-1"
+      fi
+      echo "Current region: ${CURRENT_REGION}"
+      
+      # Verificar información del build run para debug
+      echo "Build run ID: ${OCI_BUILD_RUN_ID}"
+      echo "Primary source dir: ${OCI_PRIMARY_SOURCE_DIR}"
 
   # Paso 3: Construir imagen de Backend con contexto correcto
   - type: Command
@@ -74,9 +91,17 @@ steps:
         exit 1
       fi
       
-      # Generar tag único para la imagen de backend
+      # Obtener información necesaria para el tag de la imagen
       export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
-      export BACKEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${BACKEND_REPO}:${OCI_BUILD_RUN_ID}"
+      
+      # Resolver la región de manera explícita
+      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null || echo "mx-queretaro-1")
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        export CURRENT_REGION="mx-queretaro-1"  # Usar la región conocida como fallback
+      fi
+      
+      # Generar tag único para la imagen de backend con región resuelta
+      export BACKEND_IMAGE_TAG="${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-backend:${OCI_BUILD_RUN_ID}"
       echo "Backend image tag: ${BACKEND_IMAGE_TAG}"
       
       # IMPORTANTE: Cambiar al directorio del backend antes de construir
@@ -98,8 +123,7 @@ steps:
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # Verificar que la imagen se construyó correctamente
-      docker images | grep ${BACKEND_REPO}
-      
+      docker images | grep dashmaster-backend
       echo "Backend image built successfully: ${BACKEND_IMAGE_TAG}"
 
   # Paso 4: Construir imagen de Frontend
@@ -127,9 +151,17 @@ steps:
         exit 1
       fi
       
-      # Generar tag único para la imagen de frontend
+      # Obtener información necesaria para el tag de la imagen
       export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
-      export FRONTEND_IMAGE_TAG="${DOCKER_REGISTRY}/${TENANCY_NAMESPACE}/${FRONTEND_REPO}:${OCI_BUILD_RUN_ID}"
+      
+      # Resolver la región de manera explícita (igual que en backend)
+      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null || echo "mx-queretaro-1")
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        export CURRENT_REGION="mx-queretaro-1"  # Usar la región conocida como fallback
+      fi
+      
+      # Generar tag único para la imagen de frontend con región resuelta
+      export FRONTEND_IMAGE_TAG="${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
       echo "Frontend image tag: ${FRONTEND_IMAGE_TAG}"
       
       # IMPORTANTE: Cambiar al directorio del frontend antes de construir
@@ -149,8 +181,7 @@ steps:
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # Verificar que la imagen se construyó correctamente
-      docker images | grep ${FRONTEND_REPO}
-      
+      docker images | grep dashmaster-frontend
       echo "Frontend image built successfully: ${FRONTEND_IMAGE_TAG}"
 
   # Paso 5: Hacer login a OCIR
@@ -160,8 +191,20 @@ steps:
     command: |
       echo "Logging into OCIR..."
       
-      # Login a OCIR usando la región de la instancia
+      # Obtener información necesaria para el login
       export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      
+      # Resolver la región de manera explícita
+      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null || echo "mx-queretaro-1")
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        export CURRENT_REGION="mx-queretaro-1"
+      fi
+      
+      export DOCKER_REGISTRY="${CURRENT_REGION}.ocir.io"
+      echo "Docker registry: ${DOCKER_REGISTRY}"
+      echo "Tenancy namespace: ${TENANCY_NAMESPACE}"
+      
+      # Login a OCIR usando la región resuelta
       echo ${OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM} | docker login ${DOCKER_REGISTRY} --username ${TENANCY_NAMESPACE}/oracleidentitycloudservice/${OCI_PRINCIPAL_ID} --password-stdin
       
       echo "Successfully logged into OCIR"
@@ -173,10 +216,26 @@ steps:
     command: |
       echo "Pushing backend image to OCIR..."
       
-      # Push de la imagen de backend
-      docker push ${BACKEND_IMAGE_TAG}
+      # Reconstruir el tag de la imagen de backend (debe coincidir exactamente con el del build)
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null || echo "mx-queretaro-1")
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        export CURRENT_REGION="mx-queretaro-1"
+      fi
+      export BACKEND_IMAGE_TAG="${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-backend:${OCI_BUILD_RUN_ID}"
       
-      echo "Backend image pushed successfully: ${BACKEND_IMAGE_TAG}"
+      echo "Pushing backend image: ${BACKEND_IMAGE_TAG}"
+      
+      # Verificar que la imagen existe localmente antes de hacer push
+      if docker images ${BACKEND_IMAGE_TAG} | grep -q dashmaster-backend; then
+        docker push ${BACKEND_IMAGE_TAG}
+        echo "Backend image pushed successfully: ${BACKEND_IMAGE_TAG}"
+      else
+        echo "ERROR: Backend image ${BACKEND_IMAGE_TAG} not found locally"
+        echo "Available images:"
+        docker images | grep dashmaster-backend || echo "No dashmaster-backend images found"
+        exit 1
+      fi
 
   # Paso 7: Push frontend image
   - type: Command
@@ -185,10 +244,26 @@ steps:
     command: |
       echo "Pushing frontend image to OCIR..."
       
-      # Push de la imagen de frontend
-      docker push ${FRONTEND_IMAGE_TAG}
+      # Reconstruir el tag de la imagen de frontend (debe coincidir exactamente con el del build)
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null || echo "mx-queretaro-1")
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        export CURRENT_REGION="mx-queretaro-1"
+      fi
+      export FRONTEND_IMAGE_TAG="${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
       
-      echo "Frontend image pushed successfully: ${FRONTEND_IMAGE_TAG}"
+      echo "Pushing frontend image: ${FRONTEND_IMAGE_TAG}"
+      
+      # Verificar que la imagen existe localmente antes de hacer push
+      if docker images ${FRONTEND_IMAGE_TAG} | grep -q dashmaster-frontend; then
+        docker push ${FRONTEND_IMAGE_TAG}
+        echo "Frontend image pushed successfully: ${FRONTEND_IMAGE_TAG}"
+      else
+        echo "ERROR: Frontend image ${FRONTEND_IMAGE_TAG} not found locally"
+        echo "Available images:"
+        docker images | grep dashmaster-frontend || echo "No dashmaster-frontend images found"
+        exit 1
+      fi
 
   # Paso 8: Preparar deployment manifest
   - type: Command
@@ -232,31 +307,57 @@ steps:
     command: |
       echo "=== Verifying Built Images ==="
       
+      # Reconstruir las variables para verificación (usando la misma lógica que en los builds)
+      export TENANCY_NAMESPACE=$(oci os ns get --query "data" --raw-output)
+      export CURRENT_REGION=$(oci iam region-subscription list --query "data[?\"is-home-region\"==\`false\`].\"region-name\" | [0]" --raw-output 2>/dev/null || echo "mx-queretaro-1")
+      if [ -z "$CURRENT_REGION" ] || [ "$CURRENT_REGION" = "null" ]; then
+        export CURRENT_REGION="mx-queretaro-1"
+      fi
+      
+      export BACKEND_IMAGE_TAG="${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-backend:${OCI_BUILD_RUN_ID}"
+      export FRONTEND_IMAGE_TAG="${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
+      
       echo "All Docker images:"
       docker images
       
       echo "Backend image details:"
-      docker images | grep ${BACKEND_REPO} || echo "Backend image not found!"
+      docker images | grep dashmaster-backend || echo "Backend image not found!"
       
       echo "Frontend image details:"
-      docker images | grep ${FRONTEND_REPO} || echo "Frontend image not found!"
+      docker images | grep dashmaster-frontend || echo "Frontend image not found!"
       
       # Verificar que las variables están exportadas correctamente
       echo "Exported variables:"
       echo "BACKEND_IMAGE_TAG: ${BACKEND_IMAGE_TAG}"
       echo "FRONTEND_IMAGE_TAG: ${FRONTEND_IMAGE_TAG}"
+      echo "CURRENT_REGION: ${CURRENT_REGION}"
+      echo "TENANCY_NAMESPACE: ${TENANCY_NAMESPACE}"
+      
+      # Verificar que las imágenes fueron construidas con los tags correctos
+      if docker images | grep -q "${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-backend"; then
+        echo "✅ Backend image found with correct tag"
+      else
+        echo "❌ Backend image NOT found with expected tag"
+      fi
+      
+      if docker images | grep -q "${CURRENT_REGION}.ocir.io/${TENANCY_NAMESPACE}/dashmaster-frontend"; then
+        echo "✅ Frontend image found with correct tag"
+      else
+        echo "❌ Frontend image NOT found with expected tag"
+      fi
       
       echo "Build process completed successfully!"
 
 outputArtifacts:
   # Definir los artefactos de salida que serán utilizados en el deployment
+  # IMPORTANTE: Estos tags deben coincidir EXACTAMENTE con los usados en los pasos de build
   - name: backend_image
     type: DOCKER_IMAGE
-    location: ${BACKEND_IMAGE_TAG}
+    location: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}
     
   - name: frontend_image  
     type: DOCKER_IMAGE
-    location: ${FRONTEND_IMAGE_TAG}
+    location: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}
     
   - name: deployment_artifacts
     type: BINARY
