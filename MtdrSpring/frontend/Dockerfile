@@ -1,19 +1,19 @@
-# Multi-stage build para aplicación React/Vite
-FROM node:18-alpine AS build
+# Multi-stage build para aplicación React/Vite usando Bun
+FROM oven/bun:1 AS build
 
 WORKDIR /app
 
 # Copiar archivos de dependencias
-COPY package.json package-lock.json* ./
+COPY package.json bun.lock* ./
 
-# Instalar dependencias
-RUN npm install
+# Instalar dependencias con Bun (más rápido y maneja mejor los conflictos)
+RUN bun install
 
 # Copiar código fuente
 COPY . .
 
 # Construir la aplicación para producción
-RUN npm run build
+RUN bun run build
 
 # Etapa de producción con nginx
 FROM nginx:alpine
