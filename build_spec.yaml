@@ -1,77 +1,48 @@
 version: 0.1
 component: build
-timeoutInSeconds: 6000
+timeoutInSeconds: 3000
 runAs: root
 shell: bash
 
 steps:
   - type: Command
-    name: "Build with updated Dockerfiles using Oracle Container Registry"
-    timeoutInSeconds: 3600
+    name: "Simple and fast build"
+    timeoutInSeconds: 1800
     command: |
-      echo "=== DASHMASTER BUILD CON DOCKERFILES ACTUALIZADOS ==="
-      echo "Timestamp: $(date)"
-      echo "Build Run ID: ${OCI_BUILD_RUN_ID}"
+      echo "=== BUILD RÁPIDO Y SIMPLE ==="
       
-      BACKEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"
-      FRONTEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
+      BACKEND_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"
+      FRONTEND_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
       
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # Autenticación con Oracle Container Registry
-      echo "=== 🔐 AUTENTICACIÓN CON ORACLE CONTAINER REGISTRY ==="
-      if echo "JzE_4#PtkzhjJ0h#c6T" | docker login container-registry.oracle.com --username "a01254805@tec.mx" --password-stdin; then
-        echo "✅ Oracle Container Registry autenticado"
-      else
-        echo "❌ Error en autenticación"
-        exit 1
-      fi
-      
-      # Construir backend usando Dockerfile actualizado
-      echo "=== 🔨 CONSTRUYENDO BACKEND ==="
+      # Build backend - sin autenticación especial, usa Docker Hub
+      echo "=== BACKEND BUILD ==="
       cd MtdrSpring/backend
-      docker build -t ${BACKEND_FULL_TAG} .
+      docker build -t ${BACKEND_TAG} .
+      if [ $? -ne 0 ]; then echo "Backend build failed"; exit 1; fi
       
-      if [ $? -eq 0 ]; then
-        echo "✅ Backend construido exitosamente"
-      else
-        echo "❌ Error construyendo backend"
-        exit 1
-      fi
-      
-      # Construir frontend usando Dockerfile actualizado
-      echo "=== 🔨 CONSTRUYENDO FRONTEND ==="
+      # Build frontend - sin validación nginx en build time
+      echo "=== FRONTEND BUILD ==="
       cd ${OCI_PRIMARY_SOURCE_DIR}/MtdrSpring/frontend
-      docker build -t ${FRONTEND_FULL_TAG} .
-      
-      if [ $? -eq 0 ]; then
-        echo "✅ Frontend construido exitosamente"
-      else
-        echo "❌ Error construyendo frontend"
-        exit 1
-      fi
+      docker build -t ${FRONTEND_TAG} .
+      if [ $? -ne 0 ]; then echo "Frontend build failed"; exit 1; fi
       
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # Autenticación con OCIR y push de imágenes
-      echo "=== 🔐 AUTENTICACIÓN CON OCIR ==="
-      if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673@tec.mx" --password-stdin; then
-        echo "✅ OCIR autenticado"
-      else
-        echo "❌ Error con OCIR"
-        exit 1
-      fi
+      # Login a OCIR y push
+      echo "=== PUSH TO OCIR ==="
+      echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673@tec.mx" --password-stdin
       
-      # Push de imágenes
-      echo "=== 📤 SUBIENDO IMÁGENES ==="
-      docker push ${BACKEND_FULL_TAG} && docker tag ${BACKEND_FULL_TAG} "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest" && docker push "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
-      docker push ${FRONTEND_FULL_TAG} && docker tag ${FRONTEND_FULL_TAG} "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest" && docker push "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"
+      docker push ${BACKEND_TAG}
+      docker tag ${BACKEND_TAG} "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
+      docker push "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
       
-      if [ -f "deployment.yaml" ]; then
-        cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
-      fi
+      docker push ${FRONTEND_TAG}
+      docker tag ${FRONTEND_TAG} "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"  
+      docker push "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"
       
-      echo "=== 🎉 BUILD COMPLETADO ==="
+      echo "=== BUILD COMPLETED ==="
 
 outputArtifacts:
   - name: backend_image
@@ -80,6 +51,3 @@ outputArtifacts:
   - name: frontend_image
     type: DOCKER_IMAGE
     location: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}
-  - name: deployment_artifacts
-    type: BINARY
-    location: deployment.yaml
