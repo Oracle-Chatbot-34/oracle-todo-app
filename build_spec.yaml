@@ -5,27 +5,48 @@ runAs: root
 shell: bash
 
 steps:
-  # Paso único que hace todo el proceso
+  # Paso único que hace todo el proceso con autenticación mejorada
   - type: Command
-    name: "Complete build and push process"
+    name: "Complete build and push process with authentication"
     timeoutInSeconds: 3600
     command: |
-      echo "=== PROCESO COMPLETO DE BUILD ==="
+      echo "=== PROCESO COMPLETO DE BUILD CON AUTENTICACIÓN ==="
       echo "Timestamp: $(date)"
       echo "Build Run ID: ${OCI_BUILD_RUN_ID}"
       
-      # Construir tags usando valores literales + la única variable que funciona
+      # Construir tags usando la variable de build ID
       BACKEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"
       FRONTEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
       
       echo "Backend tag: ${BACKEND_FULL_TAG}"
       echo "Frontend tag: ${FRONTEND_FULL_TAG}"
       
+      # Navegar al directorio de código fuente
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # BUILD BACKEND
+      # PASO CRÍTICO: Autenticación con Oracle Container Registry para imágenes base
+      echo "=== AUTENTICACIÓN CON ORACLE CONTAINER REGISTRY ==="
+      echo "Autenticando para acceder a imágenes base (maven, node, nginx)..."
+      
+      # Login para Oracle Container Registry (para pull de imágenes base)
+      if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login container-registry.oracle.com --username "a01254673/a01254673@tec.mx" --password-stdin; then
+        echo "✅ Login exitoso con Oracle Container Registry"
+      else
+        echo "❌ Error en login con Oracle Container Registry"
+        echo "Intentando formato de username alternativo..."
+        if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login container-registry.oracle.com --username "a01254673@tec.mx" --password-stdin; then
+          echo "✅ Login exitoso con formato alternativo"
+        else
+          echo "❌ Ambos formatos de login fallaron para Oracle Container Registry"
+          exit 1
+        fi
+      fi
+      
+      # CONSTRUIR BACKEND
       echo "=== CONSTRUYENDO BACKEND ==="
       cd MtdrSpring/backend
+      
+      # El Dockerfile ahora puede hacer pull de la imagen maven desde Oracle Container Registry
       docker build -t ${BACKEND_FULL_TAG} .
       
       if [ $? -eq 0 ]; then
@@ -35,11 +56,14 @@ steps:
         exit 1
       fi
       
+      # Regresar al directorio raíz
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # BUILD FRONTEND
+      # CONSTRUIR FRONTEND
       echo "=== CONSTRUYENDO FRONTEND ==="
       cd MtdrSpring/frontend
+      
+      # El Dockerfile ahora puede hacer pull de la imagen node desde Oracle Container Registry
       docker build -t ${FRONTEND_FULL_TAG} .
       
       if [ $? -eq 0 ]; then
@@ -49,42 +73,40 @@ steps:
         exit 1
       fi
       
+      # Regresar al directorio raíz
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # MOSTRAR IMÁGENES CONSTRUIDAS
       echo "=== IMÁGENES CONSTRUIDAS ==="
       docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g"
       
-      # LOGIN A OCIR con credenciales correctas
-      echo "=== LOGIN A ORACLE CONTAINER REGISTRY ==="
+      # AUTENTICACIÓN CON OCIR PARA PUSH DE IMÁGENES
+      echo "=== AUTENTICACIÓN CON OCIR PARA PUSH ==="
       echo "Registry: mx-queretaro-1.ocir.io"
       echo "Namespace: ax6xpbwtbt9g"
       
-      # Usar las credenciales exactas
-      echo "Intentando login con credenciales específicas..."
+      # Login para OCIR (para push de nuestras imágenes construidas)
+      echo "Autenticando con OCIR para push de imágenes..."
       if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673@tec.mx" --password-stdin; then
-        echo "✅ Login exitoso con credenciales correctas"
+        echo "✅ Login exitoso con OCIR"
       else
-        echo "❌ Error en login. Intentando formato alternativo..."
-        # Intentar con el formato username/username
+        echo "❌ Error en login con OCIR. Intentando formato alternativo..."
         if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673" --password-stdin; then
-          echo "✅ Login exitoso con formato alternativo"
+          echo "✅ Login exitoso con OCIR formato alternativo"
         else
-          echo "❌ Ambos formatos de login fallaron"
-          echo "Username probado: ax6xpbwtbt9g/a01254673@tec.mx"
-          echo "Username alternativo: ax6xpbwtbt9g/a01254673"
+          echo "❌ Ambos formatos de login fallaron con OCIR"
           exit 1
         fi
       fi
       
-      # PUSH BACKEND
+      # PUSH BACKEND IMAGE
       echo "=== PUSHING BACKEND IMAGE ==="
       docker push ${BACKEND_FULL_TAG}
       
       if [ $? -eq 0 ]; then
         echo "✅ Backend image subida exitosamente: ${BACKEND_FULL_TAG}"
         
-        # Crear también un tag 'latest' para facilitar deployment
+        # Crear tag 'latest' para facilitar deployment
         BACKEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
         docker tag ${BACKEND_FULL_TAG} ${BACKEND_LATEST_TAG}
         docker push ${BACKEND_LATEST_TAG}
@@ -94,14 +116,14 @@ steps:
         exit 1
       fi
       
-      # PUSH FRONTEND
+      # PUSH FRONTEND IMAGE
       echo "=== PUSHING FRONTEND IMAGE ==="
       docker push ${FRONTEND_FULL_TAG}
       
       if [ $? -eq 0 ]; then
         echo "✅ Frontend image subida exitosamente: ${FRONTEND_FULL_TAG}"
         
-        # Crear también un tag 'latest' para facilitar deployment
+        # Crear tag 'latest' para facilitar deployment
         FRONTEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"
         docker tag ${FRONTEND_FULL_TAG} ${FRONTEND_LATEST_TAG}
         docker push ${FRONTEND_LATEST_TAG}
@@ -124,6 +146,7 @@ steps:
       echo "=== PROCESO COMPLETADO EXITOSAMENTE ==="
       echo "Backend: ${BACKEND_FULL_TAG}"
       echo "Frontend: ${FRONTEND_FULL_TAG}"
+      echo "Ambas imágenes también disponibles con tag 'latest'"
 
 outputArtifacts:
   - name: backend_image
