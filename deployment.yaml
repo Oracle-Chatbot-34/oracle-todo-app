@@ -5,6 +5,7 @@ metadata:
   namespace: default
   labels:
     app: dashmaster-backend
+    version: v1
 spec:
   replicas: 1
   selector:
@@ -14,12 +15,14 @@ spec:
     metadata:
       labels:
         app: dashmaster-backend
+        version: v1
     spec:
       containers:
       - name: dashmaster-backend
         image: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest
         ports:
         - containerPort: 8080
+          name: http
         env:
         - name: SPRING_PROFILES_ACTIVE
           value: "production"
@@ -29,18 +32,24 @@ spec:
           value: "/app/wallet"
         - name: SPRING_DATASOURCE_URL
           value: "jdbc:oracle:thin:@javadev_high?TNS_ADMIN=/app/wallet"
+        # Esta variable confirma explícitamente el context path
+        - name: SERVER_SERVLET_CONTEXT_PATH
+          value: "/api"
+        - name: LOGGING_LEVEL_COM_SPRINGBOOT
+          value: "INFO"
         resources:
           requests:
-            memory: "256Mi"
+            memory: "512Mi"
             cpu: "250m"
           limits:
-            memory: "512Mi"
+            memory: "1Gi"
             cpu: "500m"
+        # Health checks ajustados para el context path correcto
         livenessProbe:
           httpGet:
             path: /api/actuator/health
             port: 8080
-          initialDelaySeconds: 60
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 10
           failureThreshold: 3
@@ -48,16 +57,22 @@ spec:
           httpGet:
             path: /api/actuator/health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 60
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: dashmaster-backend-service
   namespace: default
+  labels:
+    app: dashmaster-backend
 spec:
   selector:
     app: dashmaster-backend
@@ -67,6 +82,7 @@ spec:
     port: 8080
     targetPort: 8080
   type: ClusterIP
+  sessionAffinity: None
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -75,6 +91,7 @@ metadata:
   namespace: default
   labels:
     app: dashmaster-frontend
+    version: v1
 spec:
   replicas: 1
   selector:
@@ -84,46 +101,54 @@ spec:
     metadata:
       labels:
         app: dashmaster-frontend
+        version: v1
     spec:
       containers:
       - name: dashmaster-frontend
         image: mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest
         ports:
         - containerPort: 80
+          name: http
         env:
         - name: NODE_ENV
           value: "production"
-        - name: REACT_APP_API_URL
-          value: "http://dashmaster-backend-service:8080/api"
+        # No configuramos URLs aquí porque nginx maneja todo el routing
         resources:
           requests:
-            memory: "128Mi"
+            memory: "256Mi"
             cpu: "100m"
           limits:
-            memory: "256Mi"
+            memory: "512Mi"
             cpu: "200m"
-        # livenessProbe:
-        #   httpGet:
-        #     path: /api/actuator/health
-        #     port: 8080
-        #   initialDelaySeconds: 60
-        #   periodSeconds: 30
-        #   timeoutSeconds: 10
-        #   failureThreshold: 3
-        # readinessProbe:
-        #   httpGet:
-        #     path: /api/actuator/health
-        #     port: 8080
-        #   initialDelaySeconds: 30
-        #   periodSeconds: 10
-        #   timeoutSeconds: 5
-        #   failureThreshold: 3
+        # Health checks usando nuestro endpoint personalizado
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 101 # nginx user
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: dashmaster-frontend-service
   namespace: default
+  labels:
+    app: dashmaster-frontend
 spec:
   selector:
     app: dashmaster-frontend
@@ -133,3 +158,4 @@ spec:
     port: 80
     targetPort: 80
   type: LoadBalancer
+  sessionAffinity: None
