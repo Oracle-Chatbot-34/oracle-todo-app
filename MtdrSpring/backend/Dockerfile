@@ -1,45 +1,46 @@
-# Usar Oracle Container Registry para evitar rate limits de Docker Hub
-FROM container-registry.oracle.com/java/maven:3.9.6-openjdk-17 AS build
+# Usar imagen oficial más específica y menos popular para evitar rate limits
+FROM eclipse-temurin:17-jdk-alpine AS build
 WORKDIR /app
+
+# Instalar Maven manualmente para tener más control
+RUN apk add --no-cache maven
 
 # Copiar archivos del proyecto
 COPY pom.xml .
 COPY src ./src
 
 # Compilar la aplicación
-# -DskipTests acelera el build omitiendo tests en el contenedor
 RUN mvn clean package -DskipTests
 
-# Imagen final con JRE optimizada
-FROM container-registry.oracle.com/java/openjdk:17-jre-slim
+# Imagen final optimizada - usar la misma base para consistencia
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Instalar herramientas útiles para debugging y health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Instalar curl para health checks
+RUN apk add --no-cache curl
 
-# Copiar el JAR compilado desde la etapa de build
+# Copiar el JAR compilado
 COPY --from=build /app/target/MyTodoList-0.0.1-SNAPSHOT.jar app.jar
 
-# Copiar wallet Oracle a la ubicación correcta para autenticación de base de datos
+# Copiar wallet Oracle
 COPY --from=build /app/src/main/resources/Wallet_javadev /app/wallet
 
-# Verificar que el wallet se copió correctamente - importante para debugging
+# Verificar wallet
 RUN ls -la /app/wallet/ && echo "Wallet files:" && ls /app/wallet/
 
-# Variables de entorno para el wallet de Oracle
+# Variables de entorno para Oracle
 ENV TNS_ADMIN=/app/wallet
 ENV ORACLE_TNS_ADMIN=/app/wallet
 
-# Variables JVM optimizadas para contenedor
-# Xmx384m limita memoria máxima, Xms256m establece memoria inicial
+# Variables JVM optimizadas
 ENV JAVA_OPTS="-Xmx384m -Xms256m -Djava.security.egd=file:/dev/./urandom"
 
-# Exponer puerto 8080
+# Exponer puerto
 EXPOSE 8080
 
-# Health check a nivel de contenedor para Kubernetes
+# Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:8080/api/actuator/health || exit 1
 
-# Ejecutar la aplicación
+# Ejecutar aplicación
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
