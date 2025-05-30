@@ -17,16 +17,37 @@ public class CorsConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://localhost:5173",
+
+        // Permitir tu IP externa + localhost
+        config.setAllowedOriginPatterns(Arrays.asList(
+                "http://220.158.78.170",
+                "http://220.158.78.170:*",
+                "https://220.158.78.170",
+                "https://220.158.78.170:*",
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                "https://localhost:*",
                 "https://objectstorage.us-phoenix-1.oraclecloud.com",
                 "https://petstore.swagger.io"));
-        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "OPTIONS", "DELETE", "PATCH"));
+
+        config.setAllowedMethods(Arrays.asList(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
         config.setAllowCredentials(true);
-        config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+
+        config.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Access-Control-Request-Method",
+                "Access-Control-Request-Headers"));
+
         config.addExposedHeader("location");
+
+        // Cache preflight por 1 hora
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
