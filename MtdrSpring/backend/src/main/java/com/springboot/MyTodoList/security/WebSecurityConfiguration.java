@@ -41,6 +41,10 @@ public class WebSecurityConfiguration {
 
                 // 3. Set permissions on endpoints
                 .authorizeHttpRequests(auth -> auth
+                        // Health check endpoints (for Kubernetes)
+                        .requestMatchers(new AntPathRequestMatcher("/actuator/**")).permitAll()
+                        .requestMatchers(new AntPathRequestMatcher("/api/actuator/**")).permitAll()
+                        
                         // Public endpoints
                         .requestMatchers(new AntPathRequestMatcher("/auth/**")).permitAll()
                         .requestMatchers(new AntPathRequestMatcher("/v3/api-docs/**")).permitAll()
