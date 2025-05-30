@@ -61,7 +61,7 @@ export default function Login() {
         >
           <div className="justify-center flex flex-col items-center">
             <p className="text-[40px] w-[230px] text-sm/12 text-center">
-              Go to your Dassboard!
+              Go to your Dashboard!
             </p>
           </div>
 
