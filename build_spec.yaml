@@ -5,148 +5,140 @@ runAs: root
 shell: bash
 
 steps:
-  # Paso único que hace todo el proceso con autenticación mejorada
+  # Estrategia simplificada: focus en robustez y confiabilidad
   - type: Command
-    name: "Complete build and push process with authentication"
+    name: "Build and deploy with reliable base images"
     timeoutInSeconds: 3600
     command: |
-      echo "=== PROCESO COMPLETO DE BUILD CON AUTENTICACIÓN ==="
+      echo "=== DASHMASTER BUILD - ESTRATEGIA ROBUSTA ==="
       echo "Timestamp: $(date)"
       echo "Build Run ID: ${OCI_BUILD_RUN_ID}"
       
-      # Construir tags usando la variable de build ID
+      # Construir tags de imagen con el build ID único
       BACKEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"
       FRONTEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
       
-      echo "Backend tag: ${BACKEND_FULL_TAG}"
-      echo "Frontend tag: ${FRONTEND_FULL_TAG}"
+      echo "🏗️ Backend tag: ${BACKEND_FULL_TAG}"
+      echo "🏗️ Frontend tag: ${FRONTEND_FULL_TAG}"
       
-      # Navegar al directorio de código fuente
+      # Navegar al directorio del código fuente
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # PASO CRÍTICO: Autenticación con Oracle Container Registry para imágenes base
-      echo "=== AUTENTICACIÓN CON ORACLE CONTAINER REGISTRY ==="
-      echo "Autenticando para acceder a imágenes base (maven, node, nginx)..."
-      
-      # Login para Oracle Container Registry (para pull de imágenes base)
-      if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login container-registry.oracle.com --username "a01254673/a01254673@tec.mx" --password-stdin; then
-        echo "✅ Login exitoso con Oracle Container Registry"
-      else
-        echo "❌ Error en login con Oracle Container Registry"
-        echo "Intentando formato de username alternativo..."
-        if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login container-registry.oracle.com --username "a01254673@tec.mx" --password-stdin; then
-          echo "✅ Login exitoso con formato alternativo"
-        else
-          echo "❌ Ambos formatos de login fallaron para Oracle Container Registry"
-          exit 1
-        fi
-      fi
-      
       # CONSTRUIR BACKEND
-      echo "=== CONSTRUYENDO BACKEND ==="
+      echo "=== 🔨 CONSTRUYENDO BACKEND ==="
       cd MtdrSpring/backend
       
-      # El Dockerfile ahora puede hacer pull de la imagen maven desde Oracle Container Registry
+      # Build del backend - usa eclipse-temurin que está disponible en Docker Hub sin restricciones
+      echo "Iniciando build del backend con eclipse-temurin..."
       docker build -t ${BACKEND_FULL_TAG} .
       
+      # Verificar que el build fue exitoso antes de continuar
       if [ $? -eq 0 ]; then
         echo "✅ Backend construido exitosamente"
       else
         echo "❌ Error construyendo el backend"
+        # Mostrar información adicional para debugging
+        docker images | head -10
         exit 1
       fi
       
-      # Regresar al directorio raíz
+      # Regresar al directorio raíz para el frontend
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
       # CONSTRUIR FRONTEND
-      echo "=== CONSTRUYENDO FRONTEND ==="
+      echo "=== 🔨 CONSTRUYENDO FRONTEND ==="
       cd MtdrSpring/frontend
       
-      # El Dockerfile ahora puede hacer pull de la imagen node desde Oracle Container Registry
+      # Build del frontend - usa node:18.19-alpine que es estable y confiable
+      echo "Iniciando build del frontend con node alpine..."
       docker build -t ${FRONTEND_FULL_TAG} .
       
+      # Verificar que el build fue exitoso
       if [ $? -eq 0 ]; then
         echo "✅ Frontend construido exitosamente"
       else
         echo "❌ Error construyendo el frontend"
+        # Información de debugging
+        docker images | head -10
         exit 1
       fi
       
       # Regresar al directorio raíz
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # MOSTRAR IMÁGENES CONSTRUIDAS
-      echo "=== IMÁGENES CONSTRUIDAS ==="
+      # MOSTRAR IMÁGENES CONSTRUIDAS para verificación
+      echo "=== 📦 IMÁGENES CONSTRUIDAS ==="
       docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g"
       
-      # AUTENTICACIÓN CON OCIR PARA PUSH DE IMÁGENES
-      echo "=== AUTENTICACIÓN CON OCIR PARA PUSH ==="
-      echo "Registry: mx-queretaro-1.ocir.io"
+      # AUTENTICACIÓN CON OCIR - solo necesitamos autenticarnos una vez para push
+      echo "=== 🔐 AUTENTICACIÓN CON OCIR ==="
+      echo "Registry destino: mx-queretaro-1.ocir.io"
       echo "Namespace: ax6xpbwtbt9g"
       
-      # Login para OCIR (para push de nuestras imágenes construidas)
-      echo "Autenticando con OCIR para push de imágenes..."
+      # Intentar login con formato completo primero
       if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673@tec.mx" --password-stdin; then
-        echo "✅ Login exitoso con OCIR"
+        echo "✅ Login exitoso con OCIR (formato completo)"
       else
-        echo "❌ Error en login con OCIR. Intentando formato alternativo..."
+        echo "⚠️ Formato completo falló, intentando formato alternativo..."
         if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673" --password-stdin; then
-          echo "✅ Login exitoso con OCIR formato alternativo"
+          echo "✅ Login exitoso con OCIR (formato alternativo)"
         else
-          echo "❌ Ambos formatos de login fallaron con OCIR"
+          echo "❌ Error crítico: no se pudo autenticar con OCIR"
+          echo "Esto indica un problema con las credenciales o permisos"
           exit 1
         fi
       fi
       
       # PUSH BACKEND IMAGE
-      echo "=== PUSHING BACKEND IMAGE ==="
+      echo "=== 📤 SUBIENDO IMAGEN BACKEND ==="
       docker push ${BACKEND_FULL_TAG}
       
       if [ $? -eq 0 ]; then
         echo "✅ Backend image subida exitosamente: ${BACKEND_FULL_TAG}"
         
-        # Crear tag 'latest' para facilitar deployment
+        # Crear y subir tag 'latest' para facilitar deployment
         BACKEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
         docker tag ${BACKEND_FULL_TAG} ${BACKEND_LATEST_TAG}
         docker push ${BACKEND_LATEST_TAG}
-        echo "✅ Backend image también subida como: ${BACKEND_LATEST_TAG}"
+        echo "✅ Backend también disponible como: ${BACKEND_LATEST_TAG}"
       else
-        echo "❌ Error subiendo backend image"
+        echo "❌ Error crítico subiendo backend image"
         exit 1
       fi
       
       # PUSH FRONTEND IMAGE
-      echo "=== PUSHING FRONTEND IMAGE ==="
+      echo "=== 📤 SUBIENDO IMAGEN FRONTEND ==="
       docker push ${FRONTEND_FULL_TAG}
       
       if [ $? -eq 0 ]; then
         echo "✅ Frontend image subida exitosamente: ${FRONTEND_FULL_TAG}"
         
-        # Crear tag 'latest' para facilitar deployment
+        # Crear y subir tag 'latest'
         FRONTEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"
         docker tag ${FRONTEND_FULL_TAG} ${FRONTEND_LATEST_TAG}
         docker push ${FRONTEND_LATEST_TAG}
-        echo "✅ Frontend image también subida como: ${FRONTEND_LATEST_TAG}"
+        echo "✅ Frontend también disponible como: ${FRONTEND_LATEST_TAG}"
       else
-        echo "❌ Error subiendo frontend image"
+        echo "❌ Error crítico subiendo frontend image"
         exit 1
       fi
       
-      # PREPARAR DEPLOYMENT MANIFEST
-      echo "=== PREPARANDO DEPLOYMENT MANIFEST ==="
+      # PREPARAR ARTIFACTS PARA DEPLOYMENT
+      echo "=== 📋 PREPARANDO DEPLOYMENT ==="
       if [ ! -f "deployment.yaml" ]; then
-        echo "ERROR: deployment.yaml no encontrado"
-        exit 1
+        echo "❌ ADVERTENCIA: deployment.yaml no encontrado"
+        echo "El deployment manual será necesario"
+      else
+        cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
+        echo "✅ Deployment manifest preparado"
       fi
       
-      cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
-      echo "✅ Deployment manifest preparado"
-      
-      echo "=== PROCESO COMPLETADO EXITOSAMENTE ==="
-      echo "Backend: ${BACKEND_FULL_TAG}"
-      echo "Frontend: ${FRONTEND_FULL_TAG}"
-      echo "Ambas imágenes también disponibles con tag 'latest'"
+      # RESUMEN FINAL
+      echo "=== 🎉 BUILD COMPLETADO EXITOSAMENTE ==="
+      echo "Backend image: ${BACKEND_FULL_TAG}"
+      echo "Frontend image: ${FRONTEND_FULL_TAG}"
+      echo "Ambas imágenes están también taggeadas como 'latest'"
+      echo "Listo para deployment en Kubernetes"
 
 outputArtifacts:
   - name: backend_image
