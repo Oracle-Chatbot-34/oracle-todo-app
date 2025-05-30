@@ -1,78 +1,84 @@
-# Multi-stage build usando Oracle Container Registry para evitar rate limits
-# Oracle Container Registry Mirror tiene las mismas imágenes sin límites de rate
-FROM container-registry.oracle.com/os/node:18-alpine AS build
-
+# Etapa de build usando Oracle Linux con Node.js instalado desde fuente oficial
+FROM container-registry.oracle.com/os/oraclelinux:8-slim AS build
 WORKDIR /app
 
-# Configurar npm para mayor eficiencia y evitar warnings innecesarios
-RUN npm config set fund false
-RUN npm config set audit-level none
+# Instalar herramientas básicas necesarias para descargar e instalar Node.js
+RUN microdnf update -y && \
+    microdnf install -y curl wget tar xz && \
+    microdnf clean all
 
-# Copiar archivos de dependencias primero - esto aprovecha el cache de Docker layers
+# Instalar Node.js desde NodeSource (más confiable que imágenes de registry)
+# Usamos una versión LTS específica para estabilidad
+RUN curl -fsSL https://nodejs.org/dist/v18.19.0/node-v18.19.0-linux-x64.tar.xz | tar -xJ -C /opt/ && \
+    ln -s /opt/node-v18.19.0-linux-x64/bin/node /usr/local/bin/node && \
+    ln -s /opt/node-v18.19.0-linux-x64/bin/npm /usr/local/bin/npm
+
+# Verificar que Node.js y npm se instalaron correctamente
+RUN node --version && npm --version
+
+# Configurar npm para optimizar el proceso de instalación
+# Estas configuraciones reducen warnings y mejoran velocidad
+RUN npm config set fund false && npm config set audit-level none
+
+# Copiar archivos de dependencias primero para aprovechar Docker layer caching
 # Si package.json no cambia, esta layer se reutiliza en builds subsecuentes
 COPY package.json package-lock.json* ./
 
-# Limpiar cache de npm e instalar dependencias
-# --legacy-peer-deps resuelve conflictos de dependencias
-# --no-audit y --no-fund aceleran la instalación
-RUN npm cache clean --force
-RUN npm install --legacy-peer-deps --no-audit --no-fund
+# Instalar dependencias con configuraciones robustas para CI/CD
+RUN npm cache clean --force && npm install --legacy-peer-deps --no-audit --no-fund
 
 # Copiar el resto del código fuente después de instalar dependencias
-# Esto significa que cambios en el código no invalidan la cache de node_modules
+# Esta separación optimiza el tiempo de build cuando solo cambia código
 COPY . .
 
-# Variables de entorno específicas para el build de producción
-# Estas variables le dicen a Vite cómo construir la aplicación
+# Variables de entorno para build de producción con Vite
+# Estas variables configuran cómo Vite optimiza la aplicación
 ENV NODE_ENV=production
 ENV VITE_API_BASE_URL=""
 ENV VITE_AUTH_ENDPOINT="/auth"
 ENV VITE_API_ENDPOINT="/api"
 
-# Construir la aplicación usando Vite
+# Construir la aplicación React usando Vite
+# Esto genera archivos estáticos optimizados para producción
 RUN npm run build
 
-# Verificar que el build fue exitoso antes de continuar
-RUN ls -la dist/ && echo "✅ Build completed successfully"
+# Verificar que el build produjo los archivos esperados
+RUN ls -la dist/ && echo "✅ Frontend build completado exitosamente"
 
-# Segunda etapa: imagen de producción optimizada
-# Usamos Oracle Container Registry también para nginx
-FROM container-registry.oracle.com/os/nginx:alpine
+# Etapa de producción usando Oracle Linux con nginx
+FROM container-registry.oracle.com/os/oraclelinux:8-slim
 
-# Instalar curl para health checks - necesario para Kubernetes probes
-RUN apk add --no-cache curl
+# Instalar nginx y curl desde repositorios oficiales de Oracle Linux
+RUN microdnf update -y && \
+    microdnf install -y nginx curl && \
+    microdnf clean all
 
-# Remover configuración default de nginx que puede conflictar con la nuestra
-RUN rm /etc/nginx/conf.d/default.conf
+# Verificar que nginx se instaló correctamente
+RUN nginx -v
 
-# Copiar archivos construidos desde la etapa de build
+# Configurar directorios necesarios para nginx en contenedor
+# Estos directorios son requeridos para que nginx funcione correctamente
+RUN mkdir -p /var/log/nginx /var/cache/nginx /run/nginx
+
+# Remover configuración default que puede conflictar con la nuestra
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+# Copiar archivos de la aplicación construida desde la etapa de build
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copiar nuestra configuración personalizada de nginx
+# Copiar nuestra configuración personalizada de nginx que maneja proxy al backend
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Crear directorio para logs si no existe
-RUN mkdir -p /var/log/nginx
+# Verificar que la configuración de nginx es válida antes de continuar
+# Esto previene errores en runtime debido a configuración incorrecta
+RUN nginx -t
 
-# Crear script de entrada personalizado para validación y debugging
-# Esto nos ayuda a diagnosticar problemas cuando el contenedor inicia
-RUN echo '#!/bin/sh' > /docker-entrypoint-custom.sh && \
-    echo 'echo "🚀 Starting DashMaster Frontend"' >> /docker-entrypoint-custom.sh && \
-    echo 'echo "📁 Content directory:"' >> /docker-entrypoint-custom.sh && \
-    echo 'ls -la /usr/share/nginx/html' >> /docker-entrypoint-custom.sh && \
-    echo 'echo "🔧 Testing nginx configuration:"' >> /docker-entrypoint-custom.sh && \
-    echo 'nginx -t' >> /docker-entrypoint-custom.sh && \
-    echo 'echo "✅ Nginx configuration is valid"' >> /docker-entrypoint-custom.sh && \
-    echo 'exec "$@"' >> /docker-entrypoint-custom.sh && \
-    chmod +x /docker-entrypoint-custom.sh
-
-# Exponer puerto 80 para HTTP
+# Exponer puerto HTTP estándar
 EXPOSE 80
 
-# Health check mejorado para Kubernetes
+# Health check optimizado para aplicaciones React servidas por nginx
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:80/health || exit 1
 
-# Usar nuestro script personalizado como entrada
-ENTRYPOINT ["/docker-entrypoint-custom.sh"]
+# Ejecutar nginx en modo foreground (requerido para contenedores)
 CMD ["nginx", "-g", "daemon off;"]

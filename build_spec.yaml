@@ -5,272 +5,73 @@ runAs: root
 shell: bash
 
 steps:
-  # Pipeline optimizado con credenciales funcionales para Oracle Container Registry
   - type: Command
-    name: "Build with verified Oracle Container Registry credentials"
+    name: "Build with updated Dockerfiles using Oracle Container Registry"
     timeoutInSeconds: 3600
     command: |
-      echo "=== DASHMASTER BUILD CON ORACLE CONTAINER REGISTRY AUTENTICADO ==="
+      echo "=== DASHMASTER BUILD CON DOCKERFILES ACTUALIZADOS ==="
       echo "Timestamp: $(date)"
       echo "Build Run ID: ${OCI_BUILD_RUN_ID}"
       
-      # Definir las variables de imagen que usaremos consistentemente a lo largo del pipeline
       BACKEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:${OCI_BUILD_RUN_ID}"
       FRONTEND_FULL_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:${OCI_BUILD_RUN_ID}"
       
-      echo "🎯 Target Backend Image: ${BACKEND_FULL_TAG}"
-      echo "🎯 Target Frontend Image: ${FRONTEND_FULL_TAG}"
-      
-      # Navegar al directorio de código fuente proporcionado por el pipeline
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # PASO CRÍTICO: Autenticación con Oracle Container Registry usando credenciales verificadas
+      # Autenticación con Oracle Container Registry
       echo "=== 🔐 AUTENTICACIÓN CON ORACLE CONTAINER REGISTRY ==="
-      echo "Iniciando autenticación con credenciales institucionales..."
-      
-      # Usar las credenciales que funcionaron en tu prueba local
-      # Estas credenciales nos permitirán acceder a las imágenes base oficiales de Oracle
       if echo "JzE_4#PtkzhjJ0h#c6T" | docker login container-registry.oracle.com --username "a01254805@tec.mx" --password-stdin; then
-        echo "✅ Oracle Container Registry autenticado exitosamente"
-        echo "Ahora tenemos acceso a imágenes base oficiales sin rate limits"
-        ORACLE_REGISTRY_AVAILABLE=true
+        echo "✅ Oracle Container Registry autenticado"
       else
-        echo "❌ Error inesperado en autenticación con Oracle Container Registry"
-        echo "Esto no debería suceder ya que las credenciales fueron verificadas"
+        echo "❌ Error en autenticación"
         exit 1
       fi
       
-      # CONSTRUCCIÓN DEL BACKEND usando imágenes oficiales de Oracle
-      echo "=== 🔨 CONSTRUYENDO BACKEND CON IMÁGENES ORACLE ==="
+      # Construir backend usando Dockerfile actualizado
+      echo "=== 🔨 CONSTRUYENDO BACKEND ==="
       cd MtdrSpring/backend
+      docker build -t ${BACKEND_FULL_TAG} .
       
-      # Crear un Dockerfile optimizado que use el Oracle Container Registry
-      # Este Dockerfile aprovecha las imágenes oficiales de Oracle que están optimizadas
-      # para aplicaciones empresariales y tienen mejor rendimiento
-      cat > Dockerfile.oracle << 'EOF'
-      # Usar la imagen oficial de Oracle JDK que incluye herramientas de desarrollo completas
-      # Esta imagen está optimizada para builds de aplicaciones Java empresariales
-      FROM container-registry.oracle.com/java/openjdk:17-jdk AS build
-      WORKDIR /app
-      
-      # Instalar Maven usando el sistema de paquetes de Oracle Linux
-      # Esto es más confiable que descargar Maven externamente
-      RUN microdnf install -y maven
-      
-      # Copiar archivos de configuración del proyecto para aprovechamiento de cache
-      # Docker cachea esta layer si pom.xml no cambia, acelerando builds subsecuentes
-      COPY pom.xml .
-      COPY src ./src
-      
-      # Compilar la aplicación Spring Boot
-      # -DskipTests acelera el build para CI/CD ya que los tests se ejecutan en otra etapa
-      RUN mvn clean package -DskipTests
-      
-      # Etapa de runtime usando la imagen JRE optimizada de Oracle
-      # JRE es más pequeña que JDK y es suficiente para ejecutar aplicaciones
-      FROM container-registry.oracle.com/java/openjdk:17-jre
-      WORKDIR /app
-      
-      # Instalar curl para health checks de Kubernetes
-      # Los health checks son esenciales para que Kubernetes sepa si el pod está funcionando
-      RUN microdnf install -y curl
-      
-      # Copiar el JAR compilado desde la etapa de build
-      COPY --from=build /app/target/MyTodoList-0.0.1-SNAPSHOT.jar app.jar
-      
-      # Copiar el wallet de Oracle Autonomous Database
-      # Este wallet contiene certificados y configuración necesarios para la conexión segura
-      COPY --from=build /app/src/main/resources/Wallet_javadev /app/wallet
-      
-      # Verificar que el wallet se copió correctamente - esto es crítico para debugging
-      RUN ls -la /app/wallet/ && echo "Archivos del wallet Oracle:" && ls /app/wallet/
-      
-      # Variables de entorno para que JDBC encuentre el wallet
-      ENV TNS_ADMIN=/app/wallet
-      ENV ORACLE_TNS_ADMIN=/app/wallet
-      
-      # Configuración JVM optimizada para contenedores con recursos limitados
-      ENV JAVA_OPTS="-Xmx384m -Xms256m -Djava.security.egd=file:/dev/./urandom"
-      
-      # Exponer el puerto donde Spring Boot escucha por defecto
-      EXPOSE 8080
-      
-      # Health check para Kubernetes usando el endpoint de Actuator
-      HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-        CMD curl -f http://localhost:8080/api/actuator/health || exit 1
-      
-      # Ejecutar la aplicación usando las variables de entorno JVM
-      ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
-      EOF
-      
-      # Construir la imagen del backend usando el Dockerfile optimizado
-      echo "Iniciando construcción de imagen backend..."
-      docker build -f Dockerfile.oracle -t ${BACKEND_FULL_TAG} .
-      
-      # Verificar que el build fue exitoso antes de continuar
       if [ $? -eq 0 ]; then
-        echo "✅ Backend construido exitosamente usando Oracle Container Registry"
-        echo "La imagen incluye JRE optimizado y wallet de base de datos configurado"
+        echo "✅ Backend construido exitosamente"
       else
-        echo "❌ Error construyendo el backend"
-        echo "Revisar logs anteriores para detalles del error"
+        echo "❌ Error construyendo backend"
         exit 1
       fi
       
-      # Regresar al directorio raíz para construir el frontend
-      cd ${OCI_PRIMARY_SOURCE_DIR}
+      # Construir frontend usando Dockerfile actualizado
+      echo "=== 🔨 CONSTRUYENDO FRONTEND ==="
+      cd ${OCI_PRIMARY_SOURCE_DIR}/MtdrSpring/frontend
+      docker build -t ${FRONTEND_FULL_TAG} .
       
-      # CONSTRUCCIÓN DEL FRONTEND usando Node.js oficial de Oracle
-      echo "=== 🔨 CONSTRUYENDO FRONTEND CON IMÁGENES ORACLE ==="
-      cd MtdrSpring/frontend
-      
-      # Crear Dockerfile para frontend que use imágenes oficiales de Oracle
-      cat > Dockerfile.oracle << 'EOF'
-      # Usar imagen oficial de Node.js de Oracle optimizada para Alpine Linux
-      # Alpine es más pequeño y seguro, ideal para aplicaciones containerizadas
-      FROM container-registry.oracle.com/os/node:18-alpine AS build
-      WORKDIR /app
-      
-      # Configurar npm para optimizar el proceso de instalación
-      # Estas configuraciones reducen warnings y mejoran velocidad
-      RUN npm config set fund false && npm config set audit-level none
-      
-      # Copiar archivos de dependencias primero para aprovechar cache de Docker
-      # Si package.json no cambia, esta layer se reutiliza en builds futuros
-      COPY package.json package-lock.json* ./
-      
-      # Limpiar cache e instalar dependencias con configuraciones robustas
-      RUN npm cache clean --force && npm install --legacy-peer-deps --no-audit --no-fund
-      
-      # Copiar el resto del código fuente después de instalar dependencias
-      COPY . .
-      
-      # Variables de entorno para build de producción con Vite
-      ENV NODE_ENV=production
-      ENV VITE_API_BASE_URL=""
-      ENV VITE_AUTH_ENDPOINT="/auth"
-      ENV VITE_API_ENDPOINT="/api"
-      
-      # Construir la aplicación React usando Vite
-      RUN npm run build
-      
-      # Verificar que el build produjo los archivos esperados
-      RUN ls -la dist/ && echo "✅ Build de frontend completado"
-      
-      # Etapa de producción usando nginx oficial de Oracle
-      FROM container-registry.oracle.com/os/nginx:alpine
-      
-      # Instalar curl para health checks de Kubernetes
-      RUN apk add --no-cache curl
-      
-      # Remover configuración default de nginx para evitar conflictos
-      RUN rm /etc/nginx/conf.d/default.conf
-      
-      # Copiar archivos construidos desde la etapa de build
-      COPY --from=build /app/dist /usr/share/nginx/html
-      
-      # Copiar nuestra configuración personalizada de nginx que maneja proxy
-      COPY nginx.conf /etc/nginx/nginx.conf
-      
-      # Crear directorio para logs si no existe
-      RUN mkdir -p /var/log/nginx
-      
-      # Exponer puerto HTTP estándar
-      EXPOSE 80
-      
-      # Health check optimizado para aplicaciones React con nginx
-      HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-        CMD curl -f http://localhost:80/health || exit 1
-      
-      # Ejecutar nginx en modo foreground para contenedores
-      CMD ["nginx", "-g", "daemon off;"]
-      EOF
-      
-      # Construir la imagen del frontend
-      echo "Iniciando construcción de imagen frontend..."
-      docker build -f Dockerfile.oracle -t ${FRONTEND_FULL_TAG} .
-      
-      # Verificar éxito del build
       if [ $? -eq 0 ]; then
-        echo "✅ Frontend construido exitosamente usando Oracle Container Registry"
-        echo "La imagen incluye nginx configurado y archivos React optimizados"
+        echo "✅ Frontend construido exitosamente"
       else
-        echo "❌ Error construyendo el frontend"
+        echo "❌ Error construyendo frontend"
         exit 1
       fi
       
-      # Regresar al directorio raíz
       cd ${OCI_PRIMARY_SOURCE_DIR}
       
-      # MOSTRAR RESUMEN DE IMÁGENES CONSTRUIDAS
-      echo "=== 📦 RESUMEN DE IMÁGENES CONSTRUIDAS ==="
-      docker images | grep "mx-queretaro-1.ocir.io/ax6xpbwtbt9g"
-      
-      # AUTENTICACIÓN CON OCIR PARA SUBIR NUESTRAS IMÁGENES CONSTRUIDAS
-      echo "=== 🔐 AUTENTICACIÓN CON OCIR PARA DEPLOYMENT ==="
-      echo "Cambiando a OCIR para subir las imágenes construidas..."
-      
-      # Usar las credenciales de OCIR que ya tienes configuradas
+      # Autenticación con OCIR y push de imágenes
+      echo "=== 🔐 AUTENTICACIÓN CON OCIR ==="
       if echo "{vh]]d:0R#E#pwI4Hnkp" | docker login mx-queretaro-1.ocir.io --username "ax6xpbwtbt9g/a01254673@tec.mx" --password-stdin; then
-        echo "✅ OCIR autenticado exitosamente para deployment"
+        echo "✅ OCIR autenticado"
       else
-        echo "❌ Error crítico: no se pudo autenticar con OCIR"
-        echo "Sin OCIR no podemos desplegar las imágenes"
+        echo "❌ Error con OCIR"
         exit 1
       fi
       
-      # SUBIR IMAGEN DEL BACKEND
-      echo "=== 📤 SUBIENDO IMAGEN BACKEND ==="
-      docker push ${BACKEND_FULL_TAG}
+      # Push de imágenes
+      echo "=== 📤 SUBIENDO IMÁGENES ==="
+      docker push ${BACKEND_FULL_TAG} && docker tag ${BACKEND_FULL_TAG} "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest" && docker push "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
+      docker push ${FRONTEND_FULL_TAG} && docker tag ${FRONTEND_FULL_TAG} "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest" && docker push "mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"
       
-      if [ $? -eq 0 ]; then
-        echo "✅ Imagen backend subida exitosamente: ${BACKEND_FULL_TAG}"
-        
-        # Crear tag 'latest' para facilitar deployment y rollbacks
-        BACKEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-backend:latest"
-        docker tag ${BACKEND_FULL_TAG} ${BACKEND_LATEST_TAG}
-        docker push ${BACKEND_LATEST_TAG}
-        echo "✅ Backend también disponible como 'latest' para deployment"
-      else
-        echo "❌ Error crítico subiendo imagen backend"
-        exit 1
-      fi
-      
-      # SUBIR IMAGEN DEL FRONTEND
-      echo "=== 📤 SUBIENDO IMAGEN FRONTEND ==="
-      docker push ${FRONTEND_FULL_TAG}
-      
-      if [ $? -eq 0 ]; then
-        echo "✅ Imagen frontend subida exitosamente: ${FRONTEND_FULL_TAG}"
-        
-        # Crear tag 'latest'
-        FRONTEND_LATEST_TAG="mx-queretaro-1.ocir.io/ax6xpbwtbt9g/dashmaster-frontend:latest"
-        docker tag ${FRONTEND_FULL_TAG} ${FRONTEND_LATEST_TAG}
-        docker push ${FRONTEND_LATEST_TAG}
-        echo "✅ Frontend también disponible como 'latest' para deployment"
-      else
-        echo "❌ Error crítico subiendo imagen frontend"
-        exit 1
-      fi
-      
-      # PREPARAR MANIFIESTOS PARA DEPLOYMENT AUTOMÁTICO
-      echo "=== 📋 PREPARANDO DEPLOYMENT AUTOMÁTICO ==="
       if [ -f "deployment.yaml" ]; then
         cp deployment.yaml ${OCI_WORKSPACE_DIR}/deployment.yaml
-        echo "✅ Manifiesto de deployment preparado para Kubernetes"
-      else
-        echo "⚠️ deployment.yaml no encontrado - deployment manual será necesario"
       fi
       
-      # RESUMEN FINAL COMPLETO
-      echo "=== 🎉 BUILD COMPLETADO EXITOSAMENTE ==="
-      echo "✅ Registry utilizado: Oracle Container Registry (sin rate limits)"
-      echo "✅ Backend image: ${BACKEND_FULL_TAG}"
-      echo "✅ Frontend image: ${FRONTEND_FULL_TAG}"
-      echo "✅ Ambas imágenes taggeadas como 'latest' para deployment"
-      echo "✅ Sistema listo para deployment automático en Kubernetes"
-      echo ""
-      echo "🚀 El pipeline está ahora optimizado para builds rápidos y confiables"
+      echo "=== 🎉 BUILD COMPLETADO ==="
 
 outputArtifacts:
   - name: backend_image
