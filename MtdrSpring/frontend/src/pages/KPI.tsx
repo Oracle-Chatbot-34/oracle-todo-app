@@ -6,6 +6,7 @@ import { dictionaryKPI } from '@/components/kpis/KPIDictionary';
 import CompletedTasksBySprint from '@/components/kpis/CompletedTasksBySprint';
 import HoursByTeam from '@/components/kpis/HoursByTeam';
 import HoursByDeveloperPerSprint from '@/components/kpis/HoursByDeveloperPerSprint';
+import TotalHoursBySprint from '@/components/kpis/TotalHoursBySprint';
 import TaskInformationBySprint from '@/components/kpis/TaskInformationBySprint';
 
 // Services
@@ -245,54 +246,56 @@ export default function KPI() {
             </div>
           </div>
 
-          {/* Main Charts Grid - Natural flowing layout that respects content */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-6">
-            {/* Team Overview Column - Allow natural content sizing */}
-            <div className="lg:col-span-1 2xl:col-span-1">
-              {/* Total Hours by Team Member - Flexible container that adapts to content */}
-              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
-                <HoursByTeam
-                  isLoading={loading}
-                  sprintData={filteredSprints}
-                  definition={dictionaryKPI[1].definition}
-                  example={dictionaryKPI[1].example}
-                />
-              </div>
+          {/* Main Charts Grid - 2x2 Grid Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            {/* Top Left: Hours by Team Member */}
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+              <HoursByTeam
+                isLoading={loading}
+                sprintData={filteredSprints}
+                definition={dictionaryKPI[1].definition}
+                example={dictionaryKPI[1].example}
+              />
             </div>
 
-            {/* Sprint Analytics Column - Vertical stack with natural spacing */}
-            <div className="lg:col-span-1 2xl:col-span-1 space-y-4 sm:space-y-6">
-              {/* Hours by Developer per Sprint - Let the chart determine its optimal size */}
-              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
-                <HoursByDeveloperPerSprint
-                  isLoading={loading}
-                  sprintData={filteredSprints}
-                  definition="Hours Worked by Developer per Sprint shows the actual hours logged by each developer for each sprint, allowing visualization of workload distribution and individual productivity across different sprint periods."
-                  example="Sprint 1: Developer A worked 25 hours, Developer B worked 30 hours. Sprint 2: Developer A worked 28 hours, Developer B worked 35 hours."
-                />
-              </div>
-
-              {/* Completed Tasks by Sprint - Natural content flow */}
-              <div className="bg-white rounded-xl shadow-lg border border-slate-200">
-                <CompletedTasksBySprint
-                  isLoading={loading}
-                  sprintData={filteredSprints}
-                  definition={dictionaryKPI[2].definition}
-                  example={dictionaryKPI[2].example}
-                />
-              </div>
+            {/* Top Right: Total Hours by Sprint */}
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+              <TotalHoursBySprint
+                isLoading={loading}
+                sprintData={filteredSprints}
+                definition={dictionaryKPI[7].definition}
+                example={dictionaryKPI[7].example}
+              />
             </div>
 
-            {/* Task Information Column - Adjust the max height to be more responsive */}
-            <div className="lg:col-span-2 2xl:col-span-1">
-              <div className="bg-white rounded-xl shadow-lg border border-slate-200 max-h-[60vh] overflow-y-auto">
-                <TaskInformationBySprint
-                  sprints={sprintsForTasks}
-                  definition={dictionaryKPI[5].definition}
-                  example={dictionaryKPI[5].example}
-                />
-              </div>
+            {/* Bottom Left: Hours by Developer per Sprint */}
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+              <HoursByDeveloperPerSprint
+                isLoading={loading}
+                sprintData={filteredSprints}
+                definition={dictionaryKPI[6].definition}
+                example={dictionaryKPI[6].example}
+              />
             </div>
+
+            {/* Bottom Right: Completed Tasks by Sprint */}
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200">
+              <CompletedTasksBySprint
+                isLoading={loading}
+                sprintData={filteredSprints}
+                definition={dictionaryKPI[2].definition}
+                example={dictionaryKPI[2].example}
+              />
+            </div>
+          </div>
+
+          {/* Task Information Section - Full width below the 2x2 grid */}
+          <div className="bg-white rounded-xl shadow-lg border border-slate-200 max-h-[60vh] overflow-y-auto">
+            <TaskInformationBySprint
+              sprints={sprintsForTasks}
+              definition={dictionaryKPI[5].definition}
+              example={dictionaryKPI[5].example}
+            />
           </div>
 
           {/* Footer Information - Responsive padding and text sizing */}

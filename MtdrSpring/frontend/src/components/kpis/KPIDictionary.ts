@@ -40,4 +40,10 @@ export const dictionaryKPI: KPIDictionary = {
     example:
       'Sprint 1: Developer A (20h), Developer B (25h). Sprint 2: Developer A (18h), Developer B (30h). This visualization directly addresses Oracle DevOps reporting requirements.',
   },
+  7: {
+    definition:
+      'Total Hours Worked by Sprint shows the cumulative hours worked by all team members combined for each sprint, providing insight into overall team effort and workload distribution across sprints.',
+    example:
+      'Sprint 1: 65 total hours (Developer A: 25h + Developer B: 20h + Developer C: 20h). Sprint 2: 80 total hours (Developer A: 30h + Developer B: 25h + Developer C: 25h).',
+  },
 };
